@@ -8,7 +8,7 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
-// --- ЧАТ С ИИ (через Layero) ---
+// Прокси для чата
 app.post('/api/gigachat', async (req, res) => {
     try {
         const response = await fetch('https://supabase-proxy.turgleb7.workers.dev/api/gigachat', {
@@ -23,7 +23,7 @@ app.post('/api/gigachat', async (req, res) => {
     }
 });
 
-// --- ПОДДЕРЖКА ---
+// Прокси для поддержки
 app.post('/api/support', async (req, res) => {
     try {
         const response = await fetch('https://supabase-proxy.turgleb7.workers.dev/api/support', {
@@ -36,13 +36,6 @@ app.post('/api/support', async (req, res) => {
     } catch (e) {
         res.json({ success: false });
     }
-});
-
-// --- ПРОКСИ ДЛЯ OAuth (Яндекс, Google, Telegram) ---
-// Это перенаправит запросы входа через твой Cloudflare Worker
-app.get('/auth/v1/*', (req, res) => {
-    const targetUrl = `https://supabase-proxy.turgleb7.workers.dev/auth/v1/${req.params[0] || ''}${req._parsedUrl.search || ''}`;
-    res.redirect(targetUrl);
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
