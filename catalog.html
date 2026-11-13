@@ -5,23 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dr. DarSun | Каталог</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,600&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/base.css">
-<link rel="stylesheet" href="/css/layout.css">
-<link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
 </head>
 <body>
 <header class="header">
     <div class="container header__inner">
-        <div style="display: flex; align-items: center; gap: 20px;">
-            <a href="index.html" class="logo"><div style="width: 40px; height: 40px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--accent); font-weight: bold; font-size: 20px;">D</div><span class="logo__text">Dr. DarSun</span></a>
-            <a href="index.html" class="btn btn--outline" style="padding: 8px 16px; font-size: 12px;">На главную</a>
+        <div class="header__left">
+            <a href="index.html" class="logo"><div class="logo__icon">D</div><span class="logo__text">Dr. DarSun</span></a>
+            <a href="index.html" class="btn btn--outline header__home-btn">На главную</a>
         </div>
         <nav class="nav"><a href="about.html">О компании</a><a href="catalog.html" style="color: var(--accent);">Продукция</a></nav>
-        <div class="header__actions">
-            <button id="theme-toggle" class="btn btn--outline" style="padding: 8px 16px;">🌓</button>
-            <a href="profile.html" class="btn btn--outline">Профиль</a>
-            <a href="cart.html" class="btn btn--primary">Корзина</a>
-        </div>
+        <div class="header__actions" id="auth-buttons"><a href="login.html" class="btn btn--outline">Войти</a></div>
     </div>
 </header>
 
@@ -31,8 +27,7 @@
         <div class="product-grid" id="catalog-grid"></div>
     </div>
 </main>
-
-<footer class="footer"><div class="container footer__inner"><div class="footer__brand"><span class="logo__text">Dr. DarSun</span></div></div></footer>
-<script type="module" src="/js/catalog.js"></script>
+<footer class="footer"><div class="container footer__inner"><span class="logo__text">Dr. DarSun</span></div></footer>
+<script type="module" src="js/catalog.js"></script>
 </body>
 </html>

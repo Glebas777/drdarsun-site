@@ -4,80 +4,65 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dr. DarSun | Натуральные масла</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,600&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/base.css">
-    <link rel="stylesheet" href="/css/layout.css">
-    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
 </head>
 <body>
 
-<header class="header" id="header">
+<header class="header">
     <div class="container header__inner">
-        <div style="display: flex; align-items: center; gap: 20px;">
+        <div class="header__left">
             <a href="index.html" class="logo">
-                <div style="width: 40px; height: 40px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--accent); font-weight: bold; font-size: 20px;">D</div>
+                <div class="logo__icon">D</div>
                 <span class="logo__text">Dr. DarSun</span>
             </a>
-            <a href="index.html" class="btn btn--outline" style="padding: 8px 16px; font-size: 12px;">На главную</a>
+            <a href="index.html" class="btn btn--outline header__home-btn">На главную</a>
         </div>
         <nav class="nav">
             <a href="about.html">О компании</a>
             <a href="catalog.html">Продукция</a>
         </nav>
-        <div class="header__actions">
-            <button id="theme-toggle" class="btn btn--outline" style="padding: 8px 16px;">🌓</button>
-            <a href="profile.html" class="btn btn--outline">Профиль</a>
-            <a href="cart.html" class="btn btn--primary">Корзина</a>
+        <div class="header__actions" id="auth-buttons">
+            <a href="login.html" class="btn btn--outline">Войти</a>
         </div>
-        
-        <!-- Твой родной бургер из layout.css -->
-        <button class="burger" id="burgerBtn">
-            <span></span><span></span><span></span>
-        </button>
     </div>
 </header>
 
-<!-- Твое родное мобильное меню из layout.css -->
-<div class="mobile-menu" id="mobileMenu">
-    <a href="index.html">Главная</a>
-    <a href="about.html">О компании</a>
-    <a href="catalog.html">Продукция</a>
-    <a href="profile.html">Профиль</a>
-    <a href="cart.html">Корзина</a>
-</div>
-
 <main>
-    <!-- Твой блок hero и features (оставляю без изменений) -->
     <section class="hero">
         <div class="container hero__inner">
             <div class="hero__content">
                 <h1 class="hero__title">Натуральные растительные масла</h1>
                 <p class="hero__desc">Для здоровья, вкуса и гармонии с природой. Сыродавленное масло премиум-класса без добавок.</p>
-                <a href="catalog.html" class="btn btn--primary hero__btn">Узнать больше</a>
+                <a href="catalog.html" class="btn btn--primary hero__btn">Смотреть коллекцию</a>
             </div>
             <div class="hero__visual">
-                <div class="hero__placeholder">[Фото бутылки масла]</div>
+                <div class="hero__placeholder">[Фото масла]</div>
             </div>
         </div>
     </section>
 
-    <section id="features" class="section features">
+    <section class="section features">
         <div class="container">
             <div class="features__grid">
                 <div class="card feature">
                     <svg class="feature__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
                     <h3 class="feature__title">100% натуральный</h3>
-                    <p class="feature__text">Никаких добавок и консервантов. Только чистое масло.</p>
+                    <p class="feature__text">Никаких добавок. Только чистое масло.</p>
                 </div>
                 <div class="card feature">
                     <svg class="feature__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
                     <h3 class="feature__title">Холодный отжим</h3>
-                    <p class="feature__text">Сохраняем все витамины и полезные свойства семечек.</p>
+                    <p class="feature__text">Сохраняем витамины и пользу.</p>
                 </div>
                 <div class="card feature">
                     <svg class="feature__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                     <h3 class="feature__title">Контроль качества</h3>
-                    <p class="feature__text">Каждая партия проходит строгую проверку перед отправкой.</p>
+                    <p class="feature__text">Каждая партия проверена.</p>
                 </div>
             </div>
         </div>
@@ -86,38 +71,11 @@
 
 <footer class="footer">
     <div class="container footer__inner">
-        <div class="footer__brand">
-            <span class="logo__text">Dr. DarSun</span>
-            <p class="footer__copy">© 2026 Все права защищены.</p>
-        </div>
-        <div class="footer__links">
-            <a href="#">Политика конфиденциальности</a>
-            <a href="#">Оферта</a>
-        </div>
+        <span class="logo__text">Dr. DarSun</span>
+        <p class="footer__copy">© 2026 Все права защищены.</p>
     </div>
 </footer>
 
-<script type="module" src="/js/main.js"></script>
-<script>
-    // Скрипт для твоего родного бургера
-    const burgerBtn = document.getElementById('burgerBtn');
-    const mobileMenu = document.getElementById('mobileMenu');
-    
-    if (burgerBtn && mobileMenu) {
-        burgerBtn.addEventListener('click', () => {
-            mobileMenu.classList.toggle('active');
-            // Анимация бургера в крестик (по желанию)
-            burgerBtn.classList.toggle('active');
-        });
-        
-        // Закрываем меню при клике на ссылку
-        mobileMenu.querySelectorAll('a').forEach(link => {
-            link.addEventListener('click', () => {
-                mobileMenu.classList.remove('active');
-                burgerBtn.classList.remove('active');
-            });
-        });
-    }
-</script>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>

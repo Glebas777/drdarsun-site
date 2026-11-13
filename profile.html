@@ -5,71 +5,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dr. DarSun | Профиль</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,600&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/base.css">
-    <link rel="stylesheet" href="/css/layout.css">
-    <link rel="stylesheet" href="/css/components.css">
-    <style>
-        /* Локальный фикс для профиля */
-        .profile-header-actions { display: flex; align-items: center; gap: 15px; }
-        .btn-back { background: none; border: none; font-size: 24px; color: var(--primary); cursor: pointer; padding: 0; text-decoration: none; display: flex; align-items: center; }
-        .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
-        @media (max-width: 768px) {
-            .profile-grid { grid-template-columns: 1fr; }
-            .header__actions .btn { display: none; } /* Прячем кнопки на мобилке */
-            .mobile-menu-btn { display: block; } /* Показываем бургер */
-        }
-        .mobile-menu-btn { display: none; background: none; border: none; font-size: 24px; color: var(--primary); cursor: pointer; }
-    </style>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
 </head>
 <body>
 <header class="header">
     <div class="container header__inner">
-        <div class="profile-header-actions">
-            <a href="index.html" class="btn-back">←</a>
-            <a href="index.html" class="logo">
-                <div style="width: 40px; height: 40px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--accent); font-weight: bold; font-size: 20px;">D</div>
-                <span class="logo__text">Dr. DarSun</span>
-            </a>
+        <div class="header__left">
+            <a href="index.html" class="logo"><div class="logo__icon">D</div><span class="logo__text">Dr. DarSun</span></a>
+            <a href="index.html" class="btn btn--outline header__home-btn">На главную</a>
         </div>
-        <nav class="nav"><a href="catalog.html">Продукция</a></nav>
-        <div class="header__actions">
-            <button id="theme-toggle" class="btn btn--outline" style="padding: 8px 16px;">🌓</button>
-            <a href="cart.html" class="btn btn--primary">Корзина</a>
-        </div>
-        <!-- Бургер для мобилок -->
-        <button class="mobile-menu-btn" onclick="document.querySelector('.header__actions').style.display = 'flex'">☰</button>
+        <nav class="nav"><a href="about.html">О компании</a><a href="catalog.html">Продукция</a></nav>
+        <div class="header__actions" id="auth-buttons"><a href="login.html" class="btn btn--outline">Войти</a></div>
     </div>
 </header>
 
-<main class="section" style="padding-top: 120px;">
+<main class="section" style="padding-top: 150px;">
     <div class="container" style="max-width: 900px;">
         <h1 class="section-title" style="text-align: left; margin-bottom: 40px;">Мой профиль</h1>
         
-        <div id="loading" style="text-align: center; padding: 50px;">Загрузка...</div>
-
-        <div id="profile-grid" class="profile-grid" style="display: none;">
-            <div class="card" style="background: linear-gradient(135deg, var(--primary) 0%, #0f2811 100%); color: #fff; border: none;">
-                <h3 style="margin-bottom: 20px; color: var(--accent);">Мой Кошелек</h3>
-                <p style="font-size: 48px; font-weight: bold; margin-bottom: 10px;" id="wallet-balance">0 ₽</p>
-                <p style="color: rgba(255,255,255,0.7); margin-bottom: 20px;">Доступный баланс</p>
-                <button class="btn btn--primary" style="width: 100%;" onclick="window.showToast('Пополнение скоро', 'success')">Пополнить</button>
-            </div>
+        <div class="profile-grid">
             <div class="card">
-                <h3 style="margin-bottom: 20px; color: var(--primary);">Личные данные</h3>
-                <p style="margin-bottom: 10px;"><strong>Имя:</strong> <span id="user-name">-</span></p>
-                <p style="margin-bottom: 10px;"><strong>Email:</strong> <span id="user-email">-</span></p>
+                <h3>Личные данные</h3>
+                <p><strong>Имя:</strong> <span id="user-name">-</span></p>
+                <p><strong>Email:</strong> <span id="user-email">-</span></p>
                 <button id="logout-btn" class="btn btn--outline" style="width: 100%; margin-top: 20px;">Выйти</button>
             </div>
-        </div>
 
-        <div id="tg-link-block" class="card" style="margin-top: 30px; display: none;">
-            <h3 style="margin-bottom: 20px; color: var(--primary);">Безопасность</h3>
-            <p style="margin-bottom: 15px;">Привяжите Telegram, чтобы получать коды безопасности.</p>
-            <button id="link-tg-btn" class="btn btn--primary">Привязать Telegram</button>
+            <div class="card">
+                <h3>Безопасность</h3>
+                <div id="tg-link-block" style="display: none;">
+                    <p>Привяжите Telegram для безопасности.</p>
+                    <button id="link-tg-btn" class="btn btn--primary">Привязать</button>
+                </div>
+                <div id="all-linked-block" style="display: none; color: #4CAF50; font-weight: bold;">
+                    ✅ Все привязано
+                </div>
+            </div>
         </div>
     </div>
 </main>
-<footer class="footer"><div class="container footer__inner"><div class="footer__brand"><span class="logo__text">Dr. DarSun</span></div></div></footer>
-<script type="module" src="/js/profile.js"></script>
+<footer class="footer"><div class="container footer__inner"><span class="logo__text">Dr. DarSun</span></div></footer>
+<script type="module" src="js/profile.js"></script>
 </body>
 </html>
