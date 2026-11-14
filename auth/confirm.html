@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Вход...</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.js"></script>
+</head>
+<body style="background: #0A0A0A; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh;">
+    <div style="text-align: center;">
+        <h2>Проверяем токен...</h2>
+        <p id="status">Пожалуйста, подождите.</p>
+    </div>
+
+    <script>
+        const supabaseUrl = 'https://drdarsun-site-main.layero.app';
+        const supabaseKey = 'sb_publishable_1Fh3LgYtH3wEkQjvBfiZsA_WZZsfsLF';
+
+        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+        async function confirm() {
+            const params = new URLSearchParams(window.location.search);
+            const token_hash = params.get('token_hash');
+            const type = params.get('type');
+
+            if (!token_hash) {
+                document.getElementById('status').textContent = 'Ошибка: токен не найден.';
+                return;
+            }
+
+            const { error } = await supabase.auth.verifyOtp({
+                token_hash: token_hash,
+                type: 'magiclink'
+            });
+
+            if (error) {
+                document.getElementById('status').textContent = 'Ошибка: ' + error.message;
+            } else {
+                document.getElementById('status').textContent = 'Успех! Перенаправление...';
+                window.location.href = 'https://drdarsun.ru/profile.html';
+            }
+        }
+
+        confirm();
+    </script>
+</body>
+</html>
