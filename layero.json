@@ -1,0 +1,6 @@
+{
+  "framework": "generic",
+  "buildCommand": "npm install",
+  "outputDirectory": ".",
+  "startCommand": "node index.js"
+}

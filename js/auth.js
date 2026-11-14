@@ -13,7 +13,7 @@ document.getElementById('btn-yandex')?.addEventListener('click', async () => {
 document.getElementById('btn-google')?.addEventListener('click', async () => {
     const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin + '/profile.html' }
+        options: { redirectTo: 'https://drdarsun.ru/profile.html' }
     });
     if (error) alert('Ошибка Google: ' + error.message);
 });
@@ -23,7 +23,7 @@ document.getElementById('btn-telegram')?.addEventListener('click', async () => {
     const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'custom:telegram',
         options: { 
-            redirectTo: window.location.origin + '/profile.html',
+            redirectTo: 'https://drdarsun.ru/profile.html',
             skipBrowserRedirect: true
         }
     });
