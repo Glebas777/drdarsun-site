@@ -18,7 +18,6 @@ app.get('/auth/v1/callback', async (req, res) => {
     if (!code) return res.redirect('https://drdarsun.ru/login.html?error=no_code');
 
     try {
-        // 1. Меняем код на токен у Яндекса
         const tokenRes = await fetch('https://oauth.yandex.ru/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -32,7 +31,6 @@ app.get('/auth/v1/callback', async (req, res) => {
         const tokenData = await tokenRes.json();
         if (!tokenData.access_token) throw new Error('No token');
 
-        // 2. Забираем профиль (email)
         const userRes = await fetch('https://login.yandex.ru/info?format=json', {
             headers: { 'Authorization': `OAuth ${tokenData.access_token}` }
         });
@@ -40,7 +38,7 @@ app.get('/auth/v1/callback', async (req, res) => {
         const email = userData.default_email;
         if (!email) throw new Error('No email');
 
-        // 3. Генерируем Magic Link (ОДИН РАЗ)
+        // Генерируем ссылку
         const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
             method: 'POST',
             headers: {
@@ -51,16 +49,14 @@ app.get('/auth/v1/callback', async (req, res) => {
             body: JSON.stringify({
                 type: 'magiclink',
                 email: email,
-                options: {
-                    redirect_to: 'https://drdarsun.ru/profile.html'
-                }
+                options: { redirect_to: 'https://drdarsun.ru/profile.html' }
             })
         });
         
         const linkData = await linkRes.json();
         
-        // Если ссылка не сгенерировалась (юзер не создан) — создаем и генерируем снова
-        if (linkData.error || !linkData.action_link) {
+        // Если юзера нет — создаем
+        if (linkData.error || !linkData.hashed_token) {
             await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
                 method: 'POST',
                 headers: {
@@ -89,11 +85,15 @@ app.get('/auth/v1/callback', async (req, res) => {
                 })
             });
             const retryData = await retryLinkRes.json();
-            return res.redirect(retryData.action_link);
+            
+            // Формируем прямую ссылку на наш домен
+            const directLink = `https://drdarsun.ru/auth/confirm?token_hash=${retryData.hashed_token}&type=magiclink`;
+            return res.redirect(directLink);
         }
 
-        // Редиректим на сгенерированную ссылку
-        res.redirect(linkData.action_link);
+        // Формируем прямую ссылку на наш домен
+        const directLink = `https://drdarsun.ru/auth/confirm?token_hash=${linkData.hashed_token}&type=magiclink`;
+        res.redirect(directLink);
 
     } catch (e) {
         console.error('Yandex Auth Error:', e);
