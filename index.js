@@ -8,13 +8,18 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 const CF_WORKER = 'https://supabase-proxy.turgleb7.workers.dev';
-const SUPABASE_ORIGIN = 'https://rrpcqrvkhmlrdqvffnax.supabase.co';
 const LAYERO_ORIGIN = 'https://drdarsun-site-main.layero.app';
 
-// КОСТЫЛЬ ДЛЯ ЯНДЕКСА
+// ==========================================
+// 1. КОСТЫЛЬ ДЛЯ ЯНДЕКСА (ПЕРЕХВАТЫВАЕТ ВХОД)
+// ==========================================
 app.get('/auth/v1/callback', async (req, res) => {
     const { code } = req.query;
-    if (!code) return res.redirect('https://drdarsun.ru/login.html?error=no_code');
+    
+    // Если кода нет — кидаем на страницу входа
+    if (!code) {
+        return res.redirect('https://drdarsun.ru/login.html?error=no_code');
+    }
 
     try {
         // 1. Меняем код на токен у Яндекса
@@ -56,19 +61,18 @@ app.get('/auth/v1/callback', async (req, res) => {
             })
         });
         
-        const supabaseUser = await supabaseRes.json();
-        
-        // Если юзер уже есть (ошибка 422), просто редиректим (сессию создаст клиент)
-        // В идеале тут нужно генерировать magic link, но для простоты редиректим
-        
+        // После создания юзера (или если он уже есть) редиректим на профиль
         res.redirect('https://drdarsun-site-main.layero.app/profile.html');
         
     } catch (e) {
-        console.error(e);
+        console.error('Yandex Auth Error:', e);
         res.redirect('https://drdarsun.ru/login.html?error=yandex_fail');
     }
 });
 
+// ==========================================
+// 2. УНИВЕРСАЛЬНЫЙ ПРОКСИ ДЛЯ ВСЕГО ОСТАЛЬНОГО
+// ==========================================
 app.all('*', async (req, res) => {
     try {
         const targetUrl = `${CF_WORKER}${req.originalUrl}`;
@@ -79,7 +83,7 @@ app.all('*', async (req, res) => {
             redirect: 'manual'
         });
         
-        // Сначала копируем все заголовки, КРОМЕ location
+        // Копируем заголовки, КРОМЕ location
         res.status(response.status);
         response.headers.forEach((value, key) => {
             if (!['content-encoding', 'content-length', 'transfer-encoding', 'connection', 'location'].includes(key)) {
@@ -87,13 +91,13 @@ app.all('*', async (req, res) => {
             }
         });
 
-        // Потом принудительно переписываем location
+        // Переписываем Location (для Google и других OAuth)
         if ([301, 302, 303, 307, 308].includes(response.status)) {
             let location = response.headers.get('location');
             if (location) {
-                // Меняем и обычный, и закодированный URL
-                location = location.replace(SUPABASE_ORIGIN, LAYERO_ORIGIN);
-                location = location.replace(encodeURIComponent(SUPABASE_ORIGIN), encodeURIComponent(LAYERO_ORIGIN));
+                // Меняем старый Supabase на наш Layero
+                location = location.replace('https://rrpcqrvkhmlrdqvffnax.supabase.co', LAYERO_ORIGIN);
+                location = location.replace(encodeURIComponent('https://rrpcqrvkhmlrdqvffnax.supabase.co'), encodeURIComponent(LAYERO_ORIGIN));
                 res.setHeader('location', location);
             }
         }
@@ -101,9 +105,12 @@ app.all('*', async (req, res) => {
         const data = await response.text();
         res.send(data);
     } catch (e) {
-        console.error(e);
+        console.error('Proxy Error:', e);
         res.status(500).json({ error: 'Proxy error' });
     }
 });
 
+// ==========================================
+// 3. ЗАПУСК
+// ==========================================
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
