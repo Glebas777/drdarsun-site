@@ -4,7 +4,7 @@ import { supabase } from './supabase-client.js';
 document.getElementById('btn-yandex')?.addEventListener('click', async () => {
     const { error } = await supabase.auth.signInWithOAuth({
         provider: 'custom:yandex',
-        options: { redirectTo: window.location.origin + '/profile.html' }
+        options: { redirectTo: 'https://drdarsun.ru/profile.html' }
     });
     if (error) alert('Ошибка Яндекса: ' + error.message);
 });

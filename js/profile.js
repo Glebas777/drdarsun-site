@@ -1,6 +1,9 @@
 import { supabase } from './supabase-client.js';
 
 async function init() {
+    // Ждем, пока Supabase обработает токен из URL
+    await new Promise(resolve => setTimeout(resolve, 1000)); 
+    
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return window.location.href = 'login.html';
 
