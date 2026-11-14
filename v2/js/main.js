@@ -40,3 +40,23 @@ if (chatSend && chatInput && chatMessages) {
         }
     });
 }
+
+const botToggle = document.getElementById('bot-toggle');
+const botModal = document.getElementById('bot-modal');
+const botClose = document.getElementById('bot-close');
+const botMessages = document.getElementById('bot-messages');
+
+if (botToggle && botModal) {
+    botToggle.addEventListener('click', () => botModal.style.display = 'flex');
+    botClose.addEventListener('click', () => botModal.style.display = 'none');
+    
+    document.querySelectorAll('.bot-opt').forEach(btn => {
+        btn.addEventListener('click', () => {
+            botMessages.innerHTML += `<div class="bot-msg user">${btn.dataset.msg}</div>`;
+            setTimeout(() => {
+                botMessages.innerHTML += `<div class="bot-msg">Доктор уже готовит ответ!</div>`;
+                botMessages.scrollTop = botMessages.scrollHeight;
+            }, 500);
+        });
+    });
+}

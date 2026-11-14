@@ -35,17 +35,11 @@
         </div>
     </section>
 
-    <!-- ИИ ЧАТ -->
-    <section class="container" style="padding: 40px 0; text-align: center;">
-        <h2 style="margin-bottom: 20px;">Спросите Доктора</h2>
-        <div style="background: var(--bg-card); border-radius: 24px; border: 1px solid var(--border); max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div id="chat-messages" style="height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; text-align: left;">
-                <div class="msg bot" style="background: var(--bg-color); padding: 10px; border-radius: 10px; max-width: 80%;">Здравствуйте! Я Доктор ДарСан. Задайте вопрос.</div>
-            </div>
-            <div style="display: flex; gap: 10px;">
-                <input type="text" id="chat-input" placeholder="Ваш вопрос..." style="flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-color); color: var(--text-main); outline: none;">
-                <button id="chat-send" class="btn btn--primary">Отправить</button>
-            </div>
+    <section class="features">
+        <div class="container features__grid">
+            <div class="feature-card"><img src="assets/images/check.png" class="feature__icon"><div class="feature__text"><h3>100% натурально</h3><p>Без добавок</p></div></div>
+            <div class="feature-card"><img src="assets/images/energy.png" class="feature__icon"><div class="feature__text"><h3>Холодный отжим</h3><p>Все витамины</p></div></div>
+            <div class="feature-card"><img src="assets/images/lock.png" class="feature__icon"><div class="feature__text"><h3>Контроль</h3><p>Проверено лично</p></div></div>
         </div>
     </section>
 
@@ -74,7 +68,16 @@
         </div>
         <div class="footer__bottom"><div class="container">© 2026 Dr. DarSun</div></div>
     </footer>
-
+<!-- В самом низу body, перед скриптами -->
+<button id="bot-toggle" style="position:fixed; bottom:20px; right:20px; width:60px; height:60px; border-radius:50%; background:var(--accent-gold); border:none; font-size:24px; cursor:pointer; z-index:999;">💬</button>
+<div class="bot-modal" id="bot-modal">
+    <div class="bot-header"><h4>Доктор ДарСан</h4><button id="bot-close" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">×</button></div>
+    <div class="bot-messages" id="bot-messages"><div class="bot-msg">Здравствуйте! Я Доктор. Чем помочь?</div></div>
+    <div style="padding:15px; display:flex; flex-direction:column; gap:8px;">
+        <button class="bot-opt" data-msg="Привет">Привет</button>
+        <button class="bot-opt" data-msg="Что посоветуешь?">Что посоветуешь?</button>
+    </div>
+</div>
     <script src="js/main.js"></script>
 </body>
 </html>
