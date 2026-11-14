@@ -40,7 +40,7 @@ app.get('/auth/v1/callback', async (req, res) => {
         const email = userData.default_email;
         if (!email) throw new Error('No email');
 
-        // 3. Генерируем Magic Link через Admin API Supabase
+        // 3. Генерируем Magic Link (ОДИН РАЗ)
         const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
             method: 'POST',
             headers: {
@@ -59,7 +59,7 @@ app.get('/auth/v1/callback', async (req, res) => {
         
         const linkData = await linkRes.json();
         
-        // Если юзера нет, создаем его и генерируем ссылку снова
+        // Если ссылка не сгенерировалась (юзер не создан) — создаем и генерируем снова
         if (linkData.error || !linkData.action_link) {
             await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
                 method: 'POST',
