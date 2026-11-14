@@ -76,14 +76,18 @@ app.all('*', async (req, res) => {
             redirect: 'manual'
         });
         
-        // Переписываем редирект, если он ведет на supabase.co
-        if ([301, 302, 303, 307, 308].includes(response.status)) {
-            let location = response.headers.get('location');
-            if (location) {
-                location = location.replace('https://rrpcqrvkhmlrdqvffnax.supabase.co', 'https://drdarsun-site-main.layero.app');
-                res.setHeader('location', location);
-            }
-        }
+if ([301, 302, 303, 307, 308].includes(response.status)) {
+    let location = response.headers.get('location');
+    if (location) {
+        // 1. Меняем домен в самом Location
+        location = location.replace('https://rrpcqrvkhmlrdqvffnax.supabase.co', 'https://drdarsun-site-main.layero.app');
+        // 2. Меняем redirect_uri ВНУТРИ ссылки (если он есть)
+        location = location.replace('https://supabase-proxy.turgleb7.workers.dev', 'https://drdarsun-site-main.layero.app');
+        location = location.replace(encodeURIComponent('https://supabase-proxy.turgleb7.workers.dev'), encodeURIComponent('https://drdarsun-site-main.layero.app'));
+        
+        res.setHeader('location', location);
+    }
+}
 
         res.status(response.status);
                 response.headers.forEach((value, key) => {
