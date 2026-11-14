@@ -18,6 +18,7 @@ app.get('/auth/v1/callback', async (req, res) => {
     if (!code) return res.redirect('https://drdarsun.ru/login.html?error=no_code');
 
     try {
+        // 1. Меняем код на токен у Яндекса
         const tokenRes = await fetch('https://oauth.yandex.ru/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -31,16 +32,16 @@ app.get('/auth/v1/callback', async (req, res) => {
         const tokenData = await tokenRes.json();
         if (!tokenData.access_token) throw new Error('No token');
 
+        // 2. Забираем профиль (email)
         const userRes = await fetch('https://login.yandex.ru/info?format=json', {
             headers: { 'Authorization': `OAuth ${tokenData.access_token}` }
         });
         const userData = await userRes.json();
         const email = userData.default_email;
-
         if (!email) throw new Error('No email');
 
-        // Создаем пользователя в Supabase
-        await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
+        // 3. Генерируем Magic Link через Admin API Supabase
+        const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
             method: 'POST',
             headers: {
                 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -48,15 +49,52 @@ app.get('/auth/v1/callback', async (req, res) => {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
+                type: 'magiclink',
                 email: email,
-                email_confirm: true,
-                user_metadata: { full_name: userData.real_name || userData.display_name }
+                options: {
+                    redirect_to: 'https://drdarsun.ru/profile.html'
+                }
             })
         });
         
-        // Редиректим на твой основной сайт (GitHub Pages)
-        res.redirect('https://drdarsun.ru/profile.html');
+        const linkData = await linkRes.json();
         
+        // Если юзера нет, создаем его и генерируем ссылку снова
+        if (linkData.error || !linkData.action_link) {
+            await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
+                method: 'POST',
+                headers: {
+                    'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                    'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    email: email,
+                    email_confirm: true,
+                    user_metadata: { full_name: userData.real_name || userData.display_name }
+                })
+            });
+
+            const retryLinkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
+                method: 'POST',
+                headers: {
+                    'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                    'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    type: 'magiclink',
+                    email: email,
+                    options: { redirect_to: 'https://drdarsun.ru/profile.html' }
+                })
+            });
+            const retryData = await retryLinkRes.json();
+            return res.redirect(retryData.action_link);
+        }
+
+        // Редиректим на сгенерированную ссылку
+        res.redirect(linkData.action_link);
+
     } catch (e) {
         console.error('Yandex Auth Error:', e);
         res.redirect('https://drdarsun.ru/login.html?error=yandex_fail');
