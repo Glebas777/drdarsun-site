@@ -5,18 +5,21 @@
     <title>Вход...</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.js"></script>
 </head>
-<body style="background: #0A0A0A; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh;">
+<body style="background: #0A0A0A; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
     <div style="text-align: center;">
         <h2>Проверяем токен...</h2>
         <p id="status">Пожалуйста, подождите.</p>
     </div>
 
     <script>
-        const supabaseUrl = 'https://drdarsun-site-main.layero.app';
-        const supabaseKey = 'sb_publishable_1Fh3LgYtH3wEkQjvBfiZsA_WZZsfsLF';
+        // 1. Конфигурация
+        const SUPABASE_URL = 'https://drdarsun-site-main.layero.app';
+        const SUPABASE_ANON_KEY = 'sb_publishable_1Fh3LgYtH3wEkQjvBfiZsA_WZZsfsLF'; 
 
-        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+        // 2. Создаем клиент (называем его supabaseClient, чтобы не конфликтовать)
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        // 3. Логика проверки
         async function confirm() {
             const params = new URLSearchParams(window.location.search);
             const token_hash = params.get('token_hash');
@@ -27,7 +30,7 @@
                 return;
             }
 
-            const { error } = await supabase.auth.verifyOtp({
+            const { error } = await supabaseClient.auth.verifyOtp({
                 token_hash: token_hash,
                 type: 'magiclink'
             });
