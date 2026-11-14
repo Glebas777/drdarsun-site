@@ -44,6 +44,12 @@ app.all('*', async (req, res) => {
                 location = location.replace(encodeURIComponent(SUPABASE_ORIGIN), encodeURIComponent(LAYERO_ORIGIN));
                 // 3. На всякий случай меняем воркер
                 location = location.replace('https://supabase-proxy.turgleb7.workers.dev', LAYERO_ORIGIN);
+
+                if (location.includes('drdarsun.ru')) {
+    // Не переписываем, если это уже наш сайт
+} else {
+    res.setHeader('location', location);
+}
                 
                 res.setHeader('location', location);
             }
