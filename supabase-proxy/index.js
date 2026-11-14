@@ -9,27 +9,29 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const CF_WORKER = 'https://supabase-proxy.turgleb7.workers.dev';
 
-// Универсальный прокси для ВСЕГО (включая /auth/v1/authorize)
 app.all('*', async (req, res) => {
     try {
         const targetUrl = `${CF_WORKER}${req.originalUrl}`;
         const response = await fetch(targetUrl, {
             method: req.method,
-            headers: { 
-                ...req.headers, 
-                host: 'supabase-proxy.turgleb7.workers.dev',
-                // Важно: передаем заголовки как есть
-            },
+            headers: { ...req.headers, host: 'supabase-proxy.turgleb7.workers.dev' },
             body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
-            redirect: 'manual' // Перехватываем редиректы
+            redirect: 'manual'
         });
         
-        // Копируем заголовки ответа
+        // Копируем статус
         res.status(response.status);
+        
+        // Копируем заголовки
         response.headers.forEach((value, key) => {
-            // Не копируем некоторые заголовки
             if (!['content-encoding', 'content-length', 'transfer-encoding', 'connection'].includes(key)) {
-                res.setHeader(key, value);
+                if (key === 'location') {
+                    // ЖЕСТКО ПЕРЕПИСЫВАЕМ LOCATION
+                    const newLocation = value.replace('https://rrpcqrvkhmlrdqvffnax.supabase.co', `https://${req.headers.host}`);
+                    res.setHeader(key, newLocation);
+                } else {
+                    res.setHeader(key, value);
+                }
             }
         });
         
