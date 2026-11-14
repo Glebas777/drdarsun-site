@@ -82,13 +82,6 @@ a { text-decoration: none; color: inherit; }
 .summary-row { display: flex; justify-content: space-between; margin-bottom: 15px; color: var(--text-muted); }
 .summary-row.total { font-size: 20px; font-weight: 700; color: var(--text-main); border-top: 1px solid var(--border); padding-top: 15px; }
 
-/* Тосты */
-.toast-container { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-.toast { background: var(--bg-card); color: var(--text-main); padding: 12px 24px; border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 1px solid var(--border); font-weight: 500; opacity: 0; transform: translateY(20px); transition: all 0.3s; }
-.toast.show { opacity: 1; transform: translateY(0); }
-.toast.success { border-color: var(--accent-green); }
-.toast.error { border-color: #F44336; }
-
 /* Бот */
 .bot-modal { display: none; position: fixed; bottom: 90px; right: 20px; width: 350px; height: 500px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 1000; flex-direction: column; overflow: hidden; }
 .bot-modal.active { display: flex; }

@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(cors());
@@ -9,44 +10,62 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const CF_WORKER = 'https://supabase-proxy.turgleb7.workers.dev';
 
-// Хранилище кодов в памяти (для продакшена лучше БД, но для теста сойдет)
+// Настройка почты (используем OTPRAVKA_POCHTA и пароль приложения)
+const transporter = nodemailer.createTransport({
+    host: 'smtp.yandex.ru',
+    port: 465,
+    secure: true,
+    auth: {
+        user: process.env.OTPRAVKA_POCHTA, // Твоя почта ДЛЯ ОТПРАВКИ
+        pass: process.env.POLUCHIT_POCHTA  // Пароль приложения (код из букв)
+    }
+});
+
 const verificationCodes = {}; 
 
 // 1. Отправка кода
 app.post('/api/send-code', async (req, res) => {
-    const { email, phone, method } = req.body; // method: 'email' или 'telegram'
+    const { email, method } = req.body;
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     
-    // Сохраняем код
-    const key = email || phone;
-    verificationCodes[key] = { code, expires: Date.now() + 15 * 60 * 1000 }; // 15 минут
+    // Сохраняем код (привязываем к email, на который должны прийти данные)
+    verificationCodes[email] = { code, expires: Date.now() + 15 * 60 * 1000 };
 
     if (method === 'email') {
-        // Тут логика отправки на почту (через Resend или SMTP)
-        console.log(`Отправка на почту ${email}: ${code}`);
-    } else if (method === 'telegram') {
-        // Тут логика отправки в ТГ (через Gateway или своего бота)
-        console.log(`Отправка в ТГ ${phone}: ${code}`);
+        try {
+            // ВАЖНО: В поле 'to' ставим email клиента, который он ввел при регистрации
+            await transporter.sendMail({
+                from: `"Dr. DarSun" <${process.env.OTPRAVKA_POCHTA}>`, // От кого
+                to: email, // Кому (клиент)
+                subject: 'Код подтверждения Dr. DarSun',
+                text: `Ваш код подтверждения: ${code}`,
+                html: `<h2>Ваш код: ${code}</h2><p>Введите его на сайте.</p>`
+            });
+            res.json({ success: true, message: 'Код отправлен' });
+        } catch (e) {
+            console.error('Ошибка почты:', e);
+            res.status(500).json({ success: false, message: 'Ошибка отправки' });
+        }
+    } else {
+        console.log(`Код для ТГ (${email}): ${code}`);
+        res.json({ success: true });
     }
-    
-    res.json({ success: true, message: 'Код отправлен' });
 });
 
 // 2. Проверка кода
 app.post('/api/verify-code', (req, res) => {
-    const { email, phone, code } = req.body;
-    const key = email || phone;
-    const record = verificationCodes[key];
+    const { email, code } = req.body;
+    const record = verificationCodes[email];
 
     if (!record || record.code !== code || Date.now() > record.expires) {
-        return res.status(400).json({ success: false, message: 'Неверный или просроченный код' });
+        return res.status(400).json({ success: false, message: 'Неверный код' });
     }
 
-    delete verificationCodes[key]; // Код одноразовый
+    delete verificationCodes[email]; 
     res.json({ success: true });
 });
 
-// Прокси для остального (как было)
+// Прокси для Supabase
 app.all('*', async (req, res) => {
     try {
         const targetUrl = `${CF_WORKER}${req.originalUrl}`;

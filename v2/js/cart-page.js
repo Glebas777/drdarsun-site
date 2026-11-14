@@ -22,6 +22,7 @@ function renderCart() {
     document.getElementById('sum-subtotal').textContent = `${total} ₽`;
     document.getElementById('sum-total').textContent = `${total} ₽`;
 }
+
 window.changeQty = (id, d) => {
     let cart = JSON.parse(localStorage.getItem('cart') || '[]');
     const item = cart.find(i => i.id === id);
@@ -31,14 +32,23 @@ window.changeQty = (id, d) => {
     localStorage.setItem('cart', JSON.stringify(cart));
     renderCart();
 };
+
 document.getElementById('checkout-btn')?.addEventListener('click', async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return showToast('Войдите в аккаунт!', 'error');
     document.getElementById('checkout-form').style.display = 'flex';
     document.getElementById('checkout-btn').style.display = 'none';
 });
+
 document.getElementById('checkout-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    
+    // ЖЕСТКАЯ ЗАГЛУШКА ОПЛАТЫ
+    showToast('Оплата временно недоступна. Скоро мы все запустим!', 'error');
+    return;
+    
+    // (Дальнейший код закомментирован, пока нет оплаты)
+    /*
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
     const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
     const { data: { session } } = await supabase.auth.getSession();
@@ -47,5 +57,7 @@ document.getElementById('checkout-form')?.addEventListener('submit', async (e) =
     await supabase.from('orders').insert([{ user_id: session.user.id, items: cart, total, status: 'Оплачен' }]);
     localStorage.removeItem('cart');
     setTimeout(() => window.location.href = 'profile.html', 2000);
+    */
 });
+
 renderCart();

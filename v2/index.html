@@ -35,11 +35,17 @@
         </div>
     </section>
 
-    <section class="features">
-        <div class="container features__grid">
-            <div class="feature-card"><img src="assets/images/check.png" class="feature__icon"><div class="feature__text"><h3>100% натурально</h3><p>Без добавок</p></div></div>
-            <div class="feature-card"><img src="assets/images/energy.png" class="feature__icon"><div class="feature__text"><h3>Холодный отжим</h3><p>Все витамины</p></div></div>
-            <div class="feature-card"><img src="assets/images/lock.png" class="feature__icon"><div class="feature__text"><h3>Контроль</h3><p>Проверено лично</p></div></div>
+    <!-- ИИ ЧАТ -->
+    <section class="container" style="padding: 40px 0; text-align: center;">
+        <h2 style="margin-bottom: 20px;">Спросите Доктора</h2>
+        <div style="background: var(--bg-card); border-radius: 24px; border: 1px solid var(--border); max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div id="chat-messages" style="height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; text-align: left;">
+                <div class="msg bot" style="background: var(--bg-color); padding: 10px; border-radius: 10px; max-width: 80%;">Здравствуйте! Я Доктор ДарСан. Задайте вопрос.</div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="chat-input" placeholder="Ваш вопрос..." style="flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-color); color: var(--text-main); outline: none;">
+                <button id="chat-send" class="btn btn--primary">Отправить</button>
+            </div>
         </div>
     </section>
 
