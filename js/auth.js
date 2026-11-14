@@ -1,15 +1,10 @@
 import { supabase } from './supabase-client.js';
 
-// 1. Вход через Яндекс
-document.getElementById('btn-yandex')?.addEventListener('click', async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'custom:yandex',
-        options: { 
-            redirectTo: 'https://drdarsun-site-main.layero.app/profile.html',
-            scopes: 'login:email login:info' // <--- ТЕПЕРЬ ВНУТРИ OPTIONS
-        }
-    });
-    if (error) alert('Ошибка Яндекса: ' + error.message);
+const YANDEX_CLIENT_ID = 'b39d2bf86d0c448691056b68cd242e12'; // Твой Client ID
+
+document.getElementById('btn-yandex')?.addEventListener('click', () => {
+    const yandexAuthUrl = `https://oauth.yandex.ru/authorize?response_type=code&client_id=${YANDEX_CLIENT_ID}&redirect_uri=https://drdarsun-site-main.layero.app/auth/v1/callback`;
+    window.location.href = yandexAuthUrl;
 });
 
 // 2. Вход через Google
