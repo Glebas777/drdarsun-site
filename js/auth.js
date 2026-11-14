@@ -7,32 +7,16 @@ document.getElementById('btn-yandex')?.addEventListener('click', () => {
     window.location.href = yandexAuthUrl;
 });
 
-// 2. Вход через Google
-document.getElementById('btn-google')?.addEventListener('click', async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { 
-            redirectTo: 'https://drdarsun-site-main.layero.app/profile.html',
-            scopes: 'https://www.googleapis.com/auth/userinfo.email' // <--- ДЛЯ GOOGLE ДРУГОЙ SCOPE
-        }
-    });
-    if (error) alert('Ошибка Google: ' + error.message);
+// 2. Вход через Google (напрямую через Layero)
+document.getElementById('btn-google')?.addEventListener('click', () => {
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=1059795226527-fgrb9i2ccikq0e6pkolpjj36t2a6i2i3.apps.googleusercontent.com&redirect_uri=https://drdarsun-site-main.layero.app/auth/v1/callback&response_type=code&scope=email profile`;
+    window.location.href = googleAuthUrl;
 });
 
-// 3. Вход через Telegram
-document.getElementById('btn-telegram')?.addEventListener('click', async () => {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'custom:telegram',
-        options: { 
-            redirectTo: 'https://drdarsun.ru/profile.html',
-            skipBrowserRedirect: true
-        }
-    });
-    if (error) return alert('Ошибка Telegram: ' + error.message);
-
-    document.getElementById('tg-web-link').href = data.url;
-    document.getElementById('tg-app-link').href = `tg://resolve?domain=darsun_auth_bot`; 
-    document.getElementById('tg-modal').style.display = 'flex';
+// 3. Вход через Telegram (напрямую через Layero)
+document.getElementById('btn-telegram')?.addEventListener('click', () => {
+    const telegramAuthUrl = `https://oauth.telegram.org/auth?client_id=8863242739&redirect_uri=https://drdarsun-site-main.layero.app/auth/v1/callback&response_type=code&scope=openid profile`;
+    window.location.href = telegramAuthUrl;
 });
 
 document.getElementById('close-tg')?.addEventListener('click', () => {
