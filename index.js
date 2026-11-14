@@ -16,41 +16,26 @@ app.all('*', async (req, res) => {
         const targetUrl = `${CF_WORKER}${req.originalUrl}`;
         const response = await fetch(targetUrl, {
             method: req.method,
-            headers: { 
-                ...req.headers, 
-                host: 'supabase-proxy.turgleb7.workers.dev',
-                'Cache-Control': 'no-cache' // Говорим Cloudflare не кэшировать
-            },
+            headers: { ...req.headers, host: 'supabase-proxy.turgleb7.workers.dev' },
             body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
             redirect: 'manual'
         });
         
-        // Копируем заголовки, но не трогаем location
-        const headersToSkip = ['content-encoding', 'content-length', 'transfer-encoding', 'connection', 'location'];
+        // Сначала копируем все заголовки, КРОМЕ location
         res.status(response.status);
         response.headers.forEach((value, key) => {
-            if (!headersToSkip.includes(key)) {
+            if (!['content-encoding', 'content-length', 'transfer-encoding', 'connection', 'location'].includes(key)) {
                 res.setHeader(key, value);
             }
         });
 
-        // ПЕРЕПИСЫВАЕМ LOCATION (жестко)
+        // Потом принудительно переписываем location
         if ([301, 302, 303, 307, 308].includes(response.status)) {
             let location = response.headers.get('location');
             if (location) {
-                // 1. Меняем обычный URL
+                // Меняем и обычный, и закодированный URL
                 location = location.replace(SUPABASE_ORIGIN, LAYERO_ORIGIN);
-                // 2. Меняем закодированный URL (для OAuth)
                 location = location.replace(encodeURIComponent(SUPABASE_ORIGIN), encodeURIComponent(LAYERO_ORIGIN));
-                // 3. На всякий случай меняем воркер
-                location = location.replace('https://supabase-proxy.turgleb7.workers.dev', LAYERO_ORIGIN);
-
-                if (location.includes('drdarsun.ru')) {
-    // Не переписываем, если это уже наш сайт
-} else {
-    res.setHeader('location', location);
-}
-                
                 res.setHeader('location', location);
             }
         }
