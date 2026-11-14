@@ -1,18 +1,31 @@
 import { supabase } from './supabase-client.js';
 
 async function init() {
-    // Ждем, пока Supabase обработает токен из URL
-    await new Promise(resolve => setTimeout(resolve, 1000)); 
-    
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return window.location.href = 'login.html';
+    // Слушаем изменения состояния авторизации
+    supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+            if (session) {
+                // Сессия появилась! Загружаем профиль
+                loadProfile(session);
+            } else {
+                // Сессии нет — отправляем на вход
+                window.location.href = 'login.html';
+            }
+        }
+    });
+}
 
+async function loadProfile(session) {
     document.getElementById('user-name').textContent = session.user.user_metadata.full_name || 'Гость';
     document.getElementById('user-email').textContent = session.user.email;
 
     // Кошелек
-    const { data: w } = await supabase.from('wallets').select('balance').eq('user_id', session.user.id).single();
-    document.getElementById('wallet-balance').textContent = w ? `${w.balance} ₽` : '0 ₽';
+    try {
+        const { data: w } = await supabase.from('wallets').select('balance').eq('user_id', session.user.id).single();
+        document.getElementById('wallet-balance').textContent = w ? `${w.balance} ₽` : '0 ₽';
+    } catch (e) {
+        console.log('Ошибка загрузки кошелька:', e);
+    }
 
     // SOS
     document.getElementById('sos-btn')?.addEventListener('click', async () => {
@@ -21,4 +34,6 @@ async function init() {
         window.location.href = 'login.html';
     });
 }
+
+// Запускаем
 init();
