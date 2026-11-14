@@ -35,6 +35,14 @@
         </div>
     </section>
 
+    <!-- ВИДЕО-СЕКЦИЯ -->
+    <section class="video-section">
+        <video id="hero-video" src="assets/videos/маслосветлое.mp4" autoplay muted loop playsinline></video>
+        <div class="video-section__text">
+            <h2>Натурально. Вкусно. Полезно.</h2>
+        </div>
+    </section>
+
     <section class="features">
         <div class="container features__grid">
             <div class="feature-card"><img src="assets/images/check.png" class="feature__icon"><div class="feature__text"><h3>100% натурально</h3><p>Без добавок</p></div></div>
@@ -68,16 +76,17 @@
         </div>
         <div class="footer__bottom"><div class="container">© 2026 Dr. DarSun</div></div>
     </footer>
-<!-- В самом низу body, перед скриптами -->
-<button id="bot-toggle" style="position:fixed; bottom:20px; right:20px; width:60px; height:60px; border-radius:50%; background:var(--accent-gold); border:none; font-size:24px; cursor:pointer; z-index:999;">💬</button>
-<div class="bot-modal" id="bot-modal">
-    <div class="bot-header"><h4>Доктор ДарСан</h4><button id="bot-close" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">×</button></div>
-    <div class="bot-messages" id="bot-messages"><div class="bot-msg">Здравствуйте! Я Доктор. Чем помочь?</div></div>
-    <div style="padding:15px; display:flex; flex-direction:column; gap:8px;">
-        <button class="bot-opt" data-msg="Привет">Привет</button>
-        <button class="bot-opt" data-msg="Что посоветуешь?">Что посоветуешь?</button>
+
+    <button id="bot-toggle" style="position:fixed; bottom:20px; right:20px; width:60px; height:60px; border-radius:50%; background:var(--accent-gold); border:none; font-size:24px; cursor:pointer; z-index:999;">💬</button>
+    <div class="bot-modal" id="bot-modal">
+        <div class="bot-header"><h4>Доктор ДарСан</h4><button id="bot-close" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">×</button></div>
+        <div class="bot-messages" id="bot-messages"><div class="bot-msg">Здравствуйте! Я Доктор. Чем помочь?</div></div>
+        <div style="padding:15px; display:flex; flex-direction:column; gap:8px;">
+            <button class="bot-opt" data-msg="Привет">Привет</button>
+            <button class="bot-opt" data-msg="Что посоветуешь?">Что посоветуешь?</button>
+        </div>
     </div>
-</div>
+
     <script src="js/main.js"></script>
 </body>
 </html>
