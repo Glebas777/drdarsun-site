@@ -4,7 +4,7 @@ import { supabase } from './supabase-client.js';
 document.getElementById('btn-yandex')?.addEventListener('click', async () => {
     const { error } = await supabase.auth.signInWithOAuth({
         provider: 'custom:yandex',
-        options: { redirectTo: 'https://drdarsun.ru/profile.html' }
+        options: { redirectTo: 'https://drdarsun-site-main.layero.app/profile.html' }
     });
     if (error) alert('Ошибка Яндекса: ' + error.message);
 });
@@ -13,7 +13,7 @@ document.getElementById('btn-yandex')?.addEventListener('click', async () => {
 document.getElementById('btn-google')?.addEventListener('click', async () => {
     const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: 'https://drdarsun.ru/profile.html' }
+        options: { redirectTo: 'https://drdarsun-site-main.layero.app/profile.html' }
     });
     if (error) alert('Ошибка Google: ' + error.message);
 });
