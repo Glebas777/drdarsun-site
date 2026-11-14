@@ -15,14 +15,9 @@ const LAYERO_ORIGIN = 'https://drdarsun-site-main.layero.app';
 // ==========================================
 app.get('/auth/v1/callback', async (req, res) => {
     const { code } = req.query;
-    
-    // Если кода нет — кидаем на страницу входа
-    if (!code) {
-        return res.redirect('https://drdarsun.ru/login.html?error=no_code');
-    }
+    if (!code) return res.redirect('https://drdarsun.ru/login.html?error=no_code');
 
     try {
-        // 1. Меняем код на токен у Яндекса
         const tokenRes = await fetch('https://oauth.yandex.ru/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -36,7 +31,6 @@ app.get('/auth/v1/callback', async (req, res) => {
         const tokenData = await tokenRes.json();
         if (!tokenData.access_token) throw new Error('No token');
 
-        // 2. Забираем профиль (там default_email)
         const userRes = await fetch('https://login.yandex.ru/info?format=json', {
             headers: { 'Authorization': `OAuth ${tokenData.access_token}` }
         });
@@ -45,9 +39,8 @@ app.get('/auth/v1/callback', async (req, res) => {
 
         if (!email) throw new Error('No email');
 
-        // 3. Создаем/логиним пользователя в Supabase через Admin API
-        // ВАЖНО: Нужен SUPABASE_SERVICE_ROLE_KEY в переменных Layero!
-        const supabaseRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
+        // Создаем пользователя в Supabase
+        await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
             method: 'POST',
             headers: {
                 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -61,8 +54,8 @@ app.get('/auth/v1/callback', async (req, res) => {
             })
         });
         
-        // После создания юзера (или если он уже есть) редиректим на профиль
-        res.redirect('https://drdarsun-site-main.layero.app/profile.html');
+        // Редиректим на твой основной сайт (GitHub Pages)
+        res.redirect('https://drdarsun.ru/profile.html');
         
     } catch (e) {
         console.error('Yandex Auth Error:', e);
