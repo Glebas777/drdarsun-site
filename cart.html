@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dr. DarSun | Корзина</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <div class="container header__inner">
+            <a href="index.html" class="logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
+            <div class="header__actions">
+                <a href="cart.html" class="icon-btn">🛒</a>
+                <a href="login.html" class="btn btn--primary">Войти</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <h1 style="margin:40px 0 20px;">Корзина</h1>
+        <div class="cart-layout">
+            <div class="cart-items" id="cart-items"></div>
+            <div class="cart-summary">
+                <h3>Итого</h3>
+                <div class="summary-row"><span>Товары</span><span id="sum-subtotal">0 ₽</span></div>
+                <div class="summary-row total"><span>К оплате</span><span id="sum-total">0 ₽</span></div>
+                
+                <button class="btn btn--primary" style="width:100%; margin-top:20px;" id="checkout-btn">Оформить</button>
+                
+                <form id="checkout-form" style="display:none; flex-direction:column; gap:10px; margin-top:20px;">
+                    <input type="text" id="order-name" placeholder="Имя" required style="padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-color); color:var(--text-main);">
+                    <input type="tel" id="order-phone" placeholder="Телефон" required style="padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-color); color:var(--text-main);">
+                    <input type="text" id="order-address" placeholder="Адрес" required style="padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-color); color:var(--text-main);">
+                    
+                    <p style="font-size:14px; font-weight:600;">Оплата:</p>
+                    <label><input type="radio" name="payment" value="card" checked> Карта</label>
+                    <label><input type="radio" name="payment" value="sbp"> СБП</label>
+                    <label><input type="radio" name="payment" value="wallet"> Кошелек</label>
+
+                    <button type="submit" class="btn btn--primary" style="width:100%; margin-top:10px;">Оплатить</button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="footer__bottom"><div class="container">© 2026 Dr. DarSun</div></div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script type="module" src="js/cart-page.js"></script>
+</body>
+</html>
