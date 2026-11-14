@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dr. DarSun | Каталог</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <div class="container header__inner">
+            <a href="index.html" class="logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
+            <nav class="nav">
+                <a href="catalog.html" class="active">Каталог</a>
+                <a href="about.html">О нас</a>
+                <a href="delivery.html">Доставка</a>
+            </nav>
+            <div class="header__actions">
+                <button class="theme-toggle" id="theme-toggle"></button>
+                <a href="cart.html" class="icon-btn">🛒</a>
+                <a href="login.html" class="btn btn--primary">Войти</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="catalog-layout">
+            <aside class="filters-sidebar">
+                <h4>Тип масла</h4>
+                <label><input type="checkbox" checked> Подсолнечное</label>
+                <label><input type="checkbox" checked> Льняное</label>
+                <label><input type="checkbox" checked> Грецкое</label>
+            </aside>
+            <div class="catalog-main">
+                <input type="text" class="search-bar" placeholder="Поиск...">
+                <div class="catalog-grid" id="catalog-grid"></div>
+            </div>
+        </div>
+    </main>
+
+    <button id="bot-toggle" style="position:fixed; bottom:20px; right:20px; width:60px; height:60px; border-radius:50%; background:var(--accent-gold); border:none; font-size:24px; cursor:pointer; z-index:999;">💬</button>
+    <div class="bot-modal" id="bot-modal">
+        <div class="bot-header"><h4>Помощник</h4><button id="bot-close" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">×</button></div>
+        <div class="bot-messages" id="bot-messages"><div class="bot-msg">Здравствуйте! Чем помочь?</div></div>
+        <div style="padding:15px; display:flex; flex-direction:column; gap:8px;">
+            <button class="bot-opt" data-msg="Что для салата?">Для салата</button>
+            <button class="bot-opt" data-msg="Что есть?">Что есть?</button>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container footer__inner">
+            <div class="footer__col">
+                <div class="footer__logo-group">
+                    <img src="assets/images/logo_full.png" alt="Dr. DarSun">
+                    <span class="footer__brand-text">Dr. DarSun</span>
+                </div>
+            </div>
+        </div>
+        <div class="footer__bottom"><div class="container">© 2026 Dr. DarSun</div></div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script type="module" src="js/catalog.js"></script>
+</body>
+</html>
