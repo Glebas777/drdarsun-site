@@ -76,8 +76,17 @@ app.all('*', async (req, res) => {
             redirect: 'manual'
         });
         
+        // Переписываем редирект, если он ведет на supabase.co
+        if ([301, 302, 303, 307, 308].includes(response.status)) {
+            let location = response.headers.get('location');
+            if (location) {
+                location = location.replace('https://rrpcqrvkhmlrdqvffnax.supabase.co', 'https://drdarsun-site-main.layero.app');
+                res.setHeader('location', location);
+            }
+        }
+
         res.status(response.status);
-        response.headers.forEach((value, key) => {
+                response.headers.forEach((value, key) => {
             if (!['content-encoding', 'content-length', 'transfer-encoding', 'connection'].includes(key)) {
                 res.setHeader(key, value);
             }
