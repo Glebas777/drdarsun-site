@@ -9,6 +9,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true // <--- ВОТ ЭТО ДОБАВЬ
+    detectSessionInUrl: true,
+    lock: (name, acquireTimeout, fn) => fn() // <--- ВОТ ЭТА СТРОЧКА
   }
 });
