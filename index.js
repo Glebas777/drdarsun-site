@@ -1,14 +1,3 @@
-const express = require('express');
-const cors = require('cors');
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-const PORT = process.env.PORT || 3000;
-const CF_WORKER = 'https://supabase-proxy.turgleb7.workers.dev';
-
 app.all('*', async (req, res) => {
     try {
         const targetUrl = `${CF_WORKER}${req.originalUrl}`;
@@ -19,22 +8,23 @@ app.all('*', async (req, res) => {
             redirect: 'manual'
         });
         
-        // --- ПЕРЕПИСЫВАНИЕ РЕДИРЕКТОВ (OAuth) ---
+        res.status(response.status);
+
+        // Копируем заголовки, но НЕ трогаем location
+        response.headers.forEach((value, key) => {
+            if (!['content-encoding', 'content-length', 'transfer-encoding', 'connection', 'location'].includes(key)) {
+                res.setHeader(key, value);
+            }
+        });
+
+        // Переписываем редирект ПОСЛЕ того, как скопировали все заголовки
         if ([301, 302, 303, 307, 308].includes(response.status)) {
             const location = response.headers.get('location');
             if (location) {
-                // Меняем старый Supabase на наш Layero
                 const newLocation = location.replace('https://rrpcqrvkhmlrdqvffnax.supabase.co', 'https://drdarsun-site-main.layero.app');
                 res.setHeader('location', newLocation);
             }
         }
-
-        res.status(response.status);
-        response.headers.forEach((value, key) => {
-            if (!['content-encoding', 'content-length', 'transfer-encoding', 'connection'].includes(key)) {
-                res.setHeader(key, value);
-            }
-        });
         
         const data = await response.text();
         res.send(data);
@@ -43,5 +33,3 @@ app.all('*', async (req, res) => {
         res.status(500).json({ error: 'Proxy error' });
     }
 });
-
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
