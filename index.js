@@ -7,34 +7,37 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
+const CF_WORKER = 'https://supabase-proxy.turgleb7.workers.dev';
 
-// Прокси для чата
-app.post('/api/gigachat', async (req, res) => {
+// Универсальный прокси для ВСЕГО (включая /auth/v1/authorize)
+app.all('*', async (req, res) => {
     try {
-        const response = await fetch('https://supabase-proxy.turgleb7.workers.dev/api/gigachat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(req.body)
+        const targetUrl = `${CF_WORKER}${req.originalUrl}`;
+        const response = await fetch(targetUrl, {
+            method: req.method,
+            headers: { 
+                ...req.headers, 
+                host: 'supabase-proxy.turgleb7.workers.dev',
+                // Важно: передаем заголовки как есть
+            },
+            body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
+            redirect: 'manual' // Перехватываем редиректы
         });
-        const data = await response.json();
-        res.json(data);
-    } catch (e) {
-        res.json({ reply: 'Ошибка сервера Layero.' });
-    }
-});
-
-// Прокси для поддержки
-app.post('/api/support', async (req, res) => {
-    try {
-        const response = await fetch('https://supabase-proxy.turgleb7.workers.dev/api/support', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(req.body)
+        
+        // Копируем заголовки ответа
+        res.status(response.status);
+        response.headers.forEach((value, key) => {
+            // Не копируем некоторые заголовки
+            if (!['content-encoding', 'content-length', 'transfer-encoding', 'connection'].includes(key)) {
+                res.setHeader(key, value);
+            }
         });
-        const data = await response.json();
-        res.json(data);
+        
+        const data = await response.text();
+        res.send(data);
     } catch (e) {
-        res.json({ success: false });
+        console.error(e);
+        res.status(500).json({ error: 'Proxy error' });
     }
 });
 
