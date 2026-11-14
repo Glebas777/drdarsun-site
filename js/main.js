@@ -1,4 +1,3 @@
-import { supabase } from './supabase-client.js';
 
 // --- СМЕНА ТЕМЫ ---
 const themeToggle = document.getElementById('theme-toggle');

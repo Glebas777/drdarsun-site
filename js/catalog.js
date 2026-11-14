@@ -34,4 +34,18 @@ document.querySelectorAll('.bot-opt').forEach(b => {
         }, 500);
     });
 });
+// Фильтрация по чекбоксам
+document.querySelectorAll('.filters-sidebar input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+        const active = Array.from(document.querySelectorAll('.filters-sidebar input[type="checkbox"]:checked'))
+            .map(c => c.parentElement.textContent.trim().toLowerCase());
+        if (active.length === 0) { render(all); return; }
+        const filtered = all.filter(p => {
+            const name = (p.name || '').toLowerCase();
+            return active.some(a => name.includes(a.split(' ')[0]));
+        });
+        render(filtered);
+    });
+});
 load();
+
