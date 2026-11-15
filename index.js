@@ -331,6 +331,58 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
+app.post('/api/reset-password', async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ success: false, message: 'Введите email' });
+
+    try {
+        // 1. Генерируем ссылку для сброса через Admin API
+        const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
+            method: 'POST',
+            headers: {
+                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                type: 'recovery',
+                email: email,
+                options: { redirect_to: 'https://drdarsun.ru/reset.html' }
+            })
+        });
+        
+        const linkData = await linkRes.json();
+        
+        if (linkData.error) {
+            return res.status(400).json({ success: false, message: linkData.error.message });
+        }
+
+        // 2. Отправляем письмо через Resend
+        const emailHtml = `
+            <h2>Сброс пароля Dr. DarSun</h2>
+            <p>Для сброса пароля перейдите по ссылке ниже:</p>
+            <a href="${linkData.action_link}" style="display: inline-block; padding: 10px 20px; background: #1B5E20; color: #fff; text-decoration: none; border-radius: 8px;">Сбросить пароль</a>
+            <p style="color: #666; font-size: 12px; margin-top: 20px;">Если вы не запрашивали сброс, просто проигнорируйте это письмо.</p>
+        `;
+
+        const result = await sendEmail(
+            email,
+            'Сброс пароля Dr. DarSun',
+            emailHtml
+        );
+
+        if (result.error) {
+            return res.status(500).json({ success: false, message: 'Ошибка отправки', debug: result.error.message });
+        }
+
+        res.json({ success: true, message: 'Ссылка для сброса отправлена на почту.' });
+
+    } catch (e) {
+        console.error('Reset Password Error:', e);
+        res.status(500).json({ success: false, message: 'Ошибка сервера.' });
+    }
+});
+
 // --- ПРОКСИ ДЛЯ ВСЕГО ОСТАЛЬНОГО ---
 app.all('*', async (req, res) => {
     try {

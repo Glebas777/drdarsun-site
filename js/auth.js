@@ -107,3 +107,30 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     if (error) alert('Ошибка: ' + error.message);
     else window.location.href = 'profile.html';
 });
+
+// Восстановление пароля
+const forgotForm = document.getElementById('forgot-form');
+if (forgotForm) {
+    forgotForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('forgot-email').value;
+
+        try {
+            const res = await fetch('https://drdarsun-site-main.layero.app/api/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                alert('Ссылка для сброса отправлена на почту.');
+                // Можно перекинуть на главную или показать сообщение
+            } else {
+                alert('Ошибка: ' + (data.message || 'Не удалось отправить письмо'));
+            }
+        } catch (e) {
+            alert('Ошибка соединения с сервером.');
+        }
+    });
+}

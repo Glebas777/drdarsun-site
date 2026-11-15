@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dr. DarSun | Сброс пароля</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body style="display: flex; align-items: center; justify-content: center; height: 100vh;">
+    <div style="background: var(--bg-card); border: 1px solid var(--border); padding: 40px; border-radius: var(--radius); max-width: 400px; width: 90%; text-align: center;">
+        <h2 style="margin-bottom: 20px;">Новый пароль</h2>
+        <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 14px;">Введите новый пароль для входа.</p>
+        
+        <form id="reset-form" style="display: flex; flex-direction: column; gap: 15px;">
+            <input type="password" id="reset-password" placeholder="Минимум 6 символов" required style="padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-color); color: var(--text-main);">
+            <button type="submit" class="btn btn--primary" style="width: 100%;">Сменить пароль</button>
+        </form>
+        <div id="reset-message" style="margin-top: 20px; color: #F44336;"></div>
+    </div>
+
+    <script type="module">
+        import { supabase } from './js/supabase-client.js';
+
+        const form = document.getElementById('reset-form');
+        const msg = document.getElementById('reset-message');
+
+        // Supabase автоматически подхватит токен из URL (type=recovery)
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newPassword = document.getElementById('reset-password').value;
+
+            if (newPassword.length < 6) {
+                msg.textContent = 'Пароль слишком короткий.';
+                return;
+            }
+
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+            if (error) {
+                msg.textContent = 'Ошибка: ' + error.message;
+            } else {
+                msg.style.color = '#4CAF50';
+                msg.textContent = 'Пароль успешно изменен! Перенаправление...';
+                setTimeout(() => window.location.href = 'login.html', 2000);
+            }
+        });
+    </script>
+</body>
+</html>
