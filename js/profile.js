@@ -59,11 +59,48 @@ async function init() {
             }
         });
     }
-    
-    // Кнопки выхода
-    document.getElementById('logout-all')?.addEventListener('click', async () => {
+
+    // 6. Выходы (Обработка всех кнопок)
+    const logoutAll = async () => {
         await supabase.auth.signOut();
         window.location.href = 'index.html';
-    });
+    };
+
+    document.getElementById('logout-current')?.addEventListener('click', logoutAll);
+    document.getElementById('logout-others')?.addEventListener('click', logoutAll);
+    document.getElementById('logout-all')?.addEventListener('click', logoutAll);
+
+    // 7. Смена имени
+    const settingsForm = document.getElementById('settings-form');
+    if (settingsForm) {
+        document.getElementById('settings-name').value = session.user.user_metadata.full_name || '';
+        settingsForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newName = document.getElementById('settings-name').value;
+            const { error } = await supabase.auth.updateUser({ data: { full_name: newName } });
+            if (error) alert('Ошибка: ' + error.message);
+            else {
+                alert('Имя обновлено!');
+                document.getElementById('user-name').textContent = newName;
+            }
+        });
+    }
+
+    // 8. Смена пароля
+    const passwordForm = document.getElementById('password-form');
+    if (passwordForm) {
+        passwordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newPassword = document.getElementById('new-password').value;
+            if (newPassword.length < 6) return alert('Пароль слишком короткий');
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) alert('Ошибка: ' + error.message);
+            else {
+                alert('Пароль изменен!');
+                passwordForm.reset();
+            }
+        });
+    }
 }
-init();
+
+document.addEventListener('DOMContentLoaded', init);
