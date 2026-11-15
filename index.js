@@ -70,8 +70,12 @@ app.post('/api/send-code', async (req, res) => {
         });
         res.json({ success: true });
     } catch (e) {
-        console.error(e);
-        res.status(500).json({ success: false, message: 'Ошибка отправки' });
+        console.error('SMTP Error:', e); // Это в логи Layero
+        res.status(500).json({ 
+            success: false, 
+            message: 'Ошибка отправки', 
+            debug: e.message // Это вернется в curl, чтобы мы увидели причину
+        });
     }
 });
 
