@@ -15,7 +15,7 @@ document.getElementById('btn-google')?.addEventListener('click', () => {
     window.location.href = googleAuthUrl;
 });
 
-// 3. Отправка кода
+// 3. Отправка кода через Supabase
 document.getElementById('send-code-btn')?.addEventListener('click', async () => {
     const email = document.getElementById('reg-email').value;
     if (!email) return alert('Введите email');
@@ -23,55 +23,46 @@ document.getElementById('send-code-btn')?.addEventListener('click', async () => 
     const btn = document.getElementById('send-code-btn');
     btn.disabled = true;
 
-    try {
-        const res = await fetch('https://drdarsun-site-main.layero.app/api/send-code', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, method: 'email' })
-        });
-        const data = await res.json();
-        
-        if (data.success) {
-            alert('Код отправлен на почту!');
-            document.getElementById('verify-block').style.display = 'block';
-        } else {
-            alert('Ошибка отправки: ' + data.message);
-            btn.disabled = false;
+    // Отправляем OTP (одноразовый код) через Supabase
+    const { error } = await supabase.auth.signInWithOtp({
+        email: email,
+        options: {
+            shouldCreateUser: true, // Создать пользователя, если его нет
         }
-    } catch (e) {
-        alert('Ошибка соединения');
+    });
+
+    if (error) {
+        alert('Ошибка отправки: ' + error.message);
         btn.disabled = false;
+    } else {
+        alert('Код отправлен на почту!');
+        document.getElementById('verify-block').style.display = 'block';
     }
 });
 
-// 4. Проверка кода
+// 4. Проверка кода через Supabase
 document.getElementById('verify-btn')?.addEventListener('click', async () => {
     const email = document.getElementById('reg-email').value;
     const code = document.getElementById('verify-code').value;
 
-    try {
-        const res = await fetch('https://drdarsun-site-main.layero.app/api/verify-code', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, code })
-        });
-        const data = await res.json();
+    const { error } = await supabase.auth.verifyOtp({
+        email: email,
+        token: code,
+        type: 'email'
+    });
 
-        if (data.success) {
-            alert('Почта подтверждена! Теперь вы можете завершить регистрацию.');
-            isEmailVerified = true;
-            document.getElementById('verify-block').style.display = 'none';
-            document.getElementById('submit-register').style.display = 'block';
-            document.getElementById('submit-register').textContent = 'Завершить регистрацию';
-        } else {
-            alert('Неверный код');
-        }
-    } catch (e) {
-        alert('Ошибка проверки');
+    if (error) {
+        alert('Неверный код: ' + error.message);
+    } else {
+        alert('Почта подтверждена! Теперь вы можете завершить регистрацию.');
+        isEmailVerified = true;
+        document.getElementById('verify-block').style.display = 'none';
+        document.getElementById('submit-register').style.display = 'block';
+        document.getElementById('submit-register').textContent = 'Завершить регистрацию';
     }
 });
 
-// 5. Регистрация
+// 5. Регистрация (уже после подтверждения)
 document.getElementById('register-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -92,7 +83,7 @@ document.getElementById('register-form')?.addEventListener('submit', async (e) =
     if (error) {
         alert('Ошибка регистрации: ' + error.message);
     } else {
-        alert('Аккаунт создан! Проверьте почту.');
+        alert('Аккаунт создан!');
         window.location.href = 'login.html';
     }
 });
@@ -112,7 +103,7 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     }
 });
 
-// 7. Бургер
+// 7. Бургер (без изменений)
 const burgerBtn = document.getElementById('burger-btn');
 const mobileMenu = document.getElementById('mobile-menu');
 if (burgerBtn && mobileMenu) {

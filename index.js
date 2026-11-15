@@ -4,6 +4,7 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 const nodemailer = require('nodemailer');
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(cors({
     origin: ['https://drdarsun.ru', 'https://drdarsun-site-main.layero.app'],
     credentials: true
