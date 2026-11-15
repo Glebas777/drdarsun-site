@@ -1,3 +1,5 @@
+import { supabase } from './supabase-client.js';
+
 // --- УНИВЕРСАЛЬНЫЙ ХЕДЕР ---
 async function updateHeaderAuth() {
     const container = document.getElementById('auth-buttons');
