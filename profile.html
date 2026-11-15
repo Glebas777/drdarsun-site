@@ -6,6 +6,32 @@
     <title>Dr. DarSun | Личный кабинет</title>
     <link rel="stylesheet" href="css/base.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .profile-layout { display: flex; gap: 40px; padding: 40px 0; }
+        .profile-sidebar { width: 250px; flex-shrink: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; height: fit-content; }
+        .profile-nav-btn { display: block; width: 100%; text-align: left; padding: 12px 15px; background: transparent; border: none; border-radius: 8px; color: var(--text-muted); cursor: pointer; font-size: 15px; font-weight: 500; margin-bottom: 5px; transition: 0.2s; }
+        .profile-nav-btn:hover, .profile-nav-btn.active { background: var(--bg-color); color: var(--text-main); }
+        .profile-content { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 30px; }
+        .profile-tab { display: none; }
+        .profile-tab.active { display: block; }
+        .tab-title { font-size: 24px; margin-bottom: 20px; }
+        .settings-form { max-width: 400px; display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px; }
+        .settings-form input { padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-color); color: var(--text-main); }
+        .avatar-upload { display: flex; align-items: center; gap: 20px; margin-bottom: 20px; }
+        .avatar-preview { width: 80px; height: 80px; border-radius: 50%; background: var(--bg-color); display: flex; align-items: center; justify-content: center; border: 2px solid var(--border); overflow: hidden; }
+        .avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
+        .device-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; }
+        .order-card { border: 1px solid var(--border); padding: 15px; border-radius: 12px; margin-bottom: 15px; }
+        .order-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+        .status-processing { background: rgba(33, 150, 243, 0.15); color: #2196F3; }
+        .status-shipped { background: rgba(156, 39, 176, 0.15); color: #9C27B0; }
+        .status-delivered { background: rgba(76, 175, 80, 0.15); color: #4CAF50; }
+        .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: var(--bg-card); color: var(--text-main); padding: 16px 24px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.3); transform: translateX(120%); transition: transform 0.4s; }
+        .toast.show { transform: translateX(0); }
+        @media (max-width: 768px) { .profile-layout { flex-direction: column; padding: 100px 20px 40px; } .profile-sidebar { width: 100%; } .profile-nav-btn { display: inline-block; width: auto; margin-right: 5px; } }
+    </style>
 </head>
 <body>
 <div id="preloader">
@@ -13,147 +39,151 @@
     <div class="bg-image" id="bg-load_day" style="background-image: url('assets/images/load_day.png');"></div>
     <div class="bg-image" id="bg-load_evening" style="background-image: url('assets/images/load_evening.png');"></div>
     <div class="bg-image" id="bg-load_night" style="background-image: url('assets/images/load_night.png');"></div>
-
     <img src="assets/images/load_doctor.png" class="preloader-side left" alt="">
-
     <div class="preloader-content">
         <img src="assets/images/load_ring.png" class="preloader-ring" alt="">
         <img src="assets/images/load_sample.png" class="preloader-sample" alt="">
+        <div class="preloader-text" id="preloader-text">Вставляем картинки...</div>
     </div>
+    <div class="preloader-progress"><div class="preloader-progress-bar"></div></div>
+</div>
 
-    <div class="preloader-progress">
-        <div class="preloader-progress-bar"></div>
-    </div>
-</div>
-    <header class="header">
-        <div class="container header__inner">
-            <a href="index.html" class="logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
-            <nav class="nav">
-                <a href="catalog.html">Каталог</a>
-                <a href="about.html">О нас</a>
-                <a href="delivery.html">Доставка</a>
-            </nav>
-<div class="header__actions">
-    <button class="theme-toggle" id="theme-toggle"></button>
-    <a href="cart.html" class="icon-btn">🛒</a>
-    <div id="auth-buttons"></div> 
-    <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
-</div>
-        </div>
-        <div class="mobile-menu" id="mobile-menu">
-            <button class="mobile-close" id="mobile-close-btn">×</button>
-            <a href="index.html">Главная</a>
+<header class="header">
+    <div class="container header__inner">
+        <a href="index.html" class="logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
+        <nav class="nav">
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
             <a href="delivery.html">Доставка</a>
-            <a href="profile.html" id="mobile-profile-link">Профиль</a>
-            <a href="login.html" id="mobile-login-link">Войти</a>
+        </nav>
+        <div class="header__actions">
+            <button class="theme-toggle" id="theme-toggle"></button>
+            <a href="cart.html" class="icon-btn">🛒</a>
+            <div id="auth-buttons"></div>
+            <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
         </div>
-    </header>
+    </div>
+    <div class="mobile-menu" id="mobile-menu">
+        <button class="mobile-close" id="mobile-close-btn">×</button>
+        <a href="index.html">Главная</a>
+        <a href="catalog.html">Каталог</a>
+        <a href="about.html">О нас</a>
+        <a href="delivery.html">Доставка</a>
+        <a href="profile.html">Профиль</a>
+    </div>
+</header>
 
-    <main class="container" style="padding: 100px 0 60px;">
-        <div class="profile-layout">
-            <aside class="profile-sidebar">
-                <h3 style="margin-bottom: 20px;">Мой кабинет</h3>
-                <button class="profile-nav-btn active" data-tab="info">Мои данные</button>
-                <button class="profile-nav-btn" data-tab="orders">История заказов</button>
-                <button class="profile-nav-btn" data-tab="wallet">Кошелек</button>
-                <button class="profile-nav-btn" data-tab="settings">Настройки</button>
-            </aside>
+<main class="container">
+    <div class="profile-layout">
+        <aside class="profile-sidebar">
+            <h3 style="margin-bottom: 20px;">Мой кабинет</h3>
+            <button class="profile-nav-btn active" data-tab="info">Личные данные</button>
+            <button class="profile-nav-btn" data-tab="orders">История заказов</button>
+            <button class="profile-nav-btn" data-tab="wallet">Кошелек</button>
+            <button class="profile-nav-btn" data-tab="security">Безопасность</button>
+            <button class="profile-nav-btn" data-tab="settings">Настройки</button>
+        </aside>
 
-            <div class="profile-content">
-                <div class="profile-tab active" id="tab-info">
-                    <h2 class="tab-title">Мои данные</h2>
-                    <p><strong>Имя:</strong> <span id="user-name">Загрузка...</span></p>
-                    <p><strong>Email:</strong> <span id="user-email">Загрузка...</span></p>
-                </div>
-
-                <div class="profile-tab" id="tab-orders">
-                    <h2 class="tab-title">История заказов</h2>
-                    <div id="orders-list">Загрузка...</div>
-                </div>
-
-                <div class="profile-tab" id="tab-wallet">
-                    <h2 class="tab-title">Кошелек</h2>
-                    <div style="text-align: center; padding: 30px; background: var(--bg-color); border-radius: 16px; border: 1px solid var(--border);">
-                        <p style="color: var(--text-muted);">Доступно средств</p>
-                        <h1 style="font-size: 48px; color: var(--accent-green);" id="wallet-balance">0 ₽</h1>
+        <div class="profile-content">
+            <!-- Вкладка: Личные данные -->
+            <div class="profile-tab active" id="tab-info">
+                <h2 class="tab-title">Личные данные</h2>
+                <div class="avatar-upload">
+                    <div class="avatar-preview" id="avatar-preview">
+                        <span style="color: var(--text-muted);">Фото</span>
                     </div>
+                    <input type="file" id="avatar-input" accept="image/*" style="display: none;">
+                    <button class="btn btn--primary" onclick="document.getElementById('avatar-input').click()">Загрузить фото</button>
+                </div>
+                <p><strong>Имя:</strong> <span id="user-name">Загрузка...</span></p>
+                <p><strong>Email:</strong> <span id="user-email">Загрузка...</span></p>
+                <p><strong>Дата рождения:</strong> <input type="date" id="birthdate" style="padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-color); color: var(--text-main);"></p>
+            </div>
+
+            <!-- Вкладка: Заказы -->
+            <div class="profile-tab" id="tab-orders">
+                <h2 class="tab-title">История заказов</h2>
+                <div id="orders-list">Загрузка...</div>
+            </div>
+
+            <!-- Вкладка: Кошелек -->
+            <div class="profile-tab" id="tab-wallet">
+                <h2 class="tab-title">Кошелек</h2>
+                <div style="text-align: center; padding: 30px; background: var(--bg-color); border-radius: 16px; border: 1px solid var(--border); margin-bottom: 20px;">
+                    <p style="color: var(--text-muted);">Доступно средств</p>
+                    <h1 style="font-size: 48px; color: var(--accent-green);" id="wallet-balance">0 ₽</h1>
+                </div>
+                <h3>История операций</h3>
+                <div id="transactions-list" style="margin-top: 15px;">Загрузка...</div>
+            </div>
+
+            <!-- Вкладка: Безопасность -->
+            <div class="profile-tab" id="tab-security">
+                <h2 class="tab-title">Безопасность</h2>
+                
+                <div style="margin-bottom: 20px;">
+                    <h4>Активные сессии</h4>
+                    <div id="devices-list">Загрузка...</div>
                 </div>
 
-                <div class="profile-tab" id="tab-settings">
-                    <h2 class="tab-title">Настройки</h2>
-                    
-                    <form class="settings-form" id="settings-form">
-                        <label>Новое имя</label>
-                        <input type="text" id="settings-name" placeholder="Ваше имя">
-                        <button type="submit" class="btn btn--primary">Сохранить имя</button>
-                    </form>
+                <div style="margin-bottom: 20px;">
+                    <h4>Двухфакторная аутентификация</h4>
+                    <button class="btn btn--primary" id="enable-2fa-btn">Включить (TOTP)</button>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-top: 5px;">Используйте Google Authenticator или Яндекс.Ключ.</p>
+                </div>
 
-                    <form class="settings-form" id="password-form">
-                        <label>Новый пароль</label>
-                        <input type="password" id="new-password" placeholder="Минимум 6 символов">
-                        <button type="submit" class="btn btn--primary">Сменить пароль</button>
-                    </form>
+                <div>
+                    <h4>Резервные коды</h4>
+                    <button class="btn" id="generate-backup-codes" style="border: 1px solid var(--border);">Сгенерировать коды</button>
+                    <div id="backup-codes-list" style="margin-top: 10px; display: none;"></div>
+                </div>
+                <div style="margin-bottom: 20px;">
+    <h4>Face ID / Отпечаток (Passkey)</h4>
+    <button class="btn btn--primary" id="enable-passkey-btn">Включить Passkey</button>
+    <p style="font-size: 13px; color: var(--text-muted); margin-top: 5px;">Вход по лицу или отпечатку пальца (WebAuthn).</p>
+</div>
+            </div>
 
-                    <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                            <div>
-                                <h3 style="font-size: 18px; margin-bottom: 4px;">Устройства</h3>
-                                <p style="font-size: 13px; color: var(--text-muted);">Управление активными сессиями</p>
-                            </div>
-                            <div style="position: relative;">
-                                <button id="session-menu-btn" style="background: transparent; border: 1px solid var(--border); color: var(--text-main); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;">⋮</button>
-                                <div id="session-menu" style="display: none; position: absolute; right: 0; top: 45px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 10px; min-width: 220px; z-index: 100; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                                    <button id="logout-current" style="display: block; width: 100%; text-align: left; padding: 10px; background: transparent; border: none; color: var(--text-main); cursor: pointer; border-radius: 8px; font-size: 14px;">Выйти с этого устройства</button>
-                                    <button id="logout-others" style="display: block; width: 100%; text-align: left; padding: 10px; background: transparent; border: none; color: var(--text-main); cursor: pointer; border-radius: 8px; font-size: 14px;">Выйти на всех, кроме этого</button>
-                                    <button id="logout-all" style="display: block; width: 100%; text-align: left; padding: 10px; background: transparent; border: none; color: #F44336; cursor: pointer; border-radius: 8px; font-size: 14px;">Выйти везде</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="background: var(--bg-color); padding: 15px; border-radius: 8px; font-size: 13px; color: var(--text-muted);">
-                            Вы вошли с этого устройства. Все остальные сессии будут завершены по вашей команде.
-                        </div>
-                    </div>
+            <!-- Вкладка: Настройки -->
+            <div class="profile-tab" id="tab-settings">
+                <h2 class="tab-title">Настройки</h2>
+                
+                <form class="settings-form" id="settings-form">
+                    <label>Новое имя</label>
+                    <input type="text" id="settings-name" placeholder="Ваше имя">
+                    <button type="submit" class="btn btn--primary">Сохранить имя</button>
+                </form>
+
+                <form class="settings-form" id="password-form">
+                    <label>Новый пароль</label>
+                    <input type="password" id="new-password" placeholder="Минимум 6 символов">
+                    <button type="submit" class="btn btn--primary">Сменить пароль</button>
+                </form>
+
+                <div style="margin-top: 40px; border-top: 1px solid var(--border); padding-top: 20px;">
+                    <h4>Уведомления</h4>
+                    <label><input type="checkbox" checked> Email</label><br>
+                    <label><input type="checkbox" checked> Telegram</label><br>
+                    <label><input type="checkbox"> SMS</label>
+                </div>
+
+                <div style="margin-top: 40px; border-top: 1px solid var(--border); padding-top: 20px;">
+                    <h4 style="color: #F44336;">Удаление аккаунта</h4>
+                    <button class="btn" id="delete-account-btn" style="background: #F44336; color: #fff;">Удалить аккаунт</button>
                 </div>
             </div>
         </div>
-    </main>
+    </div>
+</main>
 
-    <footer class="footer">
-        <div class="container footer__inner">
-            <div class="footer__col">
-                <div class="footer__logo-group">
-                    <img src="assets/images/logo_full.png" alt="Dr. DarSun">
-                    <span class="footer__brand-text">Dr. DarSun</span>
-                </div>
-                <p class="footer__desc">Премиальные растительные масла. Сделано с душой.</p>
-            </div>
-            <div class="footer__col">
-                <h4>Покупателям</h4>
-                <a href="catalog.html">Каталог</a>
-                <a href="delivery.html">Доставка</a>
-                <a href="about.html">О нас</a>
-            </div>
-            <div class="footer__col">
-                <h4>Контакты</h4>
-                <a href="mailto:info@drdarsun.ru">info@drdarsun.ru</a>
-                <div class="socials">
-                    <a href="https://vk.ru/drdarsun" target="_blank" class="social-link" style="color: var(--text-main); font-size: 14px;">ВК</a>
-                    <a href="https://t.me/drdarsun" target="_blank" class="social-link" style="color: var(--text-main); font-size: 14px;">Telegram</a>
-                    <a href="https://www.instagram.com/drdarsun/" target="_blank" class="social-link" style="color: var(--text-main); font-size: 14px;">Instagram</a>
-                </div>
-            </div>
-        </div>
-        <div class="footer__bottom">
-            <div class="container">© 2026 Dr. DarSun. Все права защищены.</div>
-        </div>
-    </footer>
+<footer class="footer">
+    <!-- Футер (оставь свой) -->
+</footer>
 
-    <script src="js/main.js"></script>
-    <script type="module" src="js/profile.js"></script>
-    <script src="js/burger.js"></script>
-    <script type="module" src="js/auth-header.js"></script>
-    <script src="js/preloader.js"></script>
+<script src="js/main.js"></script>
+<script type="module" src="js/profile.js"></script>
+<script src="js/burger.js"></script>
+<script type="module" src="js/auth-header.js"></script>
+<script src="js/preloader.js"></script>
 </body>
 </html>

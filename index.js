@@ -404,6 +404,102 @@ app.post('/api/logout-others', async (req, res) => {
     }
 });
 
+// --- БЕЗОПАСНОСТЬ: ВЫХОД ВЕЗДЕ ---
+app.post('/api/logout-all', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'No auth' });
+
+    try {
+        // Отзываем ВСЕ сессии пользователя (scope: global)
+        await fetch(`${process.env.SUPABASE_URL}/auth/v1/logout?scope=global`, {
+            method: 'POST',
+            headers: {
+                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': authHeader,
+                'Content-Type': 'application/json'
+            }
+        });
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/logout-others', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'No auth' });
+
+    try {
+        // Отзываем все, КРОМЕ текущей (scope: others)
+        await fetch(`${process.env.SUPABASE_URL}/auth/v1/logout?scope=others`, {
+            method: 'POST',
+            headers: {
+                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': authHeader,
+                'Content-Type': 'application/json'
+            }
+        });
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// --- БЕЗОПАСНОСТЬ: УДАЛЕНИЕ АККАУНТА (Только через сервер) ---
+app.post('/api/delete-account', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'No auth' });
+
+    try {
+        // Получаем ID юзера из токена
+        const userRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+            headers: { 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY, 'Authorization': authHeader }
+        });
+        const user = await userRes.json();
+        if (!user.id) throw new Error('User not found');
+
+        // Удаляем через Admin API
+        const delRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users/${user.id}`, {
+            method: 'DELETE',
+            headers: {
+                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+            }
+        });
+        
+        if (!delRes.ok) throw new Error('Delete failed');
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// --- БЕЗОПАСНОСТЬ: СМЕНА ПОЧТЫ (с подтверждением) ---
+app.post('/api/change-email', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'No auth' });
+
+    try {
+        const { newEmail } = req.body;
+        // Supabase сам отправит письмо на старую и новую почту для подтверждения
+        const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+            method: 'PUT',
+            headers: {
+                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': authHeader,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email: newEmail })
+        });
+        
+        const data = await response.json();
+        if (data.error) throw new Error(data.error.message);
+        res.json({ success: true, message: 'Проверьте обе почты для подтверждения.' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // --- ПРОКСИ ДЛЯ ВСЕГО ОСТАЛЬНОГО ---
 app.all('*', async (req, res) => {
     try {

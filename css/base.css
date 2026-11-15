@@ -579,3 +579,48 @@ a { text-decoration: none; color: inherit; }
         padding: 20px;
     }
 }
+
+/* Тосты */
+.toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 10000;
+}
+.toast {
+    background: var(--bg-card);
+    color: var(--text-main);
+    padding: 16px 24px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transform: translateX(120%);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    max-width: 350px;
+}
+.toast.show { transform: translateX(0); }
+.toast.success { border-left: 4px solid #4CAF50; }
+.toast.error { border-left: 4px solid #F44336; }
+.toast.info { border-left: 4px solid var(--accent-gold); }
+
+/* Статусы заказов */
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.status-pending { background: rgba(245, 181, 27, 0.15); color: #F5B51B; }
+.status-processing { background: rgba(33, 150, 243, 0.15); color: #2196F3; }
+.status-shipped { background: rgba(156, 39, 176, 0.15); color: #9C27B0; }
+.status-delivered { background: rgba(76, 175, 80, 0.15); color: #4CAF50; }
+.status-cancelled { background: rgba(244, 67, 54, 0.15); color: #F44336; }
