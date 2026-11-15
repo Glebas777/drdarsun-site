@@ -64,6 +64,25 @@
                 </div>
             </form>
 
+            <!-- Форма восстановления пароля -->
+<form id="forgot-form" class="auth-form" style="display: none;">
+    <h2>Восстановление</h2>
+    <p class="auth-subtitle">Мы отправим ссылку для сброса пароля на вашу почту.</p>
+    
+    <div class="input-group">
+        <label>Email</label>
+        <input type="email" id="forgot-email" placeholder="your@email.com" required>
+    </div>
+    
+    <div class="login-actions">
+        <button type="submit" class="btn btn--primary btn--full">Отправить ссылку</button>
+    </div>
+    
+    <div style="text-align: center; margin-top: 15px;">
+        <a href="#" class="back-to-login" id="back-to-login" style="color: var(--text-muted); text-decoration: none; font-size: 14px;">Вернуться ко входу</a>
+    </div>
+</form>
+
             <div class="auth-divider">
                 <span>или войти через</span>
             </div>

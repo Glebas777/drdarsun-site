@@ -149,3 +149,18 @@ if (menuToggle && menuDropdown) {
         }
     });
 }
+
+// Переключение на форму восстановления
+document.getElementById('forgot-password')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('login-form').style.display = 'none';
+    document.getElementById('forgot-form').style.display = 'block';
+    document.getElementById('menu-dropdown').classList.remove('active');
+});
+
+// Возврат ко входу
+document.getElementById('back-to-login')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('forgot-form').style.display = 'none';
+    document.getElementById('login-form').style.display = 'block';
+});
