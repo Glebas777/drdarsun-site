@@ -110,3 +110,41 @@
     .preloader-ring { width: 70px; height: 70px; }
     .preloader-progress { bottom: 2%; }
 }
+
+/* Картинка в прелоадере с эффектом размытия */
+.preloader-sample {
+    width: 250px;
+    max-width: 80%;
+    animation: unblur 2s ease-out forwards; /* Эффект размытия */
+}
+
+@keyframes unblur {
+    0% {
+        filter: blur(20px);
+        opacity: 0.5;
+        transform: scale(0.95);
+    }
+    100% {
+        filter: blur(0px);
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Текст под картинкой */
+.preloader-text {
+    margin-top: 20px;
+    font-family: var(--font-main);
+    font-size: 16px;
+    color: var(--accent-gold);
+    text-align: center;
+    min-height: 24px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    animation: fadeText 0.5s ease;
+}
+
+@keyframes fadeText {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}

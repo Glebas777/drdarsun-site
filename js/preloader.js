@@ -1,7 +1,31 @@
 document.addEventListener('DOMContentLoaded', () => {
     const preloader = document.getElementById('preloader');
     const progressBar = document.querySelector('.preloader-progress-bar');
+    const textEl = document.getElementById('preloader-text');
     if (!preloader) return;
+
+    // Список фраз
+    const phrases = [
+        "Вставляем картинки...",
+        "Протираем пыль с картинок...",
+        "Настраиваем свет...",
+        "Доктор Брезель уже тут...",
+        "Почти готово..."
+    ];
+
+    let phraseIndex = 0;
+    
+    // Меняем текст каждые 1.5 секунды
+    const textInterval = setInterval(() => {
+        if (textEl) {
+            textEl.style.opacity = '0'; // Плавно скрываем
+            setTimeout(() => {
+                phraseIndex = (phraseIndex + 1) % phrases.length;
+                textEl.textContent = phrases[phraseIndex];
+                textEl.style.opacity = '1'; // Плавно показываем
+            }, 300);
+        }
+    }, 1500);
 
     const startTime = Date.now();
     const MIN_DURATION = 3000;
@@ -24,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 200);
 
     const hidePreloader = () => {
+        clearInterval(textInterval);
         clearInterval(progressInterval);
         if (progressBar) progressBar.style.width = '100%';
         setTimeout(() => preloader.classList.add('hidden'), 500);
@@ -38,3 +63,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
