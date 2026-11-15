@@ -1,13 +1,17 @@
 const express = require('express');
 const cors = require('cors');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const nodemailer = require('nodemailer');
+const PORT = process.env.PORT || 3000;
+const CF_WORKER = 'https://supabase-proxy.turgleb7.workers.dev';
+const LAYERO_ORIGIN = 'https://drdarsun-site-main.layero.app';
 
+// --- НАСТРОЙКА ПОЧТЫ ---
 const transporter = nodemailer.createTransport({
     host: 'smtp.yandex.ru',
     port: 465,
@@ -18,7 +22,6 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// В самом начале, после app.use(express.json());
 const verificationCodes = {};
 
 app.post('/api/send-code', async (req, res) => {
@@ -36,6 +39,7 @@ app.post('/api/send-code', async (req, res) => {
         });
         res.json({ success: true });
     } catch (e) {
+        console.error(e);
         res.status(500).json({ success: false, message: 'Ошибка отправки' });
     }
 });
@@ -50,15 +54,9 @@ app.post('/api/verify-code', (req, res) => {
     res.json({ success: true });
 });
 
-const PORT = process.env.PORT || 3000;
-const CF_WORKER = 'https://supabase-proxy.turgleb7.workers.dev';
-const LAYERO_ORIGIN = 'https://drdarsun-site-main.layero.app';
-
-// ==========================================
-// 1. КОСТЫЛЬ ДЛЯ ЯНДЕКСА (ПЕРЕХВАТЫВАЕТ ВХОД)
-// ==========================================
+// --- КОСТЫЛЬ ДЛЯ ЯНДЕКСА И GOOGLE ---
 app.get('/auth/v1/callback', async (req, res) => {
-    const { code, provider } = req.query; // provider мы не передаем, но можно определить по referer
+    const { code } = req.query;
     const referer = req.headers.referer || '';
     
     if (!code) return res.redirect('https://drdarsun.ru/login.html?error=no_code');
@@ -67,9 +65,7 @@ app.get('/auth/v1/callback', async (req, res) => {
         let email = null;
         let name = null;
 
-        // ОПРЕДЕЛЯЕМ ПРОВАЙДЕРА
         if (referer.includes('yandex')) {
-            // ЯНДЕКС
             const tokenRes = await fetch('https://oauth.yandex.ru/token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -91,7 +87,6 @@ app.get('/auth/v1/callback', async (req, res) => {
             name = userData.real_name || userData.display_name;
 
         } else if (referer.includes('google')) {
-            // GOOGLE
             const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -119,7 +114,7 @@ app.get('/auth/v1/callback', async (req, res) => {
 
         if (!email) throw new Error('No email');
 
-        // ГЕНЕРИРУЕМ MAGIC LINK
+        // Генерируем Magic Link
         const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
             method: 'POST',
             headers: {
@@ -136,6 +131,7 @@ app.get('/auth/v1/callback', async (req, res) => {
         
         const linkData = await linkRes.json();
         
+        // Если юзер не создан, создаем его и генерируем ссылку снова
         if (linkData.error || !linkData.hashed_token) {
             await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
                 method: 'POST',
@@ -176,9 +172,7 @@ app.get('/auth/v1/callback', async (req, res) => {
     }
 });
 
-// ==========================================
-// 2. УНИВЕРСАЛЬНЫЙ ПРОКСИ ДЛЯ ВСЕГО ОСТАЛЬНОГО
-// ==========================================
+// --- ПРОКСИ ДЛЯ ВСЕГО ОСТАЛЬНОГО ---
 app.all('*', async (req, res) => {
     try {
         const targetUrl = `${CF_WORKER}${req.originalUrl}`;
@@ -189,7 +183,6 @@ app.all('*', async (req, res) => {
             redirect: 'manual'
         });
         
-        // Копируем заголовки, КРОМЕ location
         res.status(response.status);
         response.headers.forEach((value, key) => {
             if (!['content-encoding', 'content-length', 'transfer-encoding', 'connection', 'location'].includes(key)) {
@@ -197,11 +190,9 @@ app.all('*', async (req, res) => {
             }
         });
 
-        // Переписываем Location (для Google и других OAuth)
         if ([301, 302, 303, 307, 308].includes(response.status)) {
             let location = response.headers.get('location');
             if (location) {
-                // Меняем старый Supabase на наш Layero
                 location = location.replace('https://rrpcqrvkhmlrdqvffnax.supabase.co', LAYERO_ORIGIN);
                 location = location.replace(encodeURIComponent('https://rrpcqrvkhmlrdqvffnax.supabase.co'), encodeURIComponent(LAYERO_ORIGIN));
                 res.setHeader('location', location);
@@ -216,7 +207,4 @@ app.all('*', async (req, res) => {
     }
 });
 
-// ==========================================
-// 3. ЗАПУСК
-// ==========================================
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

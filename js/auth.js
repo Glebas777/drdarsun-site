@@ -1,7 +1,7 @@
 import { supabase } from './supabase-client.js';
 
 const YANDEX_CLIENT_ID = 'b39d2bf86d0c448691056b68cd242e12';
-let isEmailVerified = false; // Флаг подтверждения
+let isEmailVerified = false;
 
 // 1. Вход через Яндекс
 document.getElementById('btn-yandex')?.addEventListener('click', () => {
@@ -59,7 +59,7 @@ document.getElementById('verify-btn')?.addEventListener('click', async () => {
 
         if (data.success) {
             alert('Почта подтверждена! Теперь вы можете завершить регистрацию.');
-            isEmailVerified = true; // ВОТ ФЛАГ
+            isEmailVerified = true;
             document.getElementById('verify-block').style.display = 'none';
             document.getElementById('submit-register').style.display = 'block';
             document.getElementById('submit-register').textContent = 'Завершить регистрацию';
@@ -71,7 +71,7 @@ document.getElementById('verify-btn')?.addEventListener('click', async () => {
     }
 });
 
-// 5. Регистрация (с проверкой флага)
+// 5. Регистрация
 document.getElementById('register-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -97,7 +97,7 @@ document.getElementById('register-form')?.addEventListener('submit', async (e) =
     }
 });
 
-// 6. Вход по Email (с обработкой ошибки)
+// 6. Вход по Email
 document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('login-email').value;
@@ -112,31 +112,19 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     }
 });
 
-// 7. Меню (три точки) - добавляем сюда, потому что на странице входа нет main.js
-const menuToggle = document.getElementById('menu-toggle');
-const menuDropdown = document.getElementById('menu-dropdown');
-if (menuToggle && menuDropdown) {
-    menuToggle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        menuDropdown.classList.toggle('active');
-    });
-    document.addEventListener('click', (e) => {
-        if (!menuToggle.contains(e.target) && !menuDropdown.contains(e.target)) {
-            menuDropdown.classList.remove('active');
-        }
-    });
-}
-
-// Бургер
+// 7. Бургер
 const burgerBtn = document.getElementById('burger-btn');
 const mobileMenu = document.getElementById('mobile-menu');
 if (burgerBtn && mobileMenu) {
     burgerBtn.addEventListener('click', () => {
+        burgerBtn.classList.toggle('active');
         mobileMenu.classList.toggle('active');
         if (mobileMenu.classList.contains('active')) {
+            document.body.style.overflow = 'hidden';
             mobileMenu.style.opacity = '1';
             mobileMenu.style.pointerEvents = 'auto';
         } else {
+            document.body.style.overflow = '';
             mobileMenu.style.opacity = '0';
             mobileMenu.style.pointerEvents = 'none';
         }
