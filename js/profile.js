@@ -7,15 +7,6 @@ async function init() {
     // 1. ДАННЫЕ
     document.getElementById('user-name').textContent = session.user.user_metadata.full_name || 'Гость';
     document.getElementById('user-email').textContent = session.user.email;
-    
-    const birthdateInput = document.getElementById('birthdate');
-    if (birthdateInput) {
-        birthdateInput.value = session.user.user_metadata.birthdate || '';
-        birthdateInput.addEventListener('change', async () => {
-            await supabase.auth.updateUser({ data: { birthdate: birthdateInput.value } });
-            showToast('Дата рождения сохранена!');
-        });
-    }
 
     // 2. АВАТАРКА
     const avatarInput = document.getElementById('avatar-input');
@@ -27,37 +18,24 @@ async function init() {
             const reader = new FileReader();
             reader.onload = (event) => {
                 avatarPreview.innerHTML = `<img src="${event.target.result}" alt="Avatar">`;
-                // В идеале: загрузить в Supabase Storage и сохранить URL в профиль
             };
             reader.readAsDataURL(file);
         });
     }
 
-    // 3. КОШЕЛЕК
+    // 3. КОШЕЛЕК (Исправлено: если нет данных, не падаем)
     const walletEl = document.getElementById('wallet-balance');
     if (walletEl) {
-        const { data: w } = await supabase.from('wallets').select('balance').eq('user_id', session.user.id).single();
-        walletEl.textContent = w ? `${w.balance} ₽` : '0 ₽';
-    }
-
-    // 4. ИСТОРИЯ ОПЕРАЦИЙ
-    const transList = document.getElementById('transactions-list');
-    if (transList) {
-        const { data: trans } = await supabase.from('transactions').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
-        if (!trans || trans.length === 0) {
-            transList.innerHTML = '<p style="color: var(--text-muted);">Пока нет операций.</p>';
+        const { data: w, error } = await supabase.from('wallets').select('balance').eq('user_id', session.user.id).maybeSingle();
+        if (error) {
+            console.error('Wallet Error:', error);
+            walletEl.textContent = '0 ₽';
         } else {
-            transList.innerHTML = trans.map(t => `
-                <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
-                    <span>${t.type === 'deposit' ? 'Пополнение' : 'Оплата'}</span>
-                    <span style="color: ${t.type === 'deposit' ? '#4CAF50' : '#F44336'};">${t.type === 'deposit' ? '+' : '-'}${t.amount} ₽</span>
-                    <span style="font-size: 12px; color: var(--text-muted);">${new Date(t.created_at).toLocaleDateString()}</span>
-                </div>
-            `).join('');
+            walletEl.textContent = w ? `${w.balance} ₽` : '0 ₽';
         }
     }
 
-    // 5. ЗАКАЗЫ (С КРАСИВЫМИ СТАТУСАМИ)
+    // 4. ЗАКАЗЫ (С КАРТИНКАМИ СТАТУСОВ) здесь был глеб ;)
     const ordersList = document.getElementById('orders-list');
     if (ordersList) {
         const { data: orders } = await supabase.from('orders').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
@@ -65,23 +43,39 @@ async function init() {
             ordersList.innerHTML = '<div class="empty-state">У вас пока нет заказов.</div>';
         } else {
             ordersList.innerHTML = orders.map(o => {
-                const statusClass = o.status === 'Доставлен' ? 'status-delivered' : 
-                                   o.status === 'В пути' ? 'status-shipped' : 'status-processing';
+                // Выбираем картинку статуса
+                let statusImg = '01_in_progress_gold.png'; // По умолчанию
+                if (o.status === 'Доставлен') statusImg = '03_delivered_green.png';
+                else if (o.status === 'В пути') statusImg = '02_in_transit_blue.png';
+                else if (o.status === 'Отменен') statusImg = '04_cancelled_red.png';
+
                 return `
                 <div class="order-card">
                     <div class="order-header">
                         <strong>Заказ #${o.id.split('-')[0]}</strong>
-                        <span class="status-badge ${statusClass}">${o.status || 'В обработке'}</span>
+                        <!-- Вставляем картинку статуса -->
+                        <div style="
+                            background-image: url('assets/images/${statusImg}'); 
+                            background-size: cover; 
+                            padding: 6px 16px; 
+                            border-radius: 20px; 
+                            color: #fff; 
+                            font-weight: 600; 
+                            font-size: 12px;
+                            text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+                            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                        ">
+                            ${o.status || 'В обработке'}
+                        </div>
                     </div>
                     <div style="font-size: 14px; color: var(--text-muted);">Товары: ${JSON.parse(o.items).length} шт.</div>
                     <div style="margin-top: 10px; font-weight: 600; color: var(--accent-green);">Итого: ${o.total} ₽</div>
-                    <button class="btn btn--primary" style="margin-top: 10px; width: 100%;" onclick="alert('Повтор заказа в разработке')">Повторить заказ</button>
                 </div>
             `}).join('');
         }
     }
 
-    // 6. ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
+    // 5. ВКЛАДКИ
     document.querySelectorAll('.profile-nav-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.profile-nav-btn').forEach(b => b.classList.remove('active'));
@@ -92,7 +86,7 @@ async function init() {
         });
     });
 
-    // 7. УСТРОЙСТВА И СЕССИИ
+    // 6. БЕЗОПАСНОСТЬ (Устройства и выходы)
     const devicesList = document.getElementById('devices-list');
     if (devicesList) {
         devicesList.innerHTML = `
@@ -125,64 +119,55 @@ async function init() {
         });
     }
 
-    // 8. 2FA (TOTP)
+    // 7. 2FA (TOTP) — Упрощенно, без ошибок
     const enable2faBtn = document.getElementById('enable-2fa-btn');
     if (enable2faBtn) {
         enable2faBtn.addEventListener('click', async () => {
-            const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
-            if (error) return showToast('Ошибка: ' + error.message, 'error');
-            
-            // Показываем QR-код (SVG) и секрет
-            const qrModal = document.createElement('div');
-            qrModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;display:flex;align-items:center;justify-content:center;';
-            qrModal.innerHTML = `
-                <div style="background:var(--bg-card);padding:30px;border-radius:20px;text-align:center;max-width:400px;">
-                    <h3 style="margin-bottom:15px;">Brezel's Guard</h3>
-                    <p style="color:var(--text-muted);margin-bottom:15px;">Отсканируйте QR-код в Google Authenticator</p>
-                    <img src="${data.totp.qr_code}" style="width:200px;height:200px;margin-bottom:15px;">
-                    <p style="font-size:12px;color:var(--text-muted);margin-bottom:15px;">Секретный ключ: <code>${data.totp.secret}</code></p>
-                    <input type="text" id="totp-code" placeholder="Введите 6 цифр" maxlength="6" style="width:100%;padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-color);color:var(--text-main);text-align:center;font-size:20px;margin-bottom:15px;">
-                    <button id="verify-totp" class="btn btn--primary" style="width:100%;margin-bottom:10px;">Подтвердить</button>
-                    <button id="close-totp" class="btn" style="width:100%;border:1px solid var(--border);">Отмена</button>
-                </div>
-            `;
-            document.body.appendChild(qrModal);
-
-            document.getElementById('close-totp').onclick = () => {
-                qrModal.remove();
-                supabase.auth.mfa.unenroll({ factorId: data.id });
-            };
-
-            document.getElementById('verify-totp').onclick = async () => {
-                const code = document.getElementById('totp-code').value;
-                if (code.length !== 6) return alert('Введите 6 цифр');
+            try {
+                const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
+                if (error) throw error;
                 
-                const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({ factorId: data.id, code: code });
-                if (verifyError) {
-                    alert('Неверный код: ' + verifyError.message);
-                } else {
+                const qrModal = document.createElement('div');
+                qrModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;display:flex;align-items:center;justify-content:center;';
+                qrModal.innerHTML = `
+                    <div style="background:var(--bg-card);padding:30px;border-radius:20px;text-align:center;max-width:400px;">
+                        <h3 style="margin-bottom:15px;">2FA</h3>
+                        <p style="color:var(--text-muted);margin-bottom:15px;">Отсканируйте QR-код в Google Authenticator</p>
+                        <img src="${data.totp.qr_code}" style="width:200px;height:200px;margin-bottom:15px;">
+                        <p style="font-size:12px;color:var(--text-muted);margin-bottom:15px;">Ключ: <code>${data.totp.secret}</code></p>
+                        <input type="text" id="totp-code" placeholder="Введите 6 цифр" maxlength="6" style="width:100%;padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-color);color:var(--text-main);text-align:center;font-size:20px;margin-bottom:15px;">
+                        <button id="verify-totp" class="btn btn--primary" style="width:100%;margin-bottom:10px;">Подтвердить</button>
+                        <button id="close-totp" class="btn" style="width:100%;border:1px solid var(--border);">Отмена</button>
+                    </div>
+                `;
+                document.body.appendChild(qrModal);
+
+                document.getElementById('close-totp').onclick = () => {
                     qrModal.remove();
-                    showToast('🛡️ Brezel\'s Guard активирован!');
-                    enable2faBtn.textContent = 'Включено';
-                    enable2faBtn.disabled = true;
-                }
-            };
+                    supabase.auth.mfa.unenroll({ factorId: data.id });
+                };
+
+                document.getElementById('verify-totp').onclick = async () => {
+                    const code = document.getElementById('totp-code').value;
+                    if (code.length !== 6) return alert('Введите 6 цифр');
+                    
+                    const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({ factorId: data.id, code: code });
+                    if (verifyError) {
+                        alert('Неверный код: ' + verifyError.message);
+                    } else {
+                        qrModal.remove();
+                        showToast('2FA активирован!');
+                        enable2faBtn.textContent = 'Включено';
+                        enable2faBtn.disabled = true;
+                    }
+                };
+            } catch (e) {
+                showToast('Ошибка: ' + e.message, 'error');
+            }
         });
     }
 
-    // 9. РЕЗЕРВНЫЕ КОДЫ
-    const generateCodesBtn = document.getElementById('generate-backup-codes');
-    if (generateCodesBtn) {
-        generateCodesBtn.addEventListener('click', () => {
-            const codes = Array.from({ length: 5 }, () => Math.random().toString(36).substring(2, 8).toUpperCase());
-            const list = document.getElementById('backup-codes-list');
-            list.style.display = 'block';
-            list.innerHTML = `<p style="color: var(--accent-gold);">Сохраните эти коды:</p>` + codes.map(c => `<div style="font-family: monospace; padding: 5px; font-size: 16px;">${c}</div>`).join('');
-            showToast('Коды сгенерированы!');
-        });
-    }
-
-    // 10. СМЕНА ИМЕНИ И ПАРОЛЯ
+    // 8. СМЕНА ИМЕНИ И ПАРОЛЯ
     const settingsForm = document.getElementById('settings-form');
     if (settingsForm) {
         document.getElementById('settings-name').value = session.user.user_metadata.full_name || '';
@@ -213,7 +198,7 @@ async function init() {
         });
     }
 
-    // 11. УДАЛЕНИЕ АККАУНТА
+    // 9. УДАЛЕНИЕ АККАУНТА
     document.getElementById('delete-account-btn')?.addEventListener('click', async () => {
         if (!confirm('Вы уверены, что хотите удалить аккаунт? Это действие необратимо.')) return;
         if (!confirm('Точно? Все ваши заказы и данные будут удалены.')) return;
@@ -232,22 +217,6 @@ async function init() {
             showToast('Ошибка удаления', 'error');
         }
     });
-
-    // 12. PASSKEY (FACE ID) — ВКЛЮЧАЕМ, ЕСЛИ ПОДДЕРЖИВАЕТСЯ
-    const passkeyBtn = document.getElementById('enable-passkey-btn');
-    if (passkeyBtn) {
-        passkeyBtn.addEventListener('click', async () => {
-            try {
-                const { data, error } = await supabase.auth.registerPasskey();
-                if (error) throw error;
-                showToast('Passkey (Face ID) активирован!');
-                passkeyBtn.textContent = 'Включено';
-                passkeyBtn.disabled = true;
-            } catch (e) {
-                showToast('Ошибка: ' + e.message, 'error');
-            }
-        });
-    }
 }
 
 // --- ТОСТЫ ---
@@ -271,3 +240,19 @@ window.showToast = function(message, type = 'success') {
 };
 
 document.addEventListener('DOMContentLoaded', init);
+    // --- АВАТАРКИ ---
+    const chooseAvatarBtn = document.getElementById('choose-avatar-btn');
+    const avatarModal = document.getElementById('avatar-modal');
+    const currentAvatar = document.getElementById('current-avatar');
+
+    if (chooseAvatarBtn) {
+        chooseAvatarBtn.addEventListener('click', () => {
+            avatarModal.style.display = 'flex';
+        });
+    }
+
+    window.selectAvatar = function(src) {
+        currentAvatar.src = src;
+        avatarModal.style.display = 'none';
+        showToast('Аватарка выбрана!');
+    };
