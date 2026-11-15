@@ -8,7 +8,7 @@ async function init() {
     document.getElementById('user-name').textContent = session.user.user_metadata.full_name || 'Гость';
     document.getElementById('user-email').textContent = session.user.email;
 
-    // 2. АВАТАРКА
+    // 2. АВАТАРКА (ЗАГРУЗКА)
     const avatarInput = document.getElementById('avatar-input');
     const avatarPreview = document.getElementById('avatar-preview');
     if (avatarInput) {
@@ -23,7 +23,24 @@ async function init() {
         });
     }
 
-    // 3. КОШЕЛЕК (Исправлено: если нет данных, не падаем)
+    // 3. АВАТАРКА (ВЫБОР ИЗ ГОТОВЫХ)
+    const chooseAvatarBtn = document.getElementById('choose-avatar-btn');
+    const avatarModal = document.getElementById('avatar-modal');
+    const currentAvatar = document.getElementById('current-avatar');
+
+    if (chooseAvatarBtn && avatarModal) {
+        chooseAvatarBtn.addEventListener('click', () => {
+            avatarModal.style.display = 'flex';
+        });
+    }
+
+    window.selectAvatar = function(src) {
+        if (currentAvatar) currentAvatar.src = src;
+        if (avatarModal) avatarModal.style.display = 'none';
+        showToast('Аватарка выбрана!');
+    };
+
+    // 4. КОШЕЛЕК
     const walletEl = document.getElementById('wallet-balance');
     if (walletEl) {
         const { data: w, error } = await supabase.from('wallets').select('balance').eq('user_id', session.user.id).maybeSingle();
@@ -35,7 +52,7 @@ async function init() {
         }
     }
 
-    // 4. ЗАКАЗЫ (С КАРТИНКАМИ СТАТУСОВ) здесь был глеб ;)
+    // 5. ЗАКАЗЫ
     const ordersList = document.getElementById('orders-list');
     if (ordersList) {
         const { data: orders } = await supabase.from('orders').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
@@ -43,8 +60,7 @@ async function init() {
             ordersList.innerHTML = '<div class="empty-state">У вас пока нет заказов.</div>';
         } else {
             ordersList.innerHTML = orders.map(o => {
-                // Выбираем картинку статуса
-                let statusImg = '01_in_progress_gold.png'; // По умолчанию
+                let statusImg = '01_in_progress_gold.png';
                 if (o.status === 'Доставлен') statusImg = '03_delivered_green.png';
                 else if (o.status === 'В пути') statusImg = '02_in_transit_blue.png';
                 else if (o.status === 'Отменен') statusImg = '04_cancelled_red.png';
@@ -53,18 +69,7 @@ async function init() {
                 <div class="order-card">
                     <div class="order-header">
                         <strong>Заказ #${o.id.split('-')[0]}</strong>
-                        <!-- Вставляем картинку статуса -->
-                        <div style="
-                            background-image: url('assets/images/${statusImg}'); 
-                            background-size: cover; 
-                            padding: 6px 16px; 
-                            border-radius: 20px; 
-                            color: #fff; 
-                            font-weight: 600; 
-                            font-size: 12px;
-                            text-shadow: 0 1px 2px rgba(0,0,0,0.6);
-                            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-                        ">
+                        <div style="background-image: url('assets/images/${statusImg}'); background-size: cover; padding: 6px 16px; border-radius: 20px; color: #fff; font-weight: 600; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.6); box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
                             ${o.status || 'В обработке'}
                         </div>
                     </div>
@@ -75,7 +80,7 @@ async function init() {
         }
     }
 
-    // 5. ВКЛАДКИ
+    // 6. ВКЛАДКИ
     document.querySelectorAll('.profile-nav-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.profile-nav-btn').forEach(b => b.classList.remove('active'));
@@ -86,7 +91,7 @@ async function init() {
         });
     });
 
-    // 6. БЕЗОПАСНОСТЬ (Устройства и выходы)
+    // 7. БЕЗОПАСНОСТЬ (Устройства и выходы)
     const devicesList = document.getElementById('devices-list');
     if (devicesList) {
         devicesList.innerHTML = `
@@ -119,7 +124,7 @@ async function init() {
         });
     }
 
-    // 7. 2FA (TOTP) — Упрощенно, без ошибок
+    // 8. 2FA (TOTP)
     const enable2faBtn = document.getElementById('enable-2fa-btn');
     if (enable2faBtn) {
         enable2faBtn.addEventListener('click', async () => {
@@ -167,7 +172,7 @@ async function init() {
         });
     }
 
-    // 8. СМЕНА ИМЕНИ И ПАРОЛЯ
+    // 9. СМЕНА ИМЕНИ И ПАРОЛЯ
     const settingsForm = document.getElementById('settings-form');
     if (settingsForm) {
         document.getElementById('settings-name').value = session.user.user_metadata.full_name || '';
@@ -198,7 +203,7 @@ async function init() {
         });
     }
 
-    // 9. УДАЛЕНИЕ АККАУНТА
+    // 10. УДАЛЕНИЕ АККАУНТА
     document.getElementById('delete-account-btn')?.addEventListener('click', async () => {
         if (!confirm('Вы уверены, что хотите удалить аккаунт? Это действие необратимо.')) return;
         if (!confirm('Точно? Все ваши заказы и данные будут удалены.')) return;
@@ -240,19 +245,3 @@ window.showToast = function(message, type = 'success') {
 };
 
 document.addEventListener('DOMContentLoaded', init);
-    // --- АВАТАРКИ ---
-    const chooseAvatarBtn = document.getElementById('choose-avatar-btn');
-    const avatarModal = document.getElementById('avatar-modal');
-    const currentAvatar = document.getElementById('current-avatar');
-
-    if (chooseAvatarBtn) {
-        chooseAvatarBtn.addEventListener('click', () => {
-            avatarModal.style.display = 'flex';
-        });
-    }
-
-    window.selectAvatar = function(src) {
-        currentAvatar.src = src;
-        avatarModal.style.display = 'none';
-        showToast('Аватарка выбрана!');
-    };
