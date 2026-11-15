@@ -32,26 +32,25 @@ const LAYERO_ORIGIN = 'https://drdarsun-site-main.layero.app';
 
 // --- НАСТРОЙКА ПОЧТЫ ---
 // 1. Отправка кодов (с твоей первой почты)
-const transporterSend = nodemailer.createTransport({
-    host: 'smtp.yandex.ru',
-    port: 587,
-    secure: false,
-    auth: {
-        user: process.env.MAIL_SEND_USER,
-        pass: process.env.MAIL_SEND_PASS
-    }
-});
+// --- ОТПРАВКА ЧЕРЕЗ RESEND ---
+const resendApiKey = process.env.RESEND_API_KEY;
 
-// 2. Отправка уведомлений тебе (со второй почты)
-const transporterNotify = nodemailer.createTransport({
-    host: 'smtp.yandex.ru',
-    port: 465,
-    secure: true,
-    auth: {
-        user: process.env.MAIL_RECEIVE_USER,
-        pass: process.env.MAIL_RECEIVE_PASS
-    }
-});
+async function sendEmail(to, subject, html) {
+    const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            from: 'Dr. DarSun <onboarding@resend.dev>', // Пока домен не подтвержден, только этот адрес
+            to: [to],
+            subject: subject,
+            html: html
+        })
+    });
+    return res.json();
+}
 
 const verificationCodes = {};
 
@@ -61,21 +60,21 @@ app.post('/api/send-code', async (req, res) => {
     verificationCodes[email] = { code, expires: Date.now() + 15 * 60 * 1000 };
 
     try {
-        await transporterSend.sendMail({
-            from: `"Dr. DarSun" <${process.env.MAIL_SEND_USER}>`,
-            to: email,
-            subject: 'Код подтверждения Dr. DarSun',
-            text: `Ваш код: ${code}`,
-            html: `<h2>Ваш код: ${code}</h2>`
-        });
+        const result = await sendEmail(
+            email,
+            'Код подтверждения Dr. DarSun',
+            `<h2>Ваш код: ${code}</h2>`
+        );
+        
+        if (result.error) {
+            console.error('Resend Error:', result.error);
+            return res.status(500).json({ success: false, message: 'Ошибка отправки', debug: result.error.message });
+        }
+        
         res.json({ success: true });
     } catch (e) {
-        console.error('SMTP Error:', e); // Это в логи Layero
-        res.status(500).json({ 
-            success: false, 
-            message: 'Ошибка отправки', 
-            debug: e.message // Это вернется в curl, чтобы мы увидели причину
-        });
+        console.error('SMTP Error:', e);
+        res.status(500).json({ success: false, message: 'Ошибка отправки', debug: e.message });
     }
 });
 
