@@ -43,7 +43,7 @@ async function sendEmail(to, subject, html) {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            from: 'Dr. DarSun <onboarding@resend.dev>', // Пока домен не подтвержден, только этот адрес
+            from: 'Dr. DarSun <noreply@drdarsun.ru>', // Пока домен не подтвержден, только этот адрес
             to: [to],
             subject: subject,
             html: html
