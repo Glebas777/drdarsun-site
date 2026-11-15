@@ -6,8 +6,26 @@
     <title>Dr. DarSun</title>
     <link rel="stylesheet" href="css/base.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
+<div id="preloader">
+    <div class="bg-image" id="bg-load_morning" style="background-image: url('assets/images/load_morning.png');"></div>
+    <div class="bg-image" id="bg-load_day" style="background-image: url('assets/images/load_day.png');"></div>
+    <div class="bg-image" id="bg-load_evening" style="background-image: url('assets/images/load_evening.png');"></div>
+    <div class="bg-image" id="bg-load_night" style="background-image: url('assets/images/load_night.png');"></div>
+
+    <img src="assets/images/load_doctor.png" class="preloader-side left" alt="">
+
+    <div class="preloader-content">
+        <img src="assets/images/load_ring.png" class="preloader-ring" alt="">
+        <img src="assets/images/load_sample.png" class="preloader-sample" alt="">
+    </div>
+
+    <div class="preloader-progress">
+        <div class="preloader-progress-bar"></div>
+    </div>
+</div>
 <header class="header">
     <div class="container header__inner">
         <a href="index.html" class="logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
@@ -88,17 +106,30 @@
     </footer>
 
     <button id="bot-toggle" style="position:fixed; bottom:20px; right:20px; width:60px; height:60px; border-radius:50%; background:var(--accent-gold); border:none; font-size:24px; cursor:pointer; z-index:999;">💬</button>
-    <div class="bot-modal" id="bot-modal">
-        <div class="bot-header"><h4>Доктор ДарСан</h4><button id="bot-close" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">×</button></div>
-        <div class="bot-messages" id="bot-messages"><div class="bot-msg">Здравствуйте! Я Доктор. Чем помочь?</div></div>
-        <div style="padding:15px; display:flex; flex-direction:column; gap:8px;">
-            <button class="bot-opt" data-msg="Привет">Привет</button>
-            <button class="bot-opt" data-msg="Что посоветуешь?">Что посоветуешь?</button>
+<!-- Бот -->
+<div class="bot-modal" id="bot-modal">
+    <div class="bot-header">
+        <h4>Доктор ДарСан</h4>
+        <button id="bot-close" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">×</button>
+    </div>
+    <div class="bot-messages" id="chat-messages">
+        <div class="msg-wrapper bot">
+            <div class="msg">Здравствуйте! Я Доктор. Чем помочь?</div>
         </div>
     </div>
+    <div style="padding:15px; display:flex; gap:8px; align-items:center;">
+        <button id="stickers-btn" style="background:transparent; border:none; color:var(--text-main); cursor:pointer;">😊</button>
+        <input type="text" id="chat-input" placeholder="Спросить Доктора..." style="flex:1; padding:10px; border-radius:20px; border:1px solid var(--border); background:var(--bg-color); color:var(--text-main);">
+        <button id="mic-btn" style="background:transparent; border:none; color:var(--text-main); cursor:pointer;">🎤</button>
+        <button id="chat-send" style="background:var(--accent-green); border:none; color:#fff; border-radius:50%; width:40px; height:40px; cursor:pointer;">→</button>
+    </div>
+    <div id="stickers-panel" class="stickers-panel"></div>
+</div>
 
     <script src="js/main.js"></script>
     <script src="js/burger.js"></script>
     <script type="module" src="js/auth-header.js"></script>
+        <script src="js/preloader.js"></script>
+<script type="module" src="js/chat.js"></script>
 </body>
 </html>
