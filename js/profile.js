@@ -52,6 +52,21 @@ async function init() {
         }
     }
 
+const transactionsList = document.getElementById('transactions-list');
+if (transactionsList) {
+    const { data: tx, error } = await supabase.from('transactions').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
+    if (error || !tx || tx.length === 0) {
+        transactionsList.innerHTML = '<div class="empty-state">Пока нет операций.</div>';
+    } else {
+        transactionsList.innerHTML = tx.map(t => `
+            <div style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid var(--border);">
+                <span>${t.type === 'deposit' ? 'Пополнение' : 'Списание'}</span>
+                <span style="color: ${t.type === 'deposit' ? 'green' : 'red'};">${t.type === 'deposit' ? '+' : '-'}${t.amount} ₽</span>
+            </div>
+        `).join('');
+    }
+}
+
     // 5. ЗАКАЗЫ
     const ordersList = document.getElementById('orders-list');
     if (ordersList) {
@@ -69,9 +84,10 @@ async function init() {
                 <div class="order-card">
                     <div class="order-header">
                         <strong>Заказ #${o.id.split('-')[0]}</strong>
-                        <div style="background-image: url('assets/images/${statusImg}'); background-size: cover; padding: 6px 16px; border-radius: 20px; color: #fff; font-weight: 600; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.6); box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-                            ${o.status || 'В обработке'}
-                        </div>
+<div style="width: 100%; height: 120px; background-image: url('assets/images/${statusImg}'); background-size: cover; background-position: center; border-radius: 12px; margin-top: 10px; opacity: 0.9; display: flex; align-items: flex-end; padding: 15px; box-sizing: border-box; position: relative;">
+    <span style="color: #fff; font-weight: 700; font-size: 14px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); z-index: 1;">${o.status || 'В обработке'}</span>
+    <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.6), transparent); border-radius: 12px;"></div>
+</div>
                     </div>
                     <div style="font-size: 14px; color: var(--text-muted);">Товары: ${Array.isArray(o.items) ? o.items.length : '0'} шт.</div>
                     <div style="margin-top: 10px; font-weight: 600; color: var(--accent-green);">Итого: ${o.total} ₽</div>
@@ -243,5 +259,22 @@ window.showToast = function(message, type = 'success') {
         setTimeout(() => toast.remove(), 400);
     }, 3000);
 };
+
+// Выход из текущей сессии
+document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    await supabase.auth.signOut();
+    window.location.href = 'index.html';
+});
+
+// Выход со всех устройств (очищает и в браузере)
+document.getElementById('logout-all-devices')?.addEventListener('click', async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    await fetch('https://drdarsun-site-main.layero.app/api/logout-all', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+    await supabase.auth.signOut(); // Очищаем сессию в браузере
+    window.location.href = 'index.html';
+});
 
 init();
