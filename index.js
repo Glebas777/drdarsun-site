@@ -35,8 +35,8 @@ const transporter = nodemailer.createTransport({
     port: 465,
     secure: true,
     auth: {
-        user: 'drdarsunrecipient@yandex.ru', // Твой адрес (захардкожен)
-        pass: process.env.POLUCHIT_POCHTA    // Пароль приложения от него
+        user: 'drdarsunrecipient@yandex.ru',
+        pass: process.env.POLUCHIT_POCHTA
     }
 });
 
@@ -49,7 +49,8 @@ app.post('/api/send-code', async (req, res) => {
 
     try {
         await transporter.sendMail({
-from: `"Dr. DarSun" <drdarsunrecipient@yandex.ru>`,            to: email,
+            from: `"Dr. DarSun" <drdarsunrecipient@yandex.ru>`,
+            to: email,
             subject: 'Код подтверждения Dr. DarSun',
             text: `Ваш код: ${code}`,
             html: `<h2>Ваш код: ${code}</h2>`
@@ -73,7 +74,7 @@ app.post('/api/verify-code', (req, res) => {
 
 // --- КОСТЫЛЬ ДЛЯ ЯНДЕКСА И GOOGLE ---
 app.get('/auth/v1/callback', async (req, res) => {
-    const { code, provider } = req.query; // <--- ДОБАВИЛ provider
+    const { code, provider } = req.query;
     const referer = req.headers.referer || '';
     
     if (!code) return res.redirect('https://drdarsun.ru/login.html?error=no_code');
@@ -81,18 +82,36 @@ app.get('/auth/v1/callback', async (req, res) => {
     try {
         let email = null;
         let name = null;
-        let tokenRes;
 
-        // Определяем провайдера по query-параметру, а не по referer
+        // ЯНДЕКС
         if (provider === 'yandex' || referer.includes('yandex')) {
-            // ... (код для Яндекса, без изменений)
+            const tokenRes = await fetch('https://oauth.yandex.ru/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    grant_type: 'authorization_code',
+                    code: code,
+                    client_id: process.env.YANDEX_CLIENT_ID,
+                    client_secret: process.env.YANDEX_SECRET_ID
+                })
+            });
+            const tokenData = await tokenRes.json();
+            if (!tokenData.access_token) throw new Error('No Yandex token');
+
+            const userRes = await fetch('https://login.yandex.ru/info?format=json', {
+                headers: { 'Authorization': `OAuth ${tokenData.access_token}` }
+            });
+            const userData = await userRes.json();
+            email = userData.default_email;
+            name = userData.real_name || userData.display_name;
+
+        // GOOGLE
         } else if (provider === 'google' || referer.includes('google')) {
-            // Устанавливаем таймаут 5 секунд
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 5000);
+            const timeout = setTimeout(() => controller.abort(), 15000);
 
             try {
-                tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+                const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: new URLSearchParams({
@@ -105,14 +124,21 @@ app.get('/auth/v1/callback', async (req, res) => {
                     signal: controller.signal
                 });
                 clearTimeout(timeout);
+                
+                const tokenData = await tokenRes.json();
+                if (!tokenData.access_token) throw new Error('No Google token');
+
+                const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+                    headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
+                });
+                const userData = await userRes.json();
+                email = userData.email;
+                name = userData.name;
             } catch (e) {
                 clearTimeout(timeout);
                 throw new Error('Google timeout');
             }
 
-            const tokenData = await tokenRes.json();
-            if (!tokenData.access_token) throw new Error('No Google token');
-            // ... (остальной код)
         } else {
             throw new Error('Unknown provider');
         }
