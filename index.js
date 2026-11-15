@@ -330,13 +330,12 @@ app.post('/api/register', async (req, res) => {
         res.status(500).json({ success: false, message: e.message });
     }
 });
-
 app.post('/api/reset-password', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ success: false, message: 'Введите email' });
 
     try {
-        // 1. Генерируем ссылку для сброса через Admin API
+        // 1. Генерируем ссылку для сброса
         const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
             method: 'POST',
             headers: {
@@ -357,11 +356,14 @@ app.post('/api/reset-password', async (req, res) => {
             return res.status(400).json({ success: false, message: linkData.error.message });
         }
 
-        // 2. Отправляем письмо через Resend
+        // 2. Формируем ПРЯМУЮ ссылку на наш домен (через hashed_token)
+        const directLink = `https://drdarsun.ru/auth/confirm?token_hash=${linkData.hashed_token}&type=recovery`;
+
+        // 3. Отправляем письмо через Resend
         const emailHtml = `
             <h2>Сброс пароля Dr. DarSun</h2>
             <p>Для сброса пароля перейдите по ссылке ниже:</p>
-            <a href="${linkData.action_link}" style="display: inline-block; padding: 10px 20px; background: #1B5E20; color: #fff; text-decoration: none; border-radius: 8px;">Сбросить пароль</a>
+            <a href="${directLink}" style="display: inline-block; padding: 10px 20px; background: #D4AF37; color: #000; text-decoration: none; border-radius: 8px;">Сбросить пароль</a>
             <p style="color: #666; font-size: 12px; margin-top: 20px;">Если вы не запрашивали сброс, просто проигнорируйте это письмо.</p>
         `;
 

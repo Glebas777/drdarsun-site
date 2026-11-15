@@ -134,3 +134,18 @@ if (forgotForm) {
         }
     });
 }
+
+// --- МЕНЮ (ТРОЕТОЧИЕ) ---
+const menuToggle = document.getElementById('menu-toggle');
+const menuDropdown = document.getElementById('menu-dropdown');
+if (menuToggle && menuDropdown) {
+    menuToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuDropdown.classList.toggle('active');
+    });
+    document.addEventListener('click', (e) => {
+        if (!menuToggle.contains(e.target) && !menuDropdown.contains(e.target)) {
+            menuDropdown.classList.remove('active');
+        }
+    });
+}
