@@ -123,12 +123,16 @@
                     <input type="password" id="reg-password" placeholder="••••••••" required>
                 </div>
 
-                <!-- Блок подтверждения (скрыт) -->
-                <div id="verify-block">
-                    <p class="verify-title">Введите 4-значный код из письма</p>
-                    <input type="text" id="verify-code" class="verify-code-input" placeholder="0000" maxlength="4">
-                    <button type="button" id="verify-btn" class="btn btn--primary btn--full" style="background: #4CAF50; color: #fff; border: none;">Подтвердить</button>
-                </div>
+<!-- Блок подтверждения (скрыт) -->
+<div id="verify-block" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #2A2A2A;">
+    <p class="verify-title" style="color: #D4AF37; font-size: 14px; margin-bottom: 10px; text-align: center;">Введите 6-значный код из письма</p>
+    <input type="text" id="verify-code" class="verify-code-input" placeholder="000000" maxlength="6" style="width: 100%; padding: 15px; background: #0A0A0A; border: 1px solid #2A2A2A; border-radius: 12px; color: #fff; text-align: center; font-size: 24px; letter-spacing: 10px; outline: none; margin-bottom: 10px;">
+    
+    <p id="verify-timer" style="font-size: 12px; color: #888; text-align: center; margin-bottom: 15px;"></p>
+    
+    <button type="button" id="verify-btn" class="btn btn--primary btn--full" style="background: #4CAF50; color: #fff; border: none; margin-bottom: 10px;">Подтвердить</button>
+    <button type="button" id="cancel-verify-btn" class="btn btn--full" style="background: transparent; color: #888; border: 1px solid #333;">Отмена</button>
+</div>
 
                 <div class="login-actions">
                     <button type="submit" class="btn btn--primary btn--full" id="submit-register">Зарегистрироваться</button>

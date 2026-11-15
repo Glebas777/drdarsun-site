@@ -2,6 +2,7 @@ import { supabase } from './supabase-client.js';
 
 const YANDEX_CLIENT_ID = 'b39d2bf86d0c448691056b68cd242e12';
 let isEmailVerified = false;
+let countdownInterval = null;
 
 // 1. Вход через Яндекс
 document.getElementById('btn-yandex')?.addEventListener('click', () => {
@@ -15,6 +16,7 @@ document.getElementById('btn-google')?.addEventListener('click', () => {
     window.location.href = googleAuthUrl;
 });
 
+// 3. Отправка кода
 document.getElementById('send-code-btn')?.addEventListener('click', async () => {
     const email = document.getElementById('reg-email').value;
     if (!email) return alert('Введите email');
@@ -22,23 +24,22 @@ document.getElementById('send-code-btn')?.addEventListener('click', async () => 
     const btn = document.getElementById('send-code-btn');
     btn.disabled = true;
 
-    // Отправляем код через Supabase (он уже настроен на твою почту)
     const { error } = await supabase.auth.signInWithOtp({
         email: email,
-        options: {
-            shouldCreateUser: true,
-        }
+        options: { shouldCreateUser: true }
     });
 
     if (error) {
         alert('Ошибка отправки: ' + error.message);
         btn.disabled = false;
     } else {
-        alert('Код отправлен на почту!');
+        alert('6-значный код отправлен на почту!');
         document.getElementById('verify-block').style.display = 'block';
+        startCountdown(15 * 60);
     }
 });
 
+// 4. Проверка кода
 document.getElementById('verify-btn')?.addEventListener('click', async () => {
     const email = document.getElementById('reg-email').value;
     const code = document.getElementById('verify-code').value;
@@ -57,10 +58,46 @@ document.getElementById('verify-btn')?.addEventListener('click', async () => {
         document.getElementById('verify-block').style.display = 'none';
         document.getElementById('submit-register').style.display = 'block';
         document.getElementById('submit-register').textContent = 'Завершить регистрацию';
+        if (countdownInterval) clearInterval(countdownInterval);
     }
 });
 
-// 5. Регистрация (уже после подтверждения)
+// 5. Отмена подтверждения
+document.getElementById('cancel-verify-btn')?.addEventListener('click', () => {
+    document.getElementById('verify-block').style.display = 'none';
+    document.getElementById('send-code-btn').disabled = false;
+    document.getElementById('verify-code').value = '';
+    isEmailVerified = false;
+    if (countdownInterval) clearInterval(countdownInterval);
+});
+
+// 6. Таймер
+function startCountdown(seconds) {
+    if (countdownInterval) clearInterval(countdownInterval);
+    const timerEl = document.getElementById('verify-timer');
+    if (!timerEl) return;
+    
+    let timeLeft = seconds;
+    timerEl.textContent = `Код действителен: ${formatTime(timeLeft)}`;
+    
+    countdownInterval = setInterval(() => {
+        timeLeft--;
+        timerEl.textContent = `Код действителен: ${formatTime(timeLeft)}`;
+        if (timeLeft <= 0) {
+            clearInterval(countdownInterval);
+            timerEl.textContent = 'Код истек. Запросите новый.';
+            document.getElementById('send-code-btn').disabled = false;
+        }
+    }, 1000);
+}
+
+function formatTime(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+// 7. Регистрация
 document.getElementById('register-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -86,7 +123,7 @@ document.getElementById('register-form')?.addEventListener('submit', async (e) =
     }
 });
 
-// 6. Вход по Email
+// 8. Вход по Email
 document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('login-email').value;
@@ -101,7 +138,7 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     }
 });
 
-// 7. Бургер (без изменений)
+// 9. Бургер
 const burgerBtn = document.getElementById('burger-btn');
 const mobileMenu = document.getElementById('mobile-menu');
 if (burgerBtn && mobileMenu) {

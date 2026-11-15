@@ -204,3 +204,38 @@ body.dark-theme .auth-box {
 body.auth-page {
     padding-bottom: 0; /* Убираем отступ снизу, который ломает центрирование */
 }
+
+/* Мобильная адаптация для страниц входа/регистрации */
+@media (max-width: 768px) {
+    .auth-container {
+        padding: 15px !important;
+    }
+    .auth-box {
+        padding: 25px 20px !important;
+        border-radius: 20px !important;
+    }
+    .auth-header h2 {
+        font-size: 28px !important;
+    }
+    .auth-header p {
+        font-size: 14px !important;
+    }
+    .social-btn {
+        font-size: 13px !important;
+        padding: 12px !important;
+    }
+    .auth-socials {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    .input-with-btn input {
+        padding-right: 50px !important;
+    }
+    .verify-code-input {
+        font-size: 20px !important;
+        letter-spacing: 5px !important;
+    }
+    .auth-tabs button {
+        font-size: 14px !important;
+    }
+}
