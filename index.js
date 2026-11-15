@@ -30,11 +30,20 @@ const PORT = process.env.PORT || 3000;
 const CF_WORKER = 'https://supabase-proxy.turgleb7.workers.dev';
 const LAYERO_ORIGIN = 'https://drdarsun-site-main.layero.app';
 
-// --- НАСТРОЙКА ПОЧТЫ ---
-// 1. Отправка кодов (с твоей первой почты)
-// --- ОТПРАВКА ЧЕРЕЗ RESEND ---
-const resendApiKey = process.env.RESEND_API_KEY;
+// --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ RETRY ---
+async function fetchWithRetry(url, options, retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await fetch(url, options);
+        } catch (e) {
+            if (i === retries - 1) throw e;
+            await new Promise(r => setTimeout(r, 1000));
+        }
+    }
+}
 
+// --- НАСТРОЙКА ПОЧТЫ (RESEND) ---
+const resendApiKey = process.env.RESEND_API_KEY;
 async function sendEmail(to, subject, html) {
     const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -43,7 +52,7 @@ async function sendEmail(to, subject, html) {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            from: 'Dr. DarSun <noreply@drdarsun.ru>', // Пока домен не подтвержден, только этот адрес
+            from: 'Dr. DarSun <noreply@drdarsun.ru>',
             to: [to],
             subject: subject,
             html: html
@@ -51,8 +60,6 @@ async function sendEmail(to, subject, html) {
     });
     return res.json();
 }
-
-
 
 const verificationCodes = {};
 
@@ -62,17 +69,11 @@ app.post('/api/send-code', async (req, res) => {
     verificationCodes[email] = { code, expires: Date.now() + 15 * 60 * 1000 };
 
     try {
-        const result = await sendEmail(
-            email,
-            'Код подтверждения Dr. DarSun',
-            `<h2>Ваш код: ${code}</h2>`
-        );
-        
+        const result = await sendEmail(email, 'Код подтверждения Dr. DarSun', `<h2>Ваш код: ${code}</h2>`);
         if (result.error) {
             console.error('Resend Error:', result.error);
             return res.status(500).json({ success: false, message: 'Ошибка отправки', debug: result.error.message });
         }
-        
         res.json({ success: true });
     } catch (e) {
         console.error('SMTP Error:', e);
@@ -96,7 +97,7 @@ app.get('/auth/v1/callback/yandex', async (req, res) => {
     if (!code) return res.redirect('https://drdarsun.ru/login.html?error=no_code');
 
     try {
-        const tokenRes = await fetch('https://oauth.yandex.ru/token', {
+        const tokenRes = await fetchWithRetry('https://oauth.yandex.ru/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({
@@ -109,13 +110,12 @@ app.get('/auth/v1/callback/yandex', async (req, res) => {
         const tokenData = await tokenRes.json();
         if (!tokenData.access_token) throw new Error('No Yandex token');
 
-        const userRes = await fetch('https://login.yandex.ru/info?format=json', {
+        const userRes = await fetchWithRetry('https://login.yandex.ru/info?format=json', {
             headers: { 'Authorization': `OAuth ${tokenData.access_token}` }
         });
         const userData = await userRes.json();
         const email = userData.default_email;
         const name = userData.real_name || userData.display_name;
-
         if (!email) throw new Error('No email');
 
         const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
@@ -131,7 +131,6 @@ app.get('/auth/v1/callback/yandex', async (req, res) => {
                 options: { redirect_to: 'https://drdarsun.ru/profile.html' }
             })
         });
-        
         const linkData = await linkRes.json();
         
         if (linkData.error || !linkData.hashed_token) {
@@ -142,11 +141,7 @@ app.get('/auth/v1/callback/yandex', async (req, res) => {
                     'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    email: email,
-                    email_confirm: true,
-                    user_metadata: { full_name: name }
-                })
+                body: JSON.stringify({ email, email_confirm: true, user_metadata: { full_name: name } })
             });
             const retryLinkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
                 method: 'POST',
@@ -164,7 +159,6 @@ app.get('/auth/v1/callback/yandex', async (req, res) => {
             const retryData = await retryLinkRes.json();
             return res.redirect(`https://drdarsun.ru/auth/confirm?token_hash=${retryData.hashed_token}&type=magiclink`);
         }
-
         res.redirect(`https://drdarsun.ru/auth/confirm?token_hash=${linkData.hashed_token}&type=magiclink`);
     } catch (e) {
         console.error('Yandex Auth Error:', e);
@@ -176,28 +170,9 @@ app.get('/auth/v1/callback/yandex', async (req, res) => {
 app.get('/auth/v1/callback/google', async (req, res) => {
     const { code } = req.query;
     if (!code) return res.redirect('https://drdarsun.ru/login.html?error=no_code');
-    // Вспомогательная функция (добавь в начало, после констант)
-async function fetchWithRetry(url, options, retries = 3) {
-    for (let i = 0; i < retries; i++) {
-        try {
-            return await fetch(url, options);
-        } catch (e) {
-            if (i === retries - 1) throw e;
-            await new Promise(r => setTimeout(r, 1000));
-        }
-    }
-}
-
-// В блоке Google замени userRes:
-const userRes = await fetchWithRetry('https://www.googleapis.com/oauth2/v2/userinfo', {
-    headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
-});
 
     try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
-
-        const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        const tokenRes = await fetchWithRetry('https://oauth2.googleapis.com/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({
@@ -206,21 +181,17 @@ const userRes = await fetchWithRetry('https://www.googleapis.com/oauth2/v2/useri
                 client_id: '1059795226527-fgrb9i2ccikq0e6pkolpjj36t2a6i2i3.apps.googleusercontent.com',
                 client_secret: process.env.GOOGLE_CLIENT_SECRET,
                 redirect_uri: 'https://drdarsun-site-main.layero.app/auth/v1/callback/google'
-            }),
-            signal: controller.signal
+            })
         });
-        clearTimeout(timeout);
-
         const tokenData = await tokenRes.json();
         if (!tokenData.access_token) throw new Error('No Google token');
 
-        const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        const userRes = await fetchWithRetry('https://www.googleapis.com/oauth2/v2/userinfo', {
             headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
         });
         const userData = await userRes.json();
         const email = userData.email;
         const name = userData.name;
-
         if (!email) throw new Error('No email');
 
         const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
@@ -236,7 +207,6 @@ const userRes = await fetchWithRetry('https://www.googleapis.com/oauth2/v2/useri
                 options: { redirect_to: 'https://drdarsun.ru/profile.html' }
             })
         });
-        
         const linkData = await linkRes.json();
         
         if (linkData.error || !linkData.hashed_token) {
@@ -247,11 +217,7 @@ const userRes = await fetchWithRetry('https://www.googleapis.com/oauth2/v2/useri
                     'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    email: email,
-                    email_confirm: true,
-                    user_metadata: { full_name: name }
-                })
+                body: JSON.stringify({ email, email_confirm: true, user_metadata: { full_name: name } })
             });
             const retryLinkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
                 method: 'POST',
@@ -269,7 +235,6 @@ const userRes = await fetchWithRetry('https://www.googleapis.com/oauth2/v2/useri
             const retryData = await retryLinkRes.json();
             return res.redirect(`https://drdarsun.ru/auth/confirm?token_hash=${retryData.hashed_token}&type=magiclink`);
         }
-
         res.redirect(`https://drdarsun.ru/auth/confirm?token_hash=${linkData.hashed_token}&type=magiclink`);
     } catch (e) {
         console.error('Google Auth Error:', e);
@@ -312,9 +277,7 @@ app.post('/api/gigachat', async (req, res) => {
 
         const data = await zvenoRes.json();
         let reply = data.choices?.[0]?.message?.content || 'Ох, старый я стал.';
-
         res.json({ reply });
-
     } catch (e) {
         console.error(e);
         res.json({ reply: 'Ошибка сервера.' });
@@ -331,12 +294,7 @@ app.post('/api/register', async (req, res) => {
                 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                email: email,
-                password: password,
-                email_confirm: true,
-                user_metadata: { full_name: name }
-            })
+            body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { full_name: name } })
         });
         const createData = await createRes.json();
         if (createData.error) throw new Error(createData.error.message);
@@ -346,12 +304,12 @@ app.post('/api/register', async (req, res) => {
         res.status(500).json({ success: false, message: e.message });
     }
 });
+
 app.post('/api/reset-password', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ success: false, message: 'Введите email' });
 
     try {
-        // 1. Генерируем ссылку для сброса
         const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
             method: 'POST',
             headers: {
@@ -365,17 +323,11 @@ app.post('/api/reset-password', async (req, res) => {
                 options: { redirect_to: 'https://drdarsun.ru/reset.html' }
             })
         });
-        
         const linkData = await linkRes.json();
-        
-        if (linkData.error) {
-            return res.status(400).json({ success: false, message: linkData.error.message });
-        }
+        if (linkData.error) return res.status(400).json({ success: false, message: linkData.error.message });
 
-        // 2. Формируем ПРЯМУЮ ссылку на наш домен (через hashed_token)
         const directLink = `https://drdarsun.ru/auth/confirm?token_hash=${linkData.hashed_token}&type=recovery`;
 
-        // 3. Отправляем письмо через Resend
         const emailHtml = `
             <h2>Сброс пароля Dr. DarSun</h2>
             <p>Для сброса пароля перейдите по ссылке ниже:</p>
@@ -383,18 +335,10 @@ app.post('/api/reset-password', async (req, res) => {
             <p style="color: #666; font-size: 12px; margin-top: 20px;">Если вы не запрашивали сброс, просто проигнорируйте это письмо.</p>
         `;
 
-        const result = await sendEmail(
-            email,
-            'Сброс пароля Dr. DarSun',
-            emailHtml
-        );
-
-        if (result.error) {
-            return res.status(500).json({ success: false, message: 'Ошибка отправки', debug: result.error.message });
-        }
+        const result = await sendEmail(email, 'Сброс пароля Dr. DarSun', emailHtml);
+        if (result.error) return res.status(500).json({ success: false, message: 'Ошибка отправки', debug: result.error.message });
 
         res.json({ success: true, message: 'Ссылка для сброса отправлена на почту.' });
-
     } catch (e) {
         console.error('Reset Password Error:', e);
         res.status(500).json({ success: false, message: 'Ошибка сервера.' });
@@ -406,7 +350,7 @@ app.post('/api/logout-others', async (req, res) => {
     if (!authHeader) return res.status(401).json({ error: 'No auth' });
 
     try {
-        const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/logout?scope=others`, {
+        await fetch(`${process.env.SUPABASE_URL}/auth/v1/logout?scope=others`, {
             method: 'POST',
             headers: {
                 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -420,34 +364,12 @@ app.post('/api/logout-others', async (req, res) => {
     }
 });
 
-// --- БЕЗОПАСНОСТЬ: ВЫХОД ВЕЗДЕ ---
 app.post('/api/logout-all', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'No auth' });
 
     try {
-        // Отзываем ВСЕ сессии пользователя (scope: global)
         await fetch(`${process.env.SUPABASE_URL}/auth/v1/logout?scope=global`, {
-            method: 'POST',
-            headers: {
-                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-                'Authorization': authHeader,
-                'Content-Type': 'application/json'
-            }
-        });
-        res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-app.post('/api/logout-others', async (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ error: 'No auth' });
-
-    try {
-        // Отзываем все, КРОМЕ текущей (scope: others)
-        await fetch(`${process.env.SUPABASE_URL}/auth/v1/logout?scope=others`, {
             method: 'POST',
             headers: {
                 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -466,17 +388,15 @@ app.post('/api/delete-account', async (req, res) => {
     if (!authHeader) return res.status(401).json({ error: 'No auth' });
 
     try {
-        // 1. Получаем ID юзера по его токену (через anon ключ)
         const userRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
             headers: { 
-                'apikey': process.env.SUPABASE_ANON_KEY, // <--- ANON, не SERVICE!
+                'apikey': process.env.SUPABASE_ANON_KEY,
                 'Authorization': authHeader 
             }
         });
         const user = await userRes.json();
         if (!user.id) throw new Error('User not found');
 
-        // 2. Удаляем через Admin API (SERVICE_ROLE)
         const delRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users/${user.id}`, {
             method: 'DELETE',
             headers: {
@@ -484,7 +404,6 @@ app.post('/api/delete-account', async (req, res) => {
                 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
             }
         });
-        
         if (!delRes.ok) throw new Error('Delete failed');
         res.json({ success: true });
     } catch (e) {
@@ -493,14 +412,12 @@ app.post('/api/delete-account', async (req, res) => {
     }
 });
 
-// --- БЕЗОПАСНОСТЬ: СМЕНА ПОЧТЫ (с подтверждением) ---
 app.post('/api/change-email', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'No auth' });
 
     try {
         const { newEmail } = req.body;
-        // Supabase сам отправит письмо на старую и новую почту для подтверждения
         const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
             method: 'PUT',
             headers: {
@@ -510,7 +427,6 @@ app.post('/api/change-email', async (req, res) => {
             },
             body: JSON.stringify({ email: newEmail })
         });
-        
         const data = await response.json();
         if (data.error) throw new Error(data.error.message);
         res.json({ success: true, message: 'Проверьте обе почты для подтверждения.' });

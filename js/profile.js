@@ -1,9 +1,11 @@
 import { supabase } from './supabase-client.js';
 
 async function init() {
-const { data: { session } } = await supabase.auth.getSession();
-if (!session) return showToast('Сессия истекла. Войдите заново.', 'error');
-await supabase.auth.refreshSession(); // <--- ДОБАВЬ ЭТО
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        showToast('Сессия истекла. Войдите заново.', 'error');
+        return window.location.href = 'login.html';
+    }
 
     // 1. ДАННЫЕ
     document.getElementById('user-name').textContent = session.user.user_metadata.full_name || 'Гость';
@@ -24,17 +26,13 @@ await supabase.auth.refreshSession(); // <--- ДОБАВЬ ЭТО
         });
     }
 
-    // 3. АВАТАРКА (ВЫБОР ИЗ ГОТОВЫХ)
+    // 3. АВАТАРКА (ВЫБОР)
     const chooseAvatarBtn = document.getElementById('choose-avatar-btn');
     const avatarModal = document.getElementById('avatar-modal');
     const currentAvatar = document.getElementById('current-avatar');
-
     if (chooseAvatarBtn && avatarModal) {
-        chooseAvatarBtn.addEventListener('click', () => {
-            avatarModal.style.display = 'flex';
-        });
+        chooseAvatarBtn.addEventListener('click', () => avatarModal.style.display = 'flex');
     }
-
     window.selectAvatar = function(src) {
         if (currentAvatar) currentAvatar.src = src;
         if (avatarModal) avatarModal.style.display = 'none';
@@ -45,30 +43,27 @@ await supabase.auth.refreshSession(); // <--- ДОБАВЬ ЭТО
     const walletEl = document.getElementById('wallet-balance');
     if (walletEl) {
         const { data: w, error } = await supabase.from('wallets').select('balance').eq('user_id', session.user.id).maybeSingle();
-        if (error) {
-            console.error('Wallet Error:', error);
-            walletEl.textContent = '0 ₽';
+        if (error) { console.error(error); walletEl.textContent = '0 ₽'; }
+        else walletEl.textContent = w ? `${w.balance} ₽` : '0 ₽';
+    }
+
+    // 5. ИСТОРИЯ ОПЕРАЦИЙ
+    const transactionsList = document.getElementById('transactions-list');
+    if (transactionsList) {
+        const { data: tx, error } = await supabase.from('transactions').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
+        if (error || !tx || tx.length === 0) {
+            transactionsList.innerHTML = '<div class="empty-state">Пока нет операций.</div>';
         } else {
-            walletEl.textContent = w ? `${w.balance} ₽` : '0 ₽';
+            transactionsList.innerHTML = tx.map(t => `
+                <div style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid var(--border);">
+                    <span>${t.type === 'deposit' ? 'Пополнение' : 'Списание'}</span>
+                    <span style="color: ${t.type === 'deposit' ? 'green' : 'red'};">${t.type === 'deposit' ? '+' : '-'}${t.amount} ₽</span>
+                </div>
+            `).join('');
         }
     }
 
-const transactionsList = document.getElementById('transactions-list');
-if (transactionsList) {
-    const { data: tx, error } = await supabase.from('transactions').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
-    if (error || !tx || tx.length === 0) {
-        transactionsList.innerHTML = '<div class="empty-state">Пока нет операций.</div>';
-    } else {
-        transactionsList.innerHTML = tx.map(t => `
-            <div style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid var(--border);">
-                <span>${t.type === 'deposit' ? 'Пополнение' : 'Списание'}</span>
-                <span style="color: ${t.type === 'deposit' ? 'green' : 'red'};">${t.type === 'deposit' ? '+' : '-'}${t.amount} ₽</span>
-            </div>
-        `).join('');
-    }
-}
-
-    // 5. ЗАКАЗЫ
+    // 6. ЗАКАЗЫ
     const ordersList = document.getElementById('orders-list');
     if (ordersList) {
         const { data: orders } = await supabase.from('orders').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
@@ -80,23 +75,22 @@ if (transactionsList) {
                 if (o.status === 'Доставлен') statusImg = '03_delivered_green.png';
                 else if (o.status === 'В пути') statusImg = '02_in_transit_blue.png';
                 else if (o.status === 'Отменен') statusImg = '04_cancelled_red.png';
-
                 return `
                 <div class="order-card">
                     <div class="order-header">
                         <strong>Заказ #${o.id.split('-')[0]}</strong>
-<div style="background-image: url('assets/images/${statusImg}'); background-size: cover; padding: 6px 16px; border-radius: 20px; color: #fff; font-weight: 600; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.6); box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-    ${o.status || 'В обработке'}
-</div>
+                        <div style="background-image: url('assets/images/${statusImg}'); background-size: cover; padding: 6px 16px; border-radius: 20px; color: #fff; font-weight: 600; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.6); box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                            ${o.status || 'В обработке'}
+                        </div>
                     </div>
                     <div style="font-size: 14px; color: var(--text-muted);">Товары: ${Array.isArray(o.items) ? o.items.length : '0'} шт.</div>
                     <div style="margin-top: 10px; font-weight: 600; color: var(--accent-green);">Итого: ${o.total} ₽</div>
                 </div>
-            `}).join('');
+                `}).join('');
         }
     }
 
-    // 6. ВКЛАДКИ
+    // 7. ВКЛАДКИ
     document.querySelectorAll('.profile-nav-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.profile-nav-btn').forEach(b => b.classList.remove('active'));
@@ -107,7 +101,7 @@ if (transactionsList) {
         });
     });
 
-    // 7. БЕЗОПАСНОСТЬ (Устройства и выходы)
+    // 8. БЕЗОПАСНОСТЬ (ВЫХОДЫ)
     const devicesList = document.getElementById('devices-list');
     if (devicesList) {
         devicesList.innerHTML = `
@@ -120,17 +114,16 @@ if (transactionsList) {
             <button class="btn" id="logout-all-devices" style="margin-top: 10px; border: 1px solid var(--border);">Выйти на всех устройствах</button>
             <button class="btn" id="logout-other-devices" style="margin-top: 10px; border: 1px solid var(--border);">Выйти везде, кроме этого</button>
         `;
-        
-// Внутри init(), замени этот блок:
-document.getElementById('logout-all-devices')?.addEventListener('click', async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    await fetch('https://drdarsun-site-main.layero.app/api/logout-all', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
-    });
-    await supabase.auth.signOut(); // <--- ДОБАВЬ ЭТО
-    window.location.href = 'index.html';
-});
+
+        document.getElementById('logout-all-devices')?.addEventListener('click', async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            await fetch('https://drdarsun-site-main.layero.app/api/logout-all', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session.access_token}` }
+            });
+            await supabase.auth.signOut();
+            window.location.href = 'index.html';
+        });
 
         document.getElementById('logout-other-devices')?.addEventListener('click', async () => {
             const { data: { session } } = await supabase.auth.getSession();
@@ -142,14 +135,13 @@ document.getElementById('logout-all-devices')?.addEventListener('click', async (
         });
     }
 
-    // 8. 2FA (TOTP)
+    // 9. 2FA
     const enable2faBtn = document.getElementById('enable-2fa-btn');
     if (enable2faBtn) {
         enable2faBtn.addEventListener('click', async () => {
             try {
                 const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
                 if (error) throw error;
-                
                 const qrModal = document.createElement('div');
                 qrModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;display:flex;align-items:center;justify-content:center;';
                 qrModal.innerHTML = `
@@ -164,20 +156,16 @@ document.getElementById('logout-all-devices')?.addEventListener('click', async (
                     </div>
                 `;
                 document.body.appendChild(qrModal);
-
                 document.getElementById('close-totp').onclick = () => {
                     qrModal.remove();
                     supabase.auth.mfa.unenroll({ factorId: data.id });
                 };
-
                 document.getElementById('verify-totp').onclick = async () => {
                     const code = document.getElementById('totp-code').value;
                     if (code.length !== 6) return alert('Введите 6 цифр');
-                    
                     const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({ factorId: data.id, code: code });
-                    if (verifyError) {
-                        alert('Неверный код: ' + verifyError.message);
-                    } else {
+                    if (verifyError) alert('Неверный код: ' + verifyError.message);
+                    else {
                         qrModal.remove();
                         showToast('2FA активирован!');
                         enable2faBtn.textContent = 'Включено';
@@ -190,7 +178,7 @@ document.getElementById('logout-all-devices')?.addEventListener('click', async (
         });
     }
 
-    // 9. СМЕНА ИМЕНИ И ПАРОЛЯ
+    // 10. СМЕНА ИМЕНИ И ПАРОЛЯ
     const settingsForm = document.getElementById('settings-form');
     if (settingsForm) {
         document.getElementById('settings-name').value = session.user.user_metadata.full_name || '';
@@ -221,18 +209,16 @@ document.getElementById('logout-all-devices')?.addEventListener('click', async (
         });
     }
 
-    // 10. УДАЛЕНИЕ АККАУНТА
+    // 11. УДАЛЕНИЕ АККАУНТА
     document.getElementById('delete-account-btn')?.addEventListener('click', async () => {
         if (!confirm('Вы уверены, что хотите удалить аккаунт? Это действие необратимо.')) return;
         if (!confirm('Точно? Все ваши заказы и данные будут удалены.')) return;
         if (!confirm('Последнее предупреждение. Удалить?')) return;
-        
         const { data: { session } } = await supabase.auth.getSession();
         const res = await fetch('https://drdarsun-site-main.layero.app/api/delete-account', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${session.access_token}` }
         });
-        
         if (res.ok) {
             await supabase.auth.signOut();
             window.location.href = 'index.html';
@@ -254,7 +240,6 @@ window.showToast = function(message, type = 'success') {
     toast.className = `toast ${type}`;
     toast.textContent = message;
     container.appendChild(toast);
-    
     setTimeout(() => toast.classList.add('show'), 10);
     setTimeout(() => {
         toast.classList.remove('show');
@@ -262,21 +247,5 @@ window.showToast = function(message, type = 'success') {
     }, 3000);
 };
 
-// Выход из текущей сессии
-document.getElementById('logout-btn')?.addEventListener('click', async () => {
-    await supabase.auth.signOut();
-    window.location.href = 'index.html';
-});
-
-// Выход со всех устройств (очищает и в браузере)
-document.getElementById('logout-all-devices')?.addEventListener('click', async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    await fetch('https://drdarsun-site-main.layero.app/api/logout-all', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
-    });
-    await supabase.auth.signOut(); // Очищаем сессию в браузере
-    window.location.href = 'index.html';
-});
-
+// Запуск
 init();
