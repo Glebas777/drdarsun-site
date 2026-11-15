@@ -15,7 +15,7 @@ const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=10
     window.location.href = googleAuthUrl;
 });
 
-// 3. Отправка кода (через Layero)
+// 3. Отправка кода (через Supabase SMTP)
 document.getElementById('send-code-btn')?.addEventListener('click', async () => {
     const email = document.getElementById('reg-email').value;
     if (!email) return alert('Введите email');
@@ -23,53 +23,39 @@ document.getElementById('send-code-btn')?.addEventListener('click', async () => 
     const btn = document.getElementById('send-code-btn');
     btn.disabled = true;
 
-    try {
-        const res = await fetch('https://drdarsun-site-main.layero.app/api/send-code', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-        });
-        const data = await res.json();
-        
-        if (data.success) {
-            alert('Код отправлен на почту!');
-            document.getElementById('verify-block').style.display = 'block';
-            startCountdown(15 * 60);
-        } else {
-            alert('Ошибка отправки: ' + data.message);
-            btn.disabled = false;
-        }
-    } catch (e) {
-        alert('Ошибка соединения');
+    const { error } = await supabase.auth.signInWithOtp({
+        email: email,
+        options: { shouldCreateUser: true }
+    });
+
+    if (error) {
+        alert('Ошибка отправки: ' + error.message);
         btn.disabled = false;
+    } else {
+        alert('Код отправлен на почту!');
+        document.getElementById('verify-block').style.display = 'block';
     }
 });
 
-// 4. Проверка кода (через Layero)
+// 4. Проверка кода (через Supabase)
 document.getElementById('verify-btn')?.addEventListener('click', async () => {
     const email = document.getElementById('reg-email').value;
     const code = document.getElementById('verify-code').value;
 
-    try {
-        const res = await fetch('https://drdarsun-site-main.layero.app/api/verify-code', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, code })
-        });
-        const data = await res.json();
+    const { error } = await supabase.auth.verifyOtp({
+        email: email,
+        token: code,
+        type: 'email'
+    });
 
-        if (data.success) {
-            alert('Почта подтверждена! Теперь вы можете завершить регистрацию.');
-            isEmailVerified = true;
-            document.getElementById('verify-block').style.display = 'none';
-            document.getElementById('submit-register').style.display = 'block';
-            document.getElementById('submit-register').textContent = 'Завершить регистрацию';
-            if (countdownInterval) clearInterval(countdownInterval);
-        } else {
-            alert('Неверный код');
-        }
-    } catch (e) {
-        alert('Ошибка проверки');
+    if (error) {
+        alert('Неверный код: ' + error.message);
+    } else {
+        alert('Почта подтверждена! Теперь вы можете завершить регистрацию.');
+        isEmailVerified = true;
+        document.getElementById('verify-block').style.display = 'none';
+        document.getElementById('submit-register').style.display = 'block';
+        document.getElementById('submit-register').textContent = 'Завершить регистрацию';
     }
 });
 
