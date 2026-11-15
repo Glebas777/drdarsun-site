@@ -385,6 +385,25 @@ app.post('/api/reset-password', async (req, res) => {
     }
 });
 
+app.post('/api/logout-others', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'No auth' });
+
+    try {
+        const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/logout?scope=others`, {
+            method: 'POST',
+            headers: {
+                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': authHeader,
+                'Content-Type': 'application/json'
+            }
+        });
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // --- ПРОКСИ ДЛЯ ВСЕГО ОСТАЛЬНОГО ---
 app.all('*', async (req, res) => {
     try {

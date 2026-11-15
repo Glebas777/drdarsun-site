@@ -60,15 +60,33 @@ async function init() {
         });
     }
 
-    // 6. Выходы (Обработка всех кнопок)
-    const logoutAll = async () => {
+    // 6. ВЫХОДЫ (Жестко и без соплей)
+    document.getElementById('logout-all')?.addEventListener('click', async () => {
+        if (!confirm('Выйти со всех устройств?')) return;
         await supabase.auth.signOut();
         window.location.href = 'index.html';
-    };
+    });
 
-    document.getElementById('logout-current')?.addEventListener('click', logoutAll);
-    document.getElementById('logout-others')?.addEventListener('click', logoutAll);
-    document.getElementById('logout-all')?.addEventListener('click', logoutAll);
+    document.getElementById('logout-current')?.addEventListener('click', async () => {
+        if (!confirm('Выйти с этого устройства?')) return;
+        await supabase.auth.signOut();
+        window.location.href = 'index.html';
+    });
+
+document.getElementById('logout-others')?.addEventListener('click', async () => {
+    if (!confirm('Выйти на всех, кроме этого?')) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    try {
+        await fetch('https://drdarsun-site-main.layero.app/api/logout-others', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
+        });
+        alert('Другие сессии закрыты!');
+    } catch (e) {
+        alert('Ошибка: ' + e.message);
+    }
+});
 
     // 7. Смена имени
     const settingsForm = document.getElementById('settings-form');
