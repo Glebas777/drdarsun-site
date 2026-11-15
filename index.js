@@ -72,76 +72,31 @@ app.post('/api/verify-code', (req, res) => {
     res.json({ success: true });
 });
 
-// --- КОСТЫЛЬ ДЛЯ ЯНДЕКСА И GOOGLE ---
-app.get('/auth/v1/callback', async (req, res) => {
-    const { code, provider } = req.query;
-    const referer = req.headers.referer || '';
-    
+// --- ЯНДЕКС ---
+app.get('/auth/v1/callback/yandex', async (req, res) => {
+    const { code } = req.query;
     if (!code) return res.redirect('https://drdarsun.ru/login.html?error=no_code');
 
     try {
-        let email = null;
-        let name = null;
+        const tokenRes = await fetch('https://oauth.yandex.ru/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                grant_type: 'authorization_code',
+                code: code,
+                client_id: process.env.YANDEX_CLIENT_ID,
+                client_secret: process.env.YANDEX_SECRET_ID
+            })
+        });
+        const tokenData = await tokenRes.json();
+        if (!tokenData.access_token) throw new Error('No Yandex token');
 
-        // ЯНДЕКС
-        if (provider === 'yandex' || referer.includes('yandex')) {
-            const tokenRes = await fetch('https://oauth.yandex.ru/token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    grant_type: 'authorization_code',
-                    code: code,
-                    client_id: process.env.YANDEX_CLIENT_ID,
-                    client_secret: process.env.YANDEX_SECRET_ID
-                })
-            });
-            const tokenData = await tokenRes.json();
-            if (!tokenData.access_token) throw new Error('No Yandex token');
-
-            const userRes = await fetch('https://login.yandex.ru/info?format=json', {
-                headers: { 'Authorization': `OAuth ${tokenData.access_token}` }
-            });
-            const userData = await userRes.json();
-            email = userData.default_email;
-            name = userData.real_name || userData.display_name;
-
-        // GOOGLE
-        } else if (provider === 'google' || referer.includes('google')) {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 15000);
-
-            try {
-                const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({
-                        grant_type: 'authorization_code',
-                        code: code,
-                        client_id: '1059795226527-fgrb9i2ccikq0e6pkolpjj36t2a6i2i3.apps.googleusercontent.com',
-                        client_secret: process.env.GOOGLE_CLIENT_SECRET,
-                        redirect_uri: 'https://drdarsun-site-main.layero.app/auth/v1/callback'
-                    }),
-                    signal: controller.signal
-                });
-                clearTimeout(timeout);
-                
-                const tokenData = await tokenRes.json();
-                if (!tokenData.access_token) throw new Error('No Google token');
-
-                const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-                    headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
-                });
-                const userData = await userRes.json();
-                email = userData.email;
-                name = userData.name;
-            } catch (e) {
-                clearTimeout(timeout);
-                throw new Error('Google timeout');
-            }
-
-        } else {
-            throw new Error('Unknown provider');
-        }
+        const userRes = await fetch('https://login.yandex.ru/info?format=json', {
+            headers: { 'Authorization': `OAuth ${tokenData.access_token}` }
+        });
+        const userData = await userRes.json();
+        const email = userData.default_email;
+        const name = userData.real_name || userData.display_name;
 
         if (!email) throw new Error('No email');
 
@@ -176,7 +131,6 @@ app.get('/auth/v1/callback', async (req, res) => {
                     user_metadata: { full_name: name }
                 })
             });
-
             const retryLinkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
                 method: 'POST',
                 headers: {
@@ -195,12 +149,102 @@ app.get('/auth/v1/callback', async (req, res) => {
         }
 
         res.redirect(`https://drdarsun.ru/auth/confirm?token_hash=${linkData.hashed_token}&type=magiclink`);
-
     } catch (e) {
-        console.error('Auth Error:', e);
+        console.error('Yandex Auth Error:', e);
         res.redirect('https://drdarsun.ru/login.html?error=auth_fail');
     }
 });
+
+// --- GOOGLE ---
+app.get('/auth/v1/callback/google', async (req, res) => {
+    const { code } = req.query;
+    if (!code) return res.redirect('https://drdarsun.ru/login.html?error=no_code');
+
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+
+        const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                grant_type: 'authorization_code',
+                code: code,
+                client_id: '1059795226527-fgrb9i2ccikq0e6pkolpjj36t2a6i2i3.apps.googleusercontent.com',
+                client_secret: process.env.GOOGLE_CLIENT_SECRET,
+                redirect_uri: 'https://drdarsun-site-main.layero.app/auth/v1/callback/google'
+            }),
+            signal: controller.signal
+        });
+        clearTimeout(timeout);
+
+        const tokenData = await tokenRes.json();
+        if (!tokenData.access_token) throw new Error('No Google token');
+
+        const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+            headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
+        });
+        const userData = await userRes.json();
+        const email = userData.email;
+        const name = userData.name;
+
+        if (!email) throw new Error('No email');
+
+        // Генерируем Magic Link
+        const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
+            method: 'POST',
+            headers: {
+                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                type: 'magiclink',
+                email: email,
+                options: { redirect_to: 'https://drdarsun.ru/profile.html' }
+            })
+        });
+        
+        const linkData = await linkRes.json();
+        
+        if (linkData.error || !linkData.hashed_token) {
+            await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
+                method: 'POST',
+                headers: {
+                    'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                    'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    email: email,
+                    email_confirm: true,
+                    user_metadata: { full_name: name }
+                })
+            });
+            const retryLinkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
+                method: 'POST',
+                headers: {
+                    'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                    'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    type: 'magiclink',
+                    email: email,
+                    options: { redirect_to: 'https://drdarsun.ru/profile.html' }
+                })
+            });
+            const retryData = await retryLinkRes.json();
+            return res.redirect(`https://drdarsun.ru/auth/confirm?token_hash=${retryData.hashed_token}&type=magiclink`);
+        }
+
+        res.redirect(`https://drdarsun.ru/auth/confirm?token_hash=${linkData.hashed_token}&type=magiclink`);
+    } catch (e) {
+        console.error('Google Auth Error:', e);
+        res.redirect('https://drdarsun.ru/login.html?error=auth_fail');
+    }
+});
+
 
 app.post('/api/gigachat', async (req, res) => {
     try {

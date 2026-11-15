@@ -6,12 +6,12 @@ let countdownInterval = null;
 
 // 1. Вход через Яндекс (с параметром provider, Layero его поймет)
 document.getElementById('btn-yandex')?.addEventListener('click', () => {
-    const yandexAuthUrl = `https://oauth.yandex.ru/authorize?response_type=code&client_id=${YANDEX_CLIENT_ID}&redirect_uri=https://drdarsun-site-main.layero.app/auth/v1/callback&provider=yandex`;
+const yandexAuthUrl = `https://oauth.yandex.ru/authorize?response_type=code&client_id=${YANDEX_CLIENT_ID}&redirect_uri=https://drdarsun-site-main.layero.app/auth/v1/callback/yandex`;
     window.location.href = yandexAuthUrl;
 });
 
 document.getElementById('btn-google')?.addEventListener('click', () => {
-    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=1059795226527-fgrb9i2ccikq0e6pkolpjj36t2a6i2i3.apps.googleusercontent.com&redirect_uri=https://drdarsun-site-main.layero.app/auth/v1/callback?provider=google&response_type=code&scope=email profile`;
+const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=1059795226527-fgrb9i2ccikq0e6pkolpjj36t2a6i2i3.apps.googleusercontent.com&redirect_uri=https://drdarsun-site-main.layero.app/auth/v1/callback/google&response_type=code&scope=email profile`;
     window.location.href = googleAuthUrl;
 });
 
