@@ -1,35 +1,5 @@
 import { supabase } from './supabase-client.js';
 
-// --- УНИВЕРСАЛЬНЫЙ ХЕДЕР ---
-async function updateHeaderAuth() {
-    const container = document.getElementById('auth-buttons');
-    if (!container) return;
-
-    // Показываем "Загрузку" (чтобы не мигало)
-    container.innerHTML = `<span style="color: #888; font-size: 14px;">...</span>`;
-
-    try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session) {
-            const userName = session.user.user_metadata.full_name || 'Профиль';
-            container.innerHTML = `
-                <a href="cart.html" class="header__btn" style="text-decoration: none; margin-right: 10px;">Корзина</a>
-                <a href="profile.html" class="header__btn" style="text-decoration: none;">${userName.split(' ')[0]}</a>
-            `;
-        } else {
-            container.innerHTML = `<a href="login.html" class="header__btn" style="text-decoration: none;">Войти</a>`;
-        }
-    } catch (e) {
-        console.error('Header Auth Error:', e);
-        container.innerHTML = `<a href="login.html" class="header__btn" style="text-decoration: none;">Войти</a>`;
-    }
-}
-
-// Запускаем сразу (и на всякий случай через секунду, если DOM еще не готов)
-document.addEventListener('DOMContentLoaded', updateHeaderAuth);
-window.addEventListener('load', updateHeaderAuth);
-
 let isEmailVerified = false;
 
 // 1. Вход через Яндекс
@@ -42,7 +12,7 @@ document.getElementById('btn-google')?.addEventListener('click', () => {
     window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?client_id=1059795226527-fgrb9i2ccikq0e6pkolpjj36t2a6i2i3.apps.googleusercontent.com&redirect_uri=https://drdarsun-site-main.layero.app/auth/v1/callback/google&response_type=code&scope=email profile';
 });
 
-// 3. Отправка кода
+// 3. Отправка кода (только для регистрации)
 document.getElementById('send-code-btn')?.addEventListener('click', async () => {
     const email = document.getElementById('reg-email').value;
     if (!email) return alert('Введите email');
@@ -71,7 +41,7 @@ document.getElementById('send-code-btn')?.addEventListener('click', async () => 
     }
 });
 
-// 4. Проверка кода
+// 4. Проверка кода (только для регистрации)
 document.getElementById('verify-btn')?.addEventListener('click', async () => {
     const email = document.getElementById('reg-email').value;
     const code = document.getElementById('verify-code').value;
@@ -107,23 +77,19 @@ document.getElementById('register-form')?.addEventListener('submit', async (e) =
     const email = document.getElementById('reg-email').value;
     const password = document.getElementById('reg-password').value;
 
-// Вместо supabase.auth.signUp(...)
-const res = await fetch('https://drdarsun-site-main.layero.app/api/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, name })
-});
+    const res = await fetch('https://drdarsun-site-main.layero.app/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name })
+    });
 
-const data = await res.json();
-if (data.success) {
-    alert('Аккаунт создан! Войдите.');
-    window.location.href = 'login.html';
-} else {
-    alert('Ошибка: ' + data.message);
-}
-
-    if (error) alert('Ошибка: ' + error.message);
-    else { alert('Аккаунт создан!'); window.location.href = 'login.html'; }
+    const data = await res.json();
+    if (data.success) {
+        alert('Аккаунт создан! Войдите.');
+        window.location.href = 'login.html';
+    } else {
+        alert('Ошибка: ' + data.message);
+    }
 });
 
 // 6. Вход по Email
@@ -138,7 +104,7 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     else window.location.href = 'profile.html';
 });
 
-// Восстановление пароля
+// 7. Восстановление пароля
 const forgotForm = document.getElementById('forgot-form');
 if (forgotForm) {
     forgotForm.addEventListener('submit', async (e) => {
@@ -155,7 +121,6 @@ if (forgotForm) {
 
             if (data.success) {
                 alert('Ссылка для сброса отправлена на почту.');
-                // Можно перекинуть на главную или показать сообщение
             } else {
                 alert('Ошибка: ' + (data.message || 'Не удалось отправить письмо'));
             }
@@ -165,7 +130,7 @@ if (forgotForm) {
     });
 }
 
-// --- МЕНЮ (ТРОЕТОЧИЕ) ---
+// 8. Меню (троеточие)
 const menuToggle = document.getElementById('menu-toggle');
 const menuDropdown = document.getElementById('menu-dropdown');
 if (menuToggle && menuDropdown) {
@@ -180,7 +145,7 @@ if (menuToggle && menuDropdown) {
     });
 }
 
-// Переключение на форму восстановления
+// 9. Переключение на форму восстановления
 document.getElementById('forgot-password')?.addEventListener('click', (e) => {
     e.preventDefault();
     document.getElementById('login-form').style.display = 'none';
@@ -188,13 +153,9 @@ document.getElementById('forgot-password')?.addEventListener('click', (e) => {
     document.getElementById('menu-dropdown').classList.remove('active');
 });
 
-// Возврат ко входу
+// 10. Возврат ко входу
 document.getElementById('back-to-login')?.addEventListener('click', (e) => {
     e.preventDefault();
     document.getElementById('forgot-form').style.display = 'none';
     document.getElementById('login-form').style.display = 'block';
-});
-
-supabase.auth.onAuthStateChange((event, session) => {
-    updateHeaderAuth();
 });

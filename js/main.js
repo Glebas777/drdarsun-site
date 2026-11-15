@@ -121,3 +121,26 @@ if (micBtn) {
 supabase.auth.onAuthStateChange((event, session) => {
     updateHeaderAuth();
 });
+
+// --- ЖЕСТКИЙ СТОРОЖ ХЕДЕРА ---
+setInterval(async () => {
+    const container = document.getElementById('auth-buttons');
+    if (!container) return;
+
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session) {
+        // Если вошли, показываем профиль
+        if (!container.innerHTML.includes('profile.html')) {
+            container.innerHTML = `
+                <a href="cart.html" class="header__btn" style="text-decoration: none; margin-right: 10px;">Корзина</a>
+                <a href="profile.html" class="header__btn" style="text-decoration: none;">Личный кабинет</a>
+            `;
+        }
+    } else {
+        // Если не вошли, показываем войти
+        if (!container.innerHTML.includes('login.html')) {
+            container.innerHTML = `<a href="login.html" class="header__btn" style="text-decoration: none;">Войти</a>`;
+        }
+    }
+}, 1000);
