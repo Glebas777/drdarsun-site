@@ -11,7 +11,7 @@ document.getElementById('btn-yandex')?.addEventListener('click', () => {
 });
 
 document.getElementById('btn-google')?.addEventListener('click', () => {
-    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=1059795226527-fgrb9i2ccikq0e6pkolpjj36t2a6i2i3.apps.googleusercontent.com&redirect_uri=https://drdarsun-site-main.layero.app/auth/v1/callback&response_type=code&scope=email profile&provider=google`;
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=1059795226527-fgrb9i2ccikq0e6pkolpjj36t2a6i2i3.apps.googleusercontent.com&redirect_uri=https://drdarsun-site-main.layero.app/auth/v1/callback?provider=google&response_type=code&scope=email profile`;
     window.location.href = googleAuthUrl;
 });
 
