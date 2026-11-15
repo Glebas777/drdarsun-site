@@ -549,3 +549,33 @@ a { text-decoration: none; color: inherit; }
     }
 }
 
+
+@media (max-width: 768px) {
+    .profile-layout {
+        flex-direction: column;
+        padding-top: 100px;
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+    .profile-sidebar {
+        width: 100%;
+        margin-bottom: 20px;
+    }
+    .profile-nav {
+        /* Вот это убирает горизонтальный скролл */
+        flex-direction: column; 
+        overflow-x: visible;
+        padding-bottom: 0;
+        gap: 8px;
+    }
+    .profile-nav-btn {
+        white-space: normal; /* Разрешаем перенос текста */
+        padding: 12px 15px;
+        font-size: 15px;
+        text-align: left;
+        border-radius: 10px;
+    }
+    .profile-content {
+        padding: 20px;
+    }
+}
