@@ -29,14 +29,25 @@ const PORT = process.env.PORT || 8080;
 const CF_WORKER = 'https://supabase-proxy.turgleb7.workers.dev';
 const LAYERO_ORIGIN = 'https://drdarsun-site-main.layero.app';
 
-// --- НАСТРОЙКА ПОЧТЫ ---
-const transporter = nodemailer.createTransport({
+// Почта №1 (для кодов регистрации)
+const transporter1 = nodemailer.createTransport({
     host: 'smtp.yandex.ru',
     port: 465,
     secure: true,
     auth: {
         user: process.env.OTPRAVKA_POCHTA,
         pass: process.env.POLUCHIT_POCHTA
+    }
+});
+
+// Почта №2 (для подтверждения действий)
+const transporter2 = nodemailer.createTransport({
+    host: 'smtp.yandex.ru',
+    port: 465,
+    secure: true,
+    auth: {
+        user: process.env.POLUCHIT_POCHTA,
+        pass: process.env.POLUCHIT_POCHTA_PASS
     }
 });
 
