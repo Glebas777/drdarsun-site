@@ -35,7 +35,7 @@ const transporter = nodemailer.createTransport({
     port: 465,
     secure: true,
     auth: {
-        user: 'drdarsunrecipient@yandex.ru',
+        user: 'drdarsunsendler@yandex.ru',
         pass: process.env.POLUCHIT_POCHTA
     }
 });
@@ -49,7 +49,7 @@ app.post('/api/send-code', async (req, res) => {
 
     try {
         await transporter.sendMail({
-            from: `"Dr. DarSun" <drdarsunrecipient@yandex.ru>`,
+            from: `"Dr. DarSun" <drdarsunsendler@yandex.ru>`,
             to: email,
             subject: 'Код подтверждения Dr. DarSun',
             text: `Ваш код: ${code}`,
