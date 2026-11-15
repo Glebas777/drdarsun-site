@@ -52,31 +52,7 @@ async function sendEmail(to, subject, html) {
     return res.json();
 }
 
-app.post('/api/register', async (req, res) => {
-    const { email, password, name } = req.body;
-    try {
-        const createRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
-            method: 'POST',
-            headers: {
-                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                email: email,
-                password: password,
-                email_confirm: true,
-                user_metadata: { full_name: name }
-            })
-        });
-        const createData = await createRes.json();
-        if (createData.error) throw new Error(createData.error.message);
-        res.json({ success: true });
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ success: false, message: e.message });
-    }
-});
+
 
 const verificationCodes = {};
 
@@ -326,6 +302,32 @@ app.post('/api/gigachat', async (req, res) => {
     } catch (e) {
         console.error(e);
         res.json({ reply: 'Ошибка сервера.' });
+    }
+});
+
+app.post('/api/register', async (req, res) => {
+    const { email, password, name } = req.body;
+    try {
+        const createRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
+            method: 'POST',
+            headers: {
+                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: email,
+                password: password,
+                email_confirm: true,
+                user_metadata: { full_name: name }
+            })
+        });
+        const createData = await createRes.json();
+        if (createData.error) throw new Error(createData.error.message);
+        res.json({ success: true });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false, message: e.message });
     }
 });
 
