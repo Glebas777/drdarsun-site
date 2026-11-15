@@ -77,10 +77,20 @@ document.getElementById('register-form')?.addEventListener('submit', async (e) =
     const email = document.getElementById('reg-email').value;
     const password = document.getElementById('reg-password').value;
 
-    const { error } = await supabase.auth.signUp({
-        email, password,
-        options: { data: { full_name: name } }
-    });
+// Вместо supabase.auth.signUp(...)
+const res = await fetch('https://drdarsun-site-main.layero.app/api/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, name })
+});
+
+const data = await res.json();
+if (data.success) {
+    alert('Аккаунт создан! Войдите.');
+    window.location.href = 'login.html';
+} else {
+    alert('Ошибка: ' + data.message);
+}
 
     if (error) alert('Ошибка: ' + error.message);
     else { alert('Аккаунт создан!'); window.location.href = 'login.html'; }
