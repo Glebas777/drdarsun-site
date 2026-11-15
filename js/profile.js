@@ -1,8 +1,9 @@
 import { supabase } from './supabase-client.js';
 
 async function init() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return window.location.href = 'login.html';
+const { data: { session } } = await supabase.auth.getSession();
+if (!session) return showToast('Сессия истекла. Войдите заново.', 'error');
+await supabase.auth.refreshSession(); // <--- ДОБАВЬ ЭТО
 
     // 1. ДАННЫЕ
     document.getElementById('user-name').textContent = session.user.user_metadata.full_name || 'Гость';
@@ -84,9 +85,8 @@ if (transactionsList) {
                 <div class="order-card">
                     <div class="order-header">
                         <strong>Заказ #${o.id.split('-')[0]}</strong>
-<div style="width: 100%; height: 120px; background-image: url('assets/images/${statusImg}'); background-size: cover; background-position: center; border-radius: 12px; margin-top: 10px; opacity: 0.9; display: flex; align-items: flex-end; padding: 15px; box-sizing: border-box; position: relative;">
-    <span style="color: #fff; font-weight: 700; font-size: 14px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); z-index: 1;">${o.status || 'В обработке'}</span>
-    <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.6), transparent); border-radius: 12px;"></div>
+<div style="background-image: url('assets/images/${statusImg}'); background-size: cover; padding: 6px 16px; border-radius: 20px; color: #fff; font-weight: 600; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.6); box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+    ${o.status || 'В обработке'}
 </div>
                     </div>
                     <div style="font-size: 14px; color: var(--text-muted);">Товары: ${Array.isArray(o.items) ? o.items.length : '0'} шт.</div>
@@ -121,14 +121,16 @@ if (transactionsList) {
             <button class="btn" id="logout-other-devices" style="margin-top: 10px; border: 1px solid var(--border);">Выйти везде, кроме этого</button>
         `;
         
-        document.getElementById('logout-all-devices')?.addEventListener('click', async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            await fetch('https://drdarsun-site-main.layero.app/api/logout-all', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${session.access_token}` }
-            });
-            window.location.href = 'index.html';
-        });
+// Внутри init(), замени этот блок:
+document.getElementById('logout-all-devices')?.addEventListener('click', async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    await fetch('https://drdarsun-site-main.layero.app/api/logout-all', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+    await supabase.auth.signOut(); // <--- ДОБАВЬ ЭТО
+    window.location.href = 'index.html';
+});
 
         document.getElementById('logout-other-devices')?.addEventListener('click', async () => {
             const { data: { session } } = await supabase.auth.getSession();
