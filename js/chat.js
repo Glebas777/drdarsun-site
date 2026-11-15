@@ -146,13 +146,12 @@ function sendSticker(code, sender) {
     }
 }
 
-// --- 6. ЗАПРОС К ИИ ---
 async function getBotResponse(text) {
     const typingId = 'typing-' + Date.now();
     const typingWrapper = document.createElement('div');
     typingWrapper.className = 'msg-wrapper bot';
     typingWrapper.id = typingId;
-    typingWrapper.innerHTML = `<div class="msg"><i>Доктор Брезель печатает...</i></div>`;
+    typingWrapper.innerHTML = `<div class="msg"><i>Доктор ДарСан печатает...</i></div>`;
     messagesContainer.appendChild(typingWrapper);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
@@ -166,21 +165,34 @@ async function getBotResponse(text) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: text, sessionId: 'user_darsun', history: history })
         });
+        
+        if (!res.ok) throw new Error('Сервер упал');
+
         const data = await res.json();
         const reply = data.reply || 'Доктор задумался.';
         
         document.getElementById(typingId)?.remove();
 
-        const foundStickers = STICKER_CODES.filter(code => reply.includes(code));
+        // Ищем стикеры в ответе
+        const foundStickers = STICKERS.filter(s => reply.includes(s.code));
         let textReply = reply;
-        foundStickers.forEach(code => { textReply = textReply.replace(code, '').trim(); });
+        
+        // Убираем коды стикеров из текста
+        foundStickers.forEach(s => { 
+            textReply = textReply.replace(s.code, '').trim(); 
+        });
 
         if (textReply) addMessage(textReply, 'bot');
-        foundStickers.forEach(code => { setTimeout(() => addMessage(code, 'bot', true), 500); });
+        
+        // Отправляем стикеры
+        foundStickers.forEach(s => { 
+            setTimeout(() => addMessage(s.code, 'bot', true), 500); 
+        });
 
     } catch (e) {
         document.getElementById(typingId)?.remove();
         addMessage('Ошибка связи. Попробуйте позже.', 'bot');
+        console.error(e);
     }
 }
 
