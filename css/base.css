@@ -143,3 +143,63 @@ a { text-decoration: none; color: inherit; }
 @media (max-width: 768px) {
     .video-section { height: 40vh; min-height: 280px; }
 }
+
+/* --- ДОПОЛНЕНИЯ ДЛЯ НОВЫХ ЭЛЕМЕНТОВ --- */
+.profile-layout {
+    display: flex;
+    gap: 40px;
+    padding: 40px 0;
+    min-height: 70vh;
+}
+.profile-sidebar {
+    width: 250px;
+    flex-shrink: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    height: fit-content;
+}
+.profile-nav-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 12px 15px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 500;
+    margin-bottom: 5px;
+    transition: 0.2s;
+}
+.profile-nav-btn:hover, .profile-nav-btn.active {
+    background: var(--bg-color);
+    color: var(--text-main);
+}
+.profile-content {
+    flex: 1;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 30px;
+}
+.profile-tab { display: none; }
+.profile-tab.active { display: block; }
+.tab-title { font-size: 24px; margin-bottom: 20px; }
+.settings-form { max-width: 400px; display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px; }
+.settings-form input { padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-color); color: var(--text-main); }
+
+/* Для кнопок в хедере, которые вставляет auth-header.js */
+.header__actions a.btn {
+    display: inline-flex;
+    padding: 10px 20px;
+    background: var(--accent-green);
+    color: #fff;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    text-decoration: none;
+}
