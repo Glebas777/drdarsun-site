@@ -15,7 +15,6 @@ document.getElementById('btn-google')?.addEventListener('click', () => {
     window.location.href = googleAuthUrl;
 });
 
-// 3. Отправка кода через Supabase
 document.getElementById('send-code-btn')?.addEventListener('click', async () => {
     const email = document.getElementById('reg-email').value;
     if (!email) return alert('Введите email');
@@ -23,11 +22,11 @@ document.getElementById('send-code-btn')?.addEventListener('click', async () => 
     const btn = document.getElementById('send-code-btn');
     btn.disabled = true;
 
-    // Отправляем OTP (одноразовый код) через Supabase
+    // Отправляем код через Supabase (он уже настроен на твою почту)
     const { error } = await supabase.auth.signInWithOtp({
         email: email,
         options: {
-            shouldCreateUser: true, // Создать пользователя, если его нет
+            shouldCreateUser: true,
         }
     });
 
@@ -40,7 +39,6 @@ document.getElementById('send-code-btn')?.addEventListener('click', async () => 
     }
 });
 
-// 4. Проверка кода через Supabase
 document.getElementById('verify-btn')?.addEventListener('click', async () => {
     const email = document.getElementById('reg-email').value;
     const code = document.getElementById('verify-code').value;
