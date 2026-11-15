@@ -1,4 +1,32 @@
+// --- УНИВЕРСАЛЬНЫЙ ХЕДЕР ---
+async function updateHeaderAuth() {
+    const container = document.getElementById('auth-buttons');
+    if (!container) return;
 
+    // Показываем "Загрузку" (чтобы не мигало)
+    container.innerHTML = `<span style="color: #888; font-size: 14px;">...</span>`;
+
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+            const userName = session.user.user_metadata.full_name || 'Профиль';
+            container.innerHTML = `
+                <a href="cart.html" class="header__btn" style="text-decoration: none; margin-right: 10px;">Корзина</a>
+                <a href="profile.html" class="header__btn" style="text-decoration: none;">${userName.split(' ')[0]}</a>
+            `;
+        } else {
+            container.innerHTML = `<a href="login.html" class="header__btn" style="text-decoration: none;">Войти</a>`;
+        }
+    } catch (e) {
+        console.error('Header Auth Error:', e);
+        container.innerHTML = `<a href="login.html" class="header__btn" style="text-decoration: none;">Войти</a>`;
+    }
+}
+
+// Запускаем сразу (и на всякий случай через секунду, если DOM еще не готов)
+document.addEventListener('DOMContentLoaded', updateHeaderAuth);
+window.addEventListener('load', updateHeaderAuth);
 // --- СМЕНА ТЕМЫ ---
 const themeToggle = document.getElementById('theme-toggle');
 const heroVideo = document.getElementById('hero-video');

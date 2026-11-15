@@ -1,17 +1,51 @@
 import { supabase } from './supabase-client.js';
 
 async function init() {
-    // Ждем сессию (на случай, если вернулись с OAuth)
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
+    // 1. ПРОВЕРКА СЕССИИ
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return window.location.href = 'login.html';
+    if (!session) {
+        window.location.href = 'login.html';
+        return;
+    }
 
-    // 1. Заполняем данные
-    document.getElementById('user-name').textContent = session.user.user_metadata.full_name || 'Гость';
-    document.getElementById('user-email').textContent = session.user.email;
+    // 2. ЗАПОЛНЕНИЕ ДАННЫХ
+    const userNameEl = document.getElementById('user-name');
+    const userEmailEl = document.getElementById('user-email');
+    if (userNameEl) userNameEl.textContent = session.user.user_metadata.full_name || 'Гость';
+    if (userEmailEl) userEmailEl.textContent = session.user.email;
 
-    // 2. Смена имени
+    // 3. ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК (ГЛАВНАЯ МАГИЯ)
+    const navBtns = document.querySelectorAll('.profile-nav-btn');
+    const tabs = document.querySelectorAll('.profile-tab');
+
+    navBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            // Убираем активный класс у всех кнопок и вкладок
+            navBtns.forEach(b => b.classList.remove('active'));
+            tabs.forEach(t => t.classList.remove('active'));
+
+            // Добавляем активный класс текущей кнопке
+            btn.classList.add('active');
+
+            // Показываем нужную вкладку
+            const tabId = btn.getAttribute('data-tab');
+            const targetTab = document.getElementById('tab-' + tabId);
+            if (targetTab) {
+                targetTab.classList.add('active');
+            }
+
+            // Если нажали "Выйти" — выходим
+            if (tabId === 'logout') {
+                supabase.auth.signOut().then(() => {
+                    window.location.href = 'index.html';
+                });
+            }
+        });
+    });
+
+    // 4. СМЕНА ИМЕНИ
     const settingsForm = document.getElementById('settings-form');
     if (settingsForm) {
         document.getElementById('settings-name').value = session.user.user_metadata.full_name || '';
@@ -19,43 +53,31 @@ async function init() {
             e.preventDefault();
             const newName = document.getElementById('settings-name').value;
             const { error } = await supabase.auth.updateUser({ data: { full_name: newName } });
-            
-            if (error) {
-                alert('Ошибка: ' + error.message);
-            } else {
+            if (error) alert('Ошибка: ' + error.message);
+            else {
                 alert('Имя обновлено!');
-                document.getElementById('user-name').textContent = newName;
+                if (userNameEl) userNameEl.textContent = newName;
             }
         });
     }
 
-    // 3. Смена пароля
+    // 5. СМЕНА ПАРОЛЯ
     const passwordForm = document.getElementById('password-form');
     if (passwordForm) {
         passwordForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const newPassword = document.getElementById('new-password').value;
-
-            if (newPassword.length < 6) {
-                return alert('Пароль должен быть не менее 6 символов');
-            }
-
-            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (newPassword.length < 6) return alert('Пароль слишком короткий');
             
-            if (error) {
-                alert('Ошибка: ' + error.message);
-            } else {
-                alert('Пароль успешно изменен!');
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) alert('Ошибка: ' + error.message);
+            else {
+                alert('Пароль изменен!');
                 passwordForm.reset();
             }
         });
     }
-
-    // 4. SOS (Меня взломали)
-    document.getElementById('sos-btn')?.addEventListener('click', async () => {
-        if (!confirm('Выкинуть вас со всех устройств?')) return;
-        await supabase.auth.signOut();
-        window.location.href = 'login.html';
-    });
 }
-init();
+
+// Запускаем после загрузки страницы
+document.addEventListener('DOMContentLoaded', init);
