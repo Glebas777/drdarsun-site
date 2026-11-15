@@ -73,7 +73,7 @@ async function init() {
                             ${o.status || 'В обработке'}
                         </div>
                     </div>
-                    <div style="font-size: 14px; color: var(--text-muted);">Товары: ${JSON.parse(o.items).length} шт.</div>
+                    <div style="font-size: 14px; color: var(--text-muted);">Товары: ${Array.isArray(o.items) ? o.items.length : '0'} шт.</div>
                     <div style="margin-top: 10px; font-weight: 600; color: var(--accent-green);">Итого: ${o.total} ₽</div>
                 </div>
             `}).join('');
@@ -244,4 +244,4 @@ window.showToast = function(message, type = 'success') {
     }, 3000);
 };
 
-document.addEventListener('DOMContentLoaded', init);
+init();
