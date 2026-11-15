@@ -29,25 +29,13 @@ const PORT = process.env.PORT || 8080;
 const CF_WORKER = 'https://supabase-proxy.turgleb7.workers.dev';
 const LAYERO_ORIGIN = 'https://drdarsun-site-main.layero.app';
 
-// Почта №1 (для кодов регистрации)
-const transporter1 = nodemailer.createTransport({
+const transporter = nodemailer.createTransport({
     host: 'smtp.yandex.ru',
     port: 465,
     secure: true,
     auth: {
-        user: process.env.OTPRAVKA_POCHTA,
-        pass: process.env.POLUCHIT_POCHTA
-    }
-});
-
-// Почта №2 (для подтверждения действий)
-const transporter2 = nodemailer.createTransport({
-    host: 'smtp.yandex.ru',
-    port: 465,
-    secure: true,
-    auth: {
-        user: process.env.POLUCHIT_POCHTA,
-        pass: process.env.POLUCHIT_POCHTA_PASS
+        user: 'drdarsunrecipient@yandex.ru', // Твой адрес (захардкожен)
+        pass: process.env.POLUCHIT_POCHTA    // Пароль приложения от него
     }
 });
 
@@ -60,8 +48,7 @@ app.post('/api/send-code', async (req, res) => {
 
     try {
         await transporter.sendMail({
-            from: `"Dr. DarSun" <${process.env.OTPRAVKA_POCHTA}>`,
-            to: email,
+from: `"Dr. DarSun" <drdarsunrecipient@yandex.ru>`,            to: email,
             subject: 'Код подтверждения Dr. DarSun',
             text: `Ваш код: ${code}`,
             html: `<h2>Ваш код: ${code}</h2>`
