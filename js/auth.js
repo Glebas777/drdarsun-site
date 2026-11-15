@@ -21,20 +21,20 @@ document.getElementById('send-code-btn')?.addEventListener('click', async () => 
     btn.disabled = true;
 
     try {
-        const res = await fetch('https://drdarsun-site-main.layero.app/api/send-code', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-        });
-        const data = await res.json();
-        
-        if (data.success) {
-            alert('Код отправлен на почту!');
-            document.getElementById('verify-block').style.display = 'block';
-        } else {
-            alert('Ошибка: ' + data.message);
-            btn.disabled = false;
-        }
+// Вместо supabase.auth.signUp(...)
+const res = await fetch('https://drdarsun-site-main.layero.app/api/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, name })
+});
+
+const data = await res.json();
+if (data.success) {
+    alert('Аккаунт создан! Войдите.');
+    window.location.href = 'login.html';
+} else {
+    alert('Ошибка: ' + data.message);
+}
     } catch (e) {
         alert('Ошибка соединения');
         btn.disabled = false;
