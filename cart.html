@@ -8,6 +8,23 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+<div id="preloader">
+    <div class="bg-image" id="bg-load_morning" style="background-image: url('assets/images/load_morning.png');"></div>
+    <div class="bg-image" id="bg-load_day" style="background-image: url('assets/images/load_day.png');"></div>
+    <div class="bg-image" id="bg-load_evening" style="background-image: url('assets/images/load_evening.png');"></div>
+    <div class="bg-image" id="bg-load_night" style="background-image: url('assets/images/load_night.png');"></div>
+
+    <img src="assets/images/load_doctor.png" class="preloader-side left" alt="">
+
+    <div class="preloader-content">
+        <img src="assets/images/load_ring.png" class="preloader-ring" alt="">
+        <img src="assets/images/load_sample.png" class="preloader-sample" alt="">
+    </div>
+
+    <div class="preloader-progress">
+        <div class="preloader-progress-bar"></div>
+    </div>
+</div>
 <header class="header">
     <div class="container header__inner">
         <a href="index.html" class="logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
@@ -92,5 +109,6 @@
     <script type="module" src="js/cart-page.js"></script>
     <script src="js/burger.js"></script>
     <script type="module" src="js/auth-header.js"></script>
+    <script src="js/preloader.js"></script>
 </body>
 </html>

@@ -4,10 +4,28 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 const nodemailer = require('nodemailer');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: ['https://drdarsun.ru', 'https://drdarsun-site-main.layero.app'],
+    credentials: true
+}));
 app.use(express.json());
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    next();
+});
+app.disable('x-powered-by');
 
-const PORT = process.env.PORT || 3000;
+const rateLimit = require('express-rate-limit');
+const limiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    message: { error: 'Слишком много запросов, попробуйте позже.' }
+});
+app.use('/api/', limiter);
+
+const PORT = process.env.PORT || 8080;
 const CF_WORKER = 'https://supabase-proxy.turgleb7.workers.dev';
 const LAYERO_ORIGIN = 'https://drdarsun-site-main.layero.app';
 
@@ -64,9 +82,10 @@ app.get('/auth/v1/callback', async (req, res) => {
     try {
         let email = null;
         let name = null;
+        let tokenRes;
 
         if (referer.includes('yandex')) {
-            const tokenRes = await fetch('https://oauth.yandex.ru/token', {
+            tokenRes = await fetch('https://oauth.yandex.ru/token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({
@@ -87,7 +106,7 @@ app.get('/auth/v1/callback', async (req, res) => {
             name = userData.real_name || userData.display_name;
 
         } else if (referer.includes('google')) {
-            const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+            tokenRes = await fetch('https://oauth2.googleapis.com/token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({
@@ -131,7 +150,6 @@ app.get('/auth/v1/callback', async (req, res) => {
         
         const linkData = await linkRes.json();
         
-        // Если юзер не создан, создаем его и генерируем ссылку снова
         if (linkData.error || !linkData.hashed_token) {
             await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
                 method: 'POST',
@@ -169,6 +187,50 @@ app.get('/auth/v1/callback', async (req, res) => {
     } catch (e) {
         console.error('Auth Error:', e);
         res.redirect('https://drdarsun.ru/login.html?error=auth_fail');
+    }
+});
+
+app.post('/api/gigachat', async (req, res) => {
+    try {
+        const { message, history } = req.body;
+
+        const productsRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/products?select=name,price,description`, {
+            headers: {
+                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+            }
+        });
+        const products = await productsRes.json();
+        const productList = products.map(p => `${p.name} (${p.price} ₽) — ${p.description}`).join('\n');
+
+        const systemPrompt = `Ты — Доктор ДарСан, сыровар. 
+        ВОТ ЧТО ЕСТЬ В МАГАЗИНЕ:
+        ${productList}
+        
+        ПРАВИЛА:
+        1. Советуй только из списка выше.
+        2. Если просят стикер — напиши ТОЛЬКО код: :hello:, :hooray:, :ok:, :oops:, :question:, :eat:.
+        3. Отвечай кратко (1-2 предложения).
+        4. Если не знаешь — скажи "Не знаю, спросите менеджера".`;
+
+        const zvenoRes = await fetch('https://api.zveno.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.ZVENO_API_KEY}` },
+            body: JSON.stringify({
+                model: 'minimax/minimax-m2.7',
+                messages: [{ role: 'system', content: systemPrompt }, ...(history || []), { role: 'user', content: message }],
+                max_tokens: 300
+            })
+        });
+
+        const data = await zvenoRes.json();
+        let reply = data.choices?.[0]?.message?.content || 'Ох, старый я стал.';
+
+        res.json({ reply });
+
+    } catch (e) {
+        console.error(e);
+        res.json({ reply: 'Ошибка сервера.' });
     }
 });
 

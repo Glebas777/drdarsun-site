@@ -55,3 +55,36 @@ if (botToggle && botModal) {
         });
     });
 }
+
+// Голосовой ввод
+const micBtn = document.getElementById('mic-btn');
+if (micBtn) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'ru-RU';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        micBtn.addEventListener('click', () => {
+            recognition.start();
+            micBtn.style.color = 'var(--accent-gold)';
+        });
+
+        recognition.onresult = (event) => {
+            const text = event.results[0][0].transcript;
+            chatInput.value = text;
+            micBtn.style.color = '';
+        };
+
+        recognition.onerror = () => {
+            micBtn.style.color = '';
+        };
+
+        recognition.onend = () => {
+            micBtn.style.color = '';
+        };
+    } else {
+        micBtn.style.display = 'none'; // Скрываем, если браузер не поддерживает
+    }
+}

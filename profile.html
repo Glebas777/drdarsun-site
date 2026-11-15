@@ -6,44 +6,52 @@
     <title>Dr. DarSun | Личный кабинет</title>
     <link rel="stylesheet" href="css/base.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        .profile-layout { display: flex; gap: 40px; padding: 40px 0; min-height: 70vh; }
-        .profile-sidebar { width: 250px; flex-shrink: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; height: fit-content; }
-        .profile-nav-btn { display: block; width: 100%; text-align: left; padding: 12px 15px; background: transparent; border: none; border-radius: 8px; color: var(--text-muted); cursor: pointer; font-size: 15px; font-weight: 500; margin-bottom: 5px; transition: 0.2s; }
-        .profile-nav-btn:hover, .profile-nav-btn.active { background: var(--bg-color); color: var(--text-main); }
-        .profile-content { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 30px; }
-        .profile-tab { display: none; }
-        .profile-tab.active { display: block; }
-        .tab-title { font-size: 24px; margin-bottom: 20px; }
-        .settings-form { max-width: 400px; display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px; }
-        .settings-form input { padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-color); color: var(--text-main); }
-    </style>
 </head>
 <body>
-<header class="header">
-    <div class="container header__inner">
-        <a href="index.html" class="logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
-        <nav class="nav">
+<div id="preloader">
+    <div class="bg-image" id="bg-load_morning" style="background-image: url('assets/images/load_morning.png');"></div>
+    <div class="bg-image" id="bg-load_day" style="background-image: url('assets/images/load_day.png');"></div>
+    <div class="bg-image" id="bg-load_evening" style="background-image: url('assets/images/load_evening.png');"></div>
+    <div class="bg-image" id="bg-load_night" style="background-image: url('assets/images/load_night.png');"></div>
+
+    <img src="assets/images/load_doctor.png" class="preloader-side left" alt="">
+
+    <div class="preloader-content">
+        <img src="assets/images/load_ring.png" class="preloader-ring" alt="">
+        <img src="assets/images/load_sample.png" class="preloader-sample" alt="">
+    </div>
+
+    <div class="preloader-progress">
+        <div class="preloader-progress-bar"></div>
+    </div>
+</div>
+    <header class="header">
+        <div class="container header__inner">
+            <a href="index.html" class="logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
+            <nav class="nav">
+                <a href="catalog.html">Каталог</a>
+                <a href="about.html">О нас</a>
+                <a href="delivery.html">Доставка</a>
+            </nav>
+            <div class="header__actions">
+                <button class="theme-toggle" id="theme-toggle"></button>
+                <a href="cart.html" class="icon-btn">🛒</a>
+                <div id="auth-buttons"></div>
+                <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
+            </div>
+        </div>
+        <div class="mobile-menu" id="mobile-menu">
+            <button class="mobile-close" id="mobile-close-btn">×</button>
+            <a href="index.html">Главная</a>
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
             <a href="delivery.html">Доставка</a>
-        </nav>
-        <div class="header__actions">
-            <button class="theme-toggle" id="theme-toggle"></button>
-            <a href="cart.html" class="icon-btn">🛒</a>
-            <div id="auth-buttons"></div> <!-- Сюда auth-header.js вставит кнопку -->
-            <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
+            <a href="profile.html" id="mobile-profile-link">Профиль</a>
+            <a href="login.html" id="mobile-login-link">Войти</a>
         </div>
-    </div>
-    <!-- Мобильное меню -->
-    <div class="mobile-menu" id="mobile-menu">
-        <a href="catalog.html">Каталог</a>
-        <a href="about.html">О нас</a>
-        <a href="delivery.html">Доставка</a>
-    </div>
-</header>
+    </header>
 
-    <main class="container">
+    <main class="container" style="padding: 100px 0 60px;">
         <div class="profile-layout">
             <aside class="profile-sidebar">
                 <h3 style="margin-bottom: 20px;">Мой кабинет</h3>
@@ -73,47 +81,41 @@
                     </div>
                 </div>
 
-<div class="profile-tab" id="tab-settings">
-    <h2 class="tab-title">Настройки</h2>
-    
-    <!-- Смена имени -->
-    <form class="settings-form" id="settings-form">
-        <label>Новое имя</label>
-        <input type="text" id="settings-name" placeholder="Ваше имя">
-        <button type="submit" class="btn btn--primary">Сохранить имя</button>
-    </form>
+                <div class="profile-tab" id="tab-settings">
+                    <h2 class="tab-title">Настройки</h2>
+                    
+                    <form class="settings-form" id="settings-form">
+                        <label>Новое имя</label>
+                        <input type="text" id="settings-name" placeholder="Ваше имя">
+                        <button type="submit" class="btn btn--primary">Сохранить имя</button>
+                    </form>
 
-    <!-- Смена пароля -->
-    <form class="settings-form" id="password-form">
-        <label>Новый пароль</label>
-        <input type="password" id="new-password" placeholder="Минимум 6 символов">
-        <button type="submit" class="btn btn--primary">Сменить пароль</button>
-    </form>
+                    <form class="settings-form" id="password-form">
+                        <label>Новый пароль</label>
+                        <input type="password" id="new-password" placeholder="Минимум 6 символов">
+                        <button type="submit" class="btn btn--primary">Сменить пароль</button>
+                    </form>
 
-    <!-- Блок Устройства (Сессии) -->
-    <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <div>
-                <h3 style="font-size: 18px; margin-bottom: 4px;">Устройства</h3>
-                <p style="font-size: 13px; color: var(--text-muted);">Управление активными сессиями</p>
-            </div>
-            <!-- Три точки -->
-            <div style="position: relative;">
-                <button id="session-menu-btn" style="background: transparent; border: 1px solid var(--border); color: var(--text-main); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;">⋮</button>
-                
-                <!-- Выпадающее меню -->
-                <div id="session-menu" style="display: none; position: absolute; right: 0; top: 45px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 10px; min-width: 220px; z-index: 100; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                    <button id="logout-current" style="display: block; width: 100%; text-align: left; padding: 10px; background: transparent; border: none; color: var(--text-main); cursor: pointer; border-radius: 8px; font-size: 14px;">Выйти с этого устройства</button>
-                    <button id="logout-others" style="display: block; width: 100%; text-align: left; padding: 10px; background: transparent; border: none; color: var(--text-main); cursor: pointer; border-radius: 8px; font-size: 14px;">Выйти на всех, кроме этого</button>
-                    <button id="logout-all" style="display: block; width: 100%; text-align: left; padding: 10px; background: transparent; border: none; color: #F44336; cursor: pointer; border-radius: 8px; font-size: 14px;">Выйти везде</button>
+                    <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <div>
+                                <h3 style="font-size: 18px; margin-bottom: 4px;">Устройства</h3>
+                                <p style="font-size: 13px; color: var(--text-muted);">Управление активными сессиями</p>
+                            </div>
+                            <div style="position: relative;">
+                                <button id="session-menu-btn" style="background: transparent; border: 1px solid var(--border); color: var(--text-main); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;">⋮</button>
+                                <div id="session-menu" style="display: none; position: absolute; right: 0; top: 45px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 10px; min-width: 220px; z-index: 100; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                                    <button id="logout-current" style="display: block; width: 100%; text-align: left; padding: 10px; background: transparent; border: none; color: var(--text-main); cursor: pointer; border-radius: 8px; font-size: 14px;">Выйти с этого устройства</button>
+                                    <button id="logout-others" style="display: block; width: 100%; text-align: left; padding: 10px; background: transparent; border: none; color: var(--text-main); cursor: pointer; border-radius: 8px; font-size: 14px;">Выйти на всех, кроме этого</button>
+                                    <button id="logout-all" style="display: block; width: 100%; text-align: left; padding: 10px; background: transparent; border: none; color: #F44336; cursor: pointer; border-radius: 8px; font-size: 14px;">Выйти везде</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="background: var(--bg-color); padding: 15px; border-radius: 8px; font-size: 13px; color: var(--text-muted);">
+                            Вы вошли с этого устройства. Все остальные сессии будут завершены по вашей команде.
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
-        <div style="background: var(--bg-color); padding: 15px; border-radius: 8px; font-size: 13px; color: var(--text-muted);">
-            Вы вошли с этого устройства. Все остальные сессии будут завершены по вашей команде.
-        </div>
-    </div>
-</div>
             </div>
         </div>
     </main>
@@ -152,5 +154,6 @@
     <script type="module" src="js/profile.js"></script>
     <script src="js/burger.js"></script>
     <script type="module" src="js/auth-header.js"></script>
+    <script src="js/preloader.js"></script>
 </body>
 </html>
