@@ -34,8 +34,8 @@ const LAYERO_ORIGIN = 'https://drdarsun-site-main.layero.app';
 // 1. Отправка кодов (с твоей первой почты)
 const transporterSend = nodemailer.createTransport({
     host: 'smtp.yandex.ru',
-    port: 465,
-    secure: true,
+    port: 587,
+    secure: false,
     auth: {
         user: process.env.MAIL_SEND_USER,
         pass: process.env.MAIL_SEND_PASS
