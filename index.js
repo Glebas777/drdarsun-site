@@ -176,6 +176,22 @@ app.get('/auth/v1/callback/yandex', async (req, res) => {
 app.get('/auth/v1/callback/google', async (req, res) => {
     const { code } = req.query;
     if (!code) return res.redirect('https://drdarsun.ru/login.html?error=no_code');
+    // Вспомогательная функция (добавь в начало, после констант)
+async function fetchWithRetry(url, options, retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await fetch(url, options);
+        } catch (e) {
+            if (i === retries - 1) throw e;
+            await new Promise(r => setTimeout(r, 1000));
+        }
+    }
+}
+
+// В блоке Google замени userRes:
+const userRes = await fetchWithRetry('https://www.googleapis.com/oauth2/v2/userinfo', {
+    headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
+});
 
     try {
         const controller = new AbortController();
@@ -445,20 +461,22 @@ app.post('/api/logout-others', async (req, res) => {
     }
 });
 
-// --- БЕЗОПАСНОСТЬ: УДАЛЕНИЕ АККАУНТА (Только через сервер) ---
 app.post('/api/delete-account', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'No auth' });
 
     try {
-        // Получаем ID юзера из токена
+        // 1. Получаем ID юзера по его токену (через anon ключ)
         const userRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-            headers: { 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY, 'Authorization': authHeader }
+            headers: { 
+                'apikey': process.env.SUPABASE_ANON_KEY, // <--- ANON, не SERVICE!
+                'Authorization': authHeader 
+            }
         });
         const user = await userRes.json();
         if (!user.id) throw new Error('User not found');
 
-        // Удаляем через Admin API
+        // 2. Удаляем через Admin API (SERVICE_ROLE)
         const delRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users/${user.id}`, {
             method: 'DELETE',
             headers: {
@@ -470,6 +488,7 @@ app.post('/api/delete-account', async (req, res) => {
         if (!delRes.ok) throw new Error('Delete failed');
         res.json({ success: true });
     } catch (e) {
+        console.error('Delete Account Error:', e);
         res.status(500).json({ error: e.message });
     }
 });
