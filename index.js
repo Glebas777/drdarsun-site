@@ -6,6 +6,50 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const nodemailer = require('nodemailer');
+
+const transporter = nodemailer.createTransport({
+    host: 'smtp.yandex.ru',
+    port: 465,
+    secure: true,
+    auth: {
+        user: process.env.OTPRAVKA_POCHTA,
+        pass: process.env.POLUCHIT_POCHTA
+    }
+});
+
+// В самом начале, после app.use(express.json());
+const verificationCodes = {};
+
+app.post('/api/send-code', async (req, res) => {
+    const { email } = req.body;
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    verificationCodes[email] = { code, expires: Date.now() + 15 * 60 * 1000 };
+
+    try {
+        await transporter.sendMail({
+            from: `"Dr. DarSun" <${process.env.OTPRAVKA_POCHTA}>`,
+            to: email,
+            subject: 'Код подтверждения Dr. DarSun',
+            text: `Ваш код: ${code}`,
+            html: `<h2>Ваш код: ${code}</h2>`
+        });
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, message: 'Ошибка отправки' });
+    }
+});
+
+app.post('/api/verify-code', (req, res) => {
+    const { email, code } = req.body;
+    const record = verificationCodes[email];
+    if (!record || record.code !== code || Date.now() > record.expires) {
+        return res.status(400).json({ success: false, message: 'Неверный код' });
+    }
+    delete verificationCodes[email];
+    res.json({ success: true });
+});
+
 const PORT = process.env.PORT || 3000;
 const CF_WORKER = 'https://supabase-proxy.turgleb7.workers.dev';
 const LAYERO_ORIGIN = 'https://drdarsun-site-main.layero.app';
