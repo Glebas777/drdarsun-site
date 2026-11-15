@@ -278,3 +278,14 @@ a { text-decoration: none; color: inherit; }
         display: flex;
     }
 }
+
+/* Меню сессий */
+#session-menu button:hover {
+    background: var(--bg-card) !important;
+    color: var(--accent-gold) !important;
+}
+
+#session-menu-btn:hover {
+    border-color: var(--accent-gold);
+    color: var(--accent-gold);
+}

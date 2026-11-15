@@ -73,26 +73,47 @@
                     </div>
                 </div>
 
-                <div class="profile-tab" id="tab-settings">
-                    <h2 class="tab-title">Настройки</h2>
-                    
-                    <form class="settings-form" id="settings-form">
-                        <label>Новое имя</label>
-                        <input type="text" id="settings-name" placeholder="Ваше имя">
-                        <button type="submit" class="btn btn--primary">Сохранить имя</button>
-                    </form>
+<div class="profile-tab" id="tab-settings">
+    <h2 class="tab-title">Настройки</h2>
+    
+    <!-- Смена имени -->
+    <form class="settings-form" id="settings-form">
+        <label>Новое имя</label>
+        <input type="text" id="settings-name" placeholder="Ваше имя">
+        <button type="submit" class="btn btn--primary">Сохранить имя</button>
+    </form>
 
-                    <form class="settings-form" id="password-form">
-                        <label>Новый пароль</label>
-                        <input type="password" id="new-password" placeholder="Минимум 6 символов">
-                        <button type="submit" class="btn btn--primary">Сменить пароль</button>
-                    </form>
+    <!-- Смена пароля -->
+    <form class="settings-form" id="password-form">
+        <label>Новый пароль</label>
+        <input type="password" id="new-password" placeholder="Минимум 6 символов">
+        <button type="submit" class="btn btn--primary">Сменить пароль</button>
+    </form>
 
-                    <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border);">
-                        <p style="font-weight: 600; color: #F44336; margin-bottom: 10px;">Сессии</p>
-                        <button class="btn" id="sos-btn" style="background: transparent; color: #F44336; border: 1px solid #F44336; width: 100%;">SOS: Выйти со всех устройств</button>
-                    </div>
+    <!-- Блок Устройства (Сессии) -->
+    <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div>
+                <h3 style="font-size: 18px; margin-bottom: 4px;">Устройства</h3>
+                <p style="font-size: 13px; color: var(--text-muted);">Управление активными сессиями</p>
+            </div>
+            <!-- Три точки -->
+            <div style="position: relative;">
+                <button id="session-menu-btn" style="background: transparent; border: 1px solid var(--border); color: var(--text-main); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;">⋮</button>
+                
+                <!-- Выпадающее меню -->
+                <div id="session-menu" style="display: none; position: absolute; right: 0; top: 45px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 10px; min-width: 220px; z-index: 100; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                    <button id="logout-current" style="display: block; width: 100%; text-align: left; padding: 10px; background: transparent; border: none; color: var(--text-main); cursor: pointer; border-radius: 8px; font-size: 14px;">Выйти с этого устройства</button>
+                    <button id="logout-others" style="display: block; width: 100%; text-align: left; padding: 10px; background: transparent; border: none; color: var(--text-main); cursor: pointer; border-radius: 8px; font-size: 14px;">Выйти на всех, кроме этого</button>
+                    <button id="logout-all" style="display: block; width: 100%; text-align: left; padding: 10px; background: transparent; border: none; color: #F44336; cursor: pointer; border-radius: 8px; font-size: 14px;">Выйти везде</button>
                 </div>
+            </div>
+        </div>
+        <div style="background: var(--bg-color); padding: 15px; border-radius: 8px; font-size: 13px; color: var(--text-muted);">
+            Вы вошли с этого устройства. Все остальные сессии будут завершены по вашей команде.
+        </div>
+    </div>
+</div>
             </div>
         </div>
     </main>

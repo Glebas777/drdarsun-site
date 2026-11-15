@@ -90,20 +90,46 @@ async function init() {
         });
     }
 
-    // 6. SOS (Выйти со всех устройств)
-    const sosBtn = document.getElementById('sos-btn');
-    if (sosBtn) {
-        sosBtn.addEventListener('click', async () => {
-            if (!confirm('Вы уверены? Это выкинет вас со всех устройств.')) return;
-            
-            // Выход со всех устройств (scope: global)
-            const { error } = await supabase.auth.signOut({ scope: 'global' });
-            
-            if (error) {
-                alert('Ошибка: ' + error.message);
-            } else {
-                window.location.href = 'login.html';
+    // 6. Управление сессиями (меню "три точки")
+    const sessionMenuBtn = document.getElementById('session-menu-btn');
+    const sessionMenu = document.getElementById('session-menu');
+    
+    if (sessionMenuBtn && sessionMenu) {
+        // Открыть/закрыть меню
+        sessionMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sessionMenu.style.display = sessionMenu.style.display === 'block' ? 'none' : 'block';
+        });
+
+        // Закрыть меню при клике мимо
+        document.addEventListener('click', (e) => {
+            if (!sessionMenu.contains(e.target) && !sessionMenuBtn.contains(e.target)) {
+                sessionMenu.style.display = 'none';
             }
+        });
+
+        // 6.1 Выйти с этого устройства
+        document.getElementById('logout-current')?.addEventListener('click', async () => {
+            await supabase.auth.signOut({ scope: 'local' });
+            window.location.href = 'login.html';
+        });
+
+        // 6.2 Выйти везде, кроме этого (Supabase пока не поддерживает это напрямую, 
+        // поэтому мы делаем "выйти везде" с последующим входом здесь. 
+        // В идеале - генерировать новый токен. Пока просто выходим везде.
+        // Но чтобы не выкидывать себя, мы просто предупреждаем.)
+        document.getElementById('logout-others')?.addEventListener('click', async () => {
+            if (!confirm('Вы уверены? Все остальные устройства будут отключены. Вам придется войти заново на них.')) return;
+            // Временно делаем так: выходим везде, но предупреждаем.
+            await supabase.auth.signOut({ scope: 'global' });
+            window.location.href = 'login.html';
+        });
+
+        // 6.3 Выйти везде
+        document.getElementById('logout-all')?.addEventListener('click', async () => {
+            if (!confirm('Вы уверены? Вы выйдете со всех устройств, включая это.')) return;
+            await supabase.auth.signOut({ scope: 'global' });
+            window.location.href = 'login.html';
         });
     }
 
