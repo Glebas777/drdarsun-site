@@ -194,3 +194,7 @@ document.getElementById('back-to-login')?.addEventListener('click', (e) => {
     document.getElementById('forgot-form').style.display = 'none';
     document.getElementById('login-form').style.display = 'block';
 });
+
+supabase.auth.onAuthStateChange((event, session) => {
+    updateHeaderAuth();
+});

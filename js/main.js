@@ -116,3 +116,8 @@ if (micBtn) {
         micBtn.style.display = 'none'; // Скрываем, если браузер не поддерживает
     }
 }
+
+// Обновляем хедер после входа/выхода
+supabase.auth.onAuthStateChange((event, session) => {
+    updateHeaderAuth();
+});
