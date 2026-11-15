@@ -94,7 +94,7 @@ function formatTime(seconds) {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
 
-// 7. Регистрация (только после подтверждения)
+// 7. Установка пароля (после подтверждения почты)
 document.getElementById('register-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -103,19 +103,15 @@ document.getElementById('register-form')?.addEventListener('submit', async (e) =
         return;
     }
 
-    const name = document.getElementById('reg-name').value;
-    const email = document.getElementById('reg-email').value;
     const password = document.getElementById('reg-password').value;
 
-    const { data, error } = await supabase.auth.signUp({
-        email, password,
-        options: { data: { full_name: name } }
-    });
+    // Пользователь уже создан на шаге signInWithOtp, просто задаем пароль
+    const { error } = await supabase.auth.updateUser({ password: password });
 
     if (error) {
-        alert('Ошибка регистрации: ' + error.message);
+        alert('Ошибка установки пароля: ' + error.message);
     } else {
-        alert('Аккаунт создан!');
+        alert('Аккаунт создан и пароль установлен! Войдите.');
         window.location.href = 'login.html';
     }
 });

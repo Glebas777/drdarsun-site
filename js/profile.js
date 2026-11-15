@@ -43,42 +43,42 @@ async function init() {
         else alert('Пароль изменен!');
     });
 
-// Сессии
-const sessionMenuBtn = document.getElementById('session-menu-btn');
-const sessionMenu = document.getElementById('session-menu');
+    // Сессии
+    const sessionMenuBtn = document.getElementById('session-menu-btn');
+    const sessionMenu = document.getElementById('session-menu');
 
-if (sessionMenuBtn && sessionMenu) {
-    sessionMenuBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        sessionMenu.style.display = sessionMenu.style.display === 'block' ? 'none' : 'block';
-    });
+    if (sessionMenuBtn && sessionMenu) {
+        sessionMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sessionMenu.style.display = sessionMenu.style.display === 'block' ? 'none' : 'block';
+        });
 
-    document.addEventListener('click', (e) => {
-        if (!sessionMenu.contains(e.target) && !sessionMenuBtn.contains(e.target)) {
-            sessionMenu.style.display = 'none';
-        }
-    });
+        document.addEventListener('click', (e) => {
+            if (!sessionMenu.contains(e.target) && !sessionMenuBtn.contains(e.target)) {
+                sessionMenu.style.display = 'none';
+            }
+        });
 
-    // 1. Выйти с этого устройства (мгновенно)
-    document.getElementById('logout-current')?.addEventListener('click', async () => {
-        await supabase.auth.signOut({ scope: 'local' });
-        window.location.reload(); // <--- ОБНОВЛЕНИЕ
-    });
+        // 1. Выйти с этого устройства
+        document.getElementById('logout-current')?.addEventListener('click', async () => {
+            await supabase.auth.signOut({ scope: 'local' });
+            window.location.reload(); // Обновляет страницу
+        });
 
-    // 2. Выйти на всех, кроме этого (пока так: выходим везде и обновляем)
-    document.getElementById('logout-others')?.addEventListener('click', async () => {
-        if (!confirm('Вы уверены? Все остальные устройства будут отключены.')) return;
-        await supabase.auth.signOut({ scope: 'global' });
-        window.location.reload(); // <--- ОБНОВЛЕНИЕ
-    });
+        // 2. Выйти на всех, кроме этого
+        document.getElementById('logout-others')?.addEventListener('click', async () => {
+            if (!confirm('Вы уверены? Все остальные устройства будут отключены.')) return;
+            await supabase.auth.signOut({ scope: 'global' });
+            window.location.reload(); // Обновляет страницу
+        });
 
-    // 3. Выйти везде
-    document.getElementById('logout-all')?.addEventListener('click', async () => {
-        if (!confirm('Вы уверены? Вы выйдете со всех устройств.')) return;
-        await supabase.auth.signOut({ scope: 'global' });
-        window.location.href = 'login.html'; // <--- ПЕРЕХОД НА ВХОД
-    });
-}
+        // 3. Выйти везде
+        document.getElementById('logout-all')?.addEventListener('click', async () => {
+            if (!confirm('Вы уверены? Вы выйдете со всех устройств.')) return;
+            await supabase.auth.signOut({ scope: 'global' });
+            window.location.href = 'login.html'; // Перекидывает на вход
+        });
+    }
 
     // Вкладки
     document.querySelectorAll('.profile-nav-btn').forEach(btn => {
