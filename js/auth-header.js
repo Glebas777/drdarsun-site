@@ -8,12 +8,14 @@ async function updateHeader() {
 
     if (session) {
         authContainer.innerHTML = `
-            <a href="cart.html" class="header__btn" style="text-decoration: none;">Корзина</a>
-            <a href="profile.html" class="header__btn" style="text-decoration: none;">Профиль</a>
+            <a href="profile.html" class="btn btn--primary" style="text-decoration: none;">Профиль</a>
         `;
     } else {
-        authContainer.innerHTML = `<a href="login.html" class="header__btn" style="text-decoration: none;">Войти</a>`;
+        authContainer.innerHTML = `
+            <a href="login.html" class="btn btn--primary" style="text-decoration: none;">Войти</a>
+        `;
     }
 }
+
 document.addEventListener('DOMContentLoaded', updateHeader);
 supabase.auth.onAuthStateChange(() => updateHeader());
