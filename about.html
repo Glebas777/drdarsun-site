@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Dr. DarSun | О нас</title>
     <link rel="stylesheet" href="css/base.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <header class="header">
@@ -15,16 +16,18 @@
                 <a href="about.html" class="active">О нас</a>
                 <a href="delivery.html">Доставка</a>
             </nav>
-            <div class="header__actions">
-                <button class="theme-toggle" id="theme-toggle"></button>
-                <a href="cart.html" class="icon-btn">🛒</a>
-                <a href="login.html" class="btn btn--primary">Войти</a>
-            </div>
+            <div class="header__actions" id="auth-buttons"></div>
+            <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
+        </div>
+        <div class="mobile-menu" id="mobile-menu">
+            <a href="catalog.html">Каталог</a>
+            <a href="about.html">О нас</a>
+            <a href="delivery.html">Доставка</a>
         </div>
     </header>
 
-    <main class="container page-content">
-        <h1 class="page-title">О бренде Dr. DarSun</h1>
+    <main class="container page-content" style="padding: 40px 0;">
+        <h1 class="page-title" style="font-size: 48px; margin-bottom: 30px;">О бренде Dr. DarSun</h1>
         <div style="background: var(--bg-card); padding: 40px; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 40px;">
             <p style="font-size: 18px; line-height: 1.8; color: var(--text-muted);">
                 Мы — небольшая семейная сыроварня, которая решила пойти дальше. Наш Доктор ДарСан лично отбирает семечки и отжимает масло только холодным способом. 
@@ -34,24 +37,30 @@
 
         <h2 style="font-size: 32px; margin-bottom: 20px;">Книга отзывов</h2>
         <div id="reviews-book" style="display: flex; flex-direction: column; gap: 15px;">
-            <!-- Сюда JS вставит отзывы -->
             <div class="empty-state">Загрузка отзывов...</div>
         </div>
     </main>
 
+    <footer style="padding: 60px 0; border-top: 1px solid #2A2A2A; background: #0A0A0A; margin-top: 100px;">
+        <div class="container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+            <div style="color: #A0A0A0;">© 2026 Dr. DarSun Gourmet. Все права защищены.</div>
+            <div style="display: flex; gap: 15px;">
+                <a href="https://vk.ru/drdarsun" target="_blank" style="color: #fff;">ВК</a>
+                <a href="https://t.me/drdarsun" target="_blank" style="color: #fff;">Telegram</a>
+                <a href="https://www.instagram.com/drdarsun/" target="_blank" style="color: #fff;">Instagram</a>
+            </div>
+        </div>
+    </footer>
+
     <script type="module">
         import { supabase } from './js/supabase-client.js';
-
-        // Загрузка отзывов для книги
         async function loadBook() {
             const container = document.getElementById('reviews-book');
             const { data: reviews } = await supabase.from('reviews').select('*').order('created_at', { ascending: false }).limit(10);
-            
             if (!reviews || reviews.length === 0) {
                 container.innerHTML = '<p style="color: var(--text-muted);">Пока нет отзывов. Станьте первым!</p>';
                 return;
             }
-            
             container.innerHTML = reviews.map(r => `
                 <div style="background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border);">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
@@ -66,6 +75,6 @@
     </script>
     <script src="js/main.js"></script>
     <script src="js/burger.js"></script>
-<script type="module" src="js/auth-header.js"></script>
+    <script type="module" src="js/auth-header.js"></script>
 </body>
 </html>

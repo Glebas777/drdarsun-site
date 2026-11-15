@@ -2,12 +2,10 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dr. DarSun | Личный кабинет</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/base.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         .profile-layout { display: flex; gap: 40px; padding: 40px 0; min-height: 70vh; }
         .profile-sidebar { width: 250px; flex-shrink: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; height: fit-content; }
@@ -16,6 +14,9 @@
         .profile-content { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 30px; }
         .profile-tab { display: none; }
         .profile-tab.active { display: block; }
+        .tab-title { font-size: 24px; margin-bottom: 20px; }
+        .settings-form { max-width: 400px; display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px; }
+        .settings-form input { padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-color); color: var(--text-main); }
     </style>
 </head>
 <body>
@@ -27,11 +28,13 @@
                 <a href="about.html">О нас</a>
                 <a href="delivery.html">Доставка</a>
             </nav>
-            <div class="header__actions">
-                <button class="theme-toggle" id="theme-toggle"></button>
-                <a href="cart.html" class="icon-btn">🛒</a>
-                <a href="login.html" class="btn btn--primary">Выйти</a>
-            </div>
+            <div class="header__actions" id="auth-buttons"></div>
+            <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
+        </div>
+        <div class="mobile-menu" id="mobile-menu">
+            <a href="catalog.html">Каталог</a>
+            <a href="about.html">О нас</a>
+            <a href="delivery.html">Доставка</a>
         </div>
     </header>
 
@@ -42,71 +45,67 @@
                 <button class="profile-nav-btn active" data-tab="info">Мои данные</button>
                 <button class="profile-nav-btn" data-tab="orders">История заказов</button>
                 <button class="profile-nav-btn" data-tab="wallet">Кошелек</button>
-                <button class="profile-nav-btn" data-tab="addresses">Мои адреса</button>
+                <button class="profile-nav-btn" data-tab="settings">Настройки</button>
             </aside>
 
             <div class="profile-content">
                 <div class="profile-tab active" id="tab-info">
-                    <h2 style="margin-bottom: 20px;">Мои данные</h2>
+                    <h2 class="tab-title">Мои данные</h2>
                     <p><strong>Имя:</strong> <span id="user-name">Загрузка...</span></p>
                     <p><strong>Email:</strong> <span id="user-email">Загрузка...</span></p>
                 </div>
+
                 <div class="profile-tab" id="tab-orders">
-                    <h2 style="margin-bottom: 20px;">История заказов</h2>
+                    <h2 class="tab-title">История заказов</h2>
                     <div id="orders-list">Загрузка...</div>
                 </div>
+
                 <div class="profile-tab" id="tab-wallet">
-                    <h2 style="margin-bottom: 20px;">Кошелек</h2>
+                    <h2 class="tab-title">Кошелек</h2>
                     <div style="text-align: center; padding: 30px; background: var(--bg-color); border-radius: 16px; border: 1px solid var(--border);">
                         <p style="color: var(--text-muted);">Доступно средств</p>
                         <h1 style="font-size: 48px; color: var(--accent-green);" id="wallet-balance">0 ₽</h1>
                     </div>
-                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
-    <p style="font-weight: 600; color: #F44336; margin-bottom: 10px;">Brezel's Guard</p>
-    <button class="btn" id="sos-btn" style="background: transparent; color: #F44336; border: 1px solid #F44336; width: 100%;">SOS: Меня взломали</button>
-</div>
                 </div>
-                <div class="profile-tab" id="tab-addresses">
-                    <h2 style="margin-bottom: 20px;">Мои адреса</h2>
-                    <div id="addresses-list" style="margin-bottom: 20px;">Загрузка...</div>
-                    <button class="btn btn--primary" id="add-address-btn">Добавить адрес</button>
+
+                <div class="profile-tab" id="tab-settings">
+                    <h2 class="tab-title">Настройки</h2>
+                    
+                    <form class="settings-form" id="settings-form">
+                        <label>Новое имя</label>
+                        <input type="text" id="settings-name" placeholder="Ваше имя">
+                        <button type="submit" class="btn btn--primary">Сохранить имя</button>
+                    </form>
+
+                    <form class="settings-form" id="password-form">
+                        <label>Новый пароль</label>
+                        <input type="password" id="new-password" placeholder="Минимум 6 символов">
+                        <button type="submit" class="btn btn--primary">Сменить пароль</button>
+                    </form>
+
+                    <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border);">
+                        <p style="font-weight: 600; color: #F44336; margin-bottom: 10px;">Сессии</p>
+                        <button class="btn" id="sos-btn" style="background: transparent; color: #F44336; border: 1px solid #F44336; width: 100%;">SOS: Выйти со всех устройств</button>
+                    </div>
                 </div>
             </div>
         </div>
     </main>
 
-    <footer class="footer">
-        <div class="container footer__inner">
-            <div class="footer__col">
-                <div class="footer__logo-group">
-                    <img src="assets/images/logo_full.png" alt="Dr. DarSun">
-                    <span class="footer__brand-text">Dr. DarSun</span>
-                </div>
-                <p class="footer__desc">Премиальные растительные масла.</p>
+    <footer style="padding: 60px 0; border-top: 1px solid #2A2A2A; background: #0A0A0A; margin-top: 100px;">
+        <div class="container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+            <div style="color: #A0A0A0;">© 2026 Dr. DarSun Gourmet. Все права защищены.</div>
+            <div style="display: flex; gap: 15px;">
+                <a href="https://vk.ru/drdarsun" target="_blank" style="color: #fff;">ВК</a>
+                <a href="https://t.me/drdarsun" target="_blank" style="color: #fff;">Telegram</a>
+                <a href="https://www.instagram.com/drdarsun/" target="_blank" style="color: #fff;">Instagram</a>
             </div>
-            <div class="footer__col">
-                <h4>Покупателям</h4>
-                <a href="catalog.html">Каталог</a>
-                <a href="delivery.html">Доставка</a>
-                <a href="about.html">О нас</a>
-            </div>
-            <div class="footer__col">
-                <h4>Контакты</h4>
-                <a href="mailto:info@drdarsun.ru">info@drdarsun.ru</a>
-                <div class="socials">
-                    <a href="#" class="social-link"><img src="assets/images/vk.png" alt="VK"></a>
-                    <a href="#" class="social-link"><img src="assets/images/telegram.png" alt="TG"></a>
-                </div>
-            </div>
-        </div>
-        <div class="footer__bottom">
-            <div class="container">© 2026 Dr. DarSun. Все права защищены.</div>
         </div>
     </footer>
 
     <script src="js/main.js"></script>
     <script type="module" src="js/profile.js"></script>
     <script src="js/burger.js"></script>
-<script type="module" src="js/auth-header.js"></script>
+    <script type="module" src="js/auth-header.js"></script>
 </body>
 </html>

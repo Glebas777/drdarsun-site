@@ -11,21 +11,24 @@
     <header class="header">
         <div class="container header__inner">
             <a href="index.html" class="logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
-            <div class="header__actions">
-                <a href="cart.html" class="icon-btn">🛒</a>
-                <a href="login.html" class="btn btn--primary">Войти</a>
-            </div>
+            <div class="header__actions" id="auth-buttons"></div>
+            <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
+        </div>
+        <div class="mobile-menu" id="mobile-menu">
+            <a href="catalog.html">Каталог</a>
+            <a href="about.html">О нас</a>
+            <a href="delivery.html">Доставка</a>
         </div>
     </header>
 
-    <main class="container">
-        <h1 style="margin:40px 0 20px;">Корзина</h1>
-        <div class="cart-layout">
-            <div class="cart-items" id="cart-items"></div>
-            <div class="cart-summary">
+    <main class="container" style="padding: 40px 0;">
+        <h1 style="margin-bottom: 20px;">Корзина</h1>
+        <div class="cart-layout" style="display: flex; gap: 30px;">
+            <div class="cart-items" id="cart-items" style="flex: 1;"></div>
+            <div class="cart-summary" style="width: 350px; background: var(--bg-card); padding: 20px; border-radius: var(--radius); border: 1px solid var(--border); height: fit-content;">
                 <h3>Итого</h3>
-                <div class="summary-row"><span>Товары</span><span id="sum-subtotal">0 ₽</span></div>
-                <div class="summary-row total"><span>К оплате</span><span id="sum-total">0 ₽</span></div>
+                <div class="summary-row" style="display: flex; justify-content: space-between; margin: 10px 0;"><span>Товары</span><span id="sum-subtotal">0 ₽</span></div>
+                <div class="summary-row total" style="display: flex; justify-content: space-between; margin: 10px 0; font-weight: bold; font-size: 20px;"><span>К оплате</span><span id="sum-total">0 ₽</span></div>
                 
                 <button class="btn btn--primary" style="width:100%; margin-top:20px;" id="checkout-btn">Оформить</button>
                 
@@ -45,13 +48,20 @@
         </div>
     </main>
 
-    <footer class="footer">
-        <div class="footer__bottom"><div class="container">© 2026 Dr. DarSun</div></div>
+    <footer style="padding: 60px 0; border-top: 1px solid #2A2A2A; background: #0A0A0A; margin-top: 100px;">
+        <div class="container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+            <div style="color: #A0A0A0;">© 2026 Dr. DarSun Gourmet. Все права защищены.</div>
+            <div style="display: flex; gap: 15px;">
+                <a href="https://vk.ru/drdarsun" target="_blank" style="color: #fff;">ВК</a>
+                <a href="https://t.me/drdarsun" target="_blank" style="color: #fff;">Telegram</a>
+                <a href="https://www.instagram.com/drdarsun/" target="_blank" style="color: #fff;">Instagram</a>
+            </div>
+        </div>
     </footer>
 
     <script src="js/main.js"></script>
     <script type="module" src="js/cart-page.js"></script>
     <script src="js/burger.js"></script>
-<script type="module" src="js/auth-header.js"></script>
+    <script type="module" src="js/auth-header.js"></script>
 </body>
 </html>

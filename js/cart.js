@@ -1,33 +1,40 @@
-// Универсальная корзина (работает везде)
-export function addToCart(product) {
-    let cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    const existing = cart.find(item => item.id === product.id);
-    
-    if (existing) {
-        existing.quantity += 1;
-    } else {
-        cart.push({ ...product, quantity: 1 });
+import { supabase } from './supabase-client.js';
+
+export async function addToCart(product) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        alert('Войдите в аккаунт, чтобы добавить товар в корзину.');
+        window.location.href = 'login.html';
+        return;
     }
-    
-    localStorage.setItem('cart', JSON.stringify(cart));
-    updateCartCount();
-    alert(`✅ ${product.name} добавлен в корзину!`);
+
+    const { error } = await supabase.from('cart_items').insert([{
+        user_id: session.user.id,
+        product_id: product.id,
+        product_name: product.name,
+        product_price: product.price,
+        quantity: 1
+    }]);
+
+    if (error) alert('Ошибка: ' + error.message);
+    else {
+        alert('Товар добавлен в корзину!');
+        updateCartCount();
+    }
 }
 
-export function updateCartCount() {
-    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    const count = cart.reduce((sum, item) => sum + item.quantity, 0);
-    
-    // Ищем кнопку корзины в хедере
-    const cartBtn = document.querySelector('a[href="cart.html"]');
-    if (cartBtn) {
-        // Убираем старый бейдж, если был
-        const oldBadge = cartBtn.querySelector('.cart-badge');
-        if (oldBadge) oldBadge.remove();
-        
-        if (count > 0) {
-            cartBtn.innerHTML += `<span class="cart-badge" style="background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 12px; position: absolute; top: -5px; right: -10px;">${count}</span>`;
-            cartBtn.style.position = 'relative';
-        }
+export async function updateCartCount() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const { data, error } = await supabase
+        .from('cart_items')
+        .select('quantity')
+        .eq('user_id', session.user.id);
+
+    if (!error && data) {
+        const count = data.reduce((sum, item) => sum + item.quantity, 0);
+        const cartBtn = document.getElementById('cart-btn');
+        if (cartBtn) cartBtn.textContent = `Корзина (${count})`;
     }
 }

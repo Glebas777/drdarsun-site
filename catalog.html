@@ -16,11 +16,13 @@
                 <a href="about.html">О нас</a>
                 <a href="delivery.html">Доставка</a>
             </nav>
-            <div class="header__actions">
-                <button class="theme-toggle" id="theme-toggle"></button>
-                <a href="cart.html" class="icon-btn">🛒</a>
-                <a href="login.html" class="btn btn--primary">Войти</a>
-            </div>
+            <div class="header__actions" id="auth-buttons"></div>
+            <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
+        </div>
+        <div class="mobile-menu" id="mobile-menu">
+            <a href="catalog.html">Каталог</a>
+            <a href="about.html">О нас</a>
+            <a href="delivery.html">Доставка</a>
         </div>
     </header>
 
@@ -39,31 +41,20 @@
         </div>
     </main>
 
-    <button id="bot-toggle" style="position:fixed; bottom:20px; right:20px; width:60px; height:60px; border-radius:50%; background:var(--accent-gold); border:none; font-size:24px; cursor:pointer; z-index:999;">💬</button>
-    <div class="bot-modal" id="bot-modal">
-        <div class="bot-header"><h4>Помощник</h4><button id="bot-close" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">×</button></div>
-        <div class="bot-messages" id="bot-messages"><div class="bot-msg">Здравствуйте! Чем помочь?</div></div>
-        <div style="padding:15px; display:flex; flex-direction:column; gap:8px;">
-            <button class="bot-opt" data-msg="Что для салата?">Для салата</button>
-            <button class="bot-opt" data-msg="Что есть?">Что есть?</button>
-        </div>
-    </div>
-
-    <footer class="footer">
-        <div class="container footer__inner">
-            <div class="footer__col">
-                <div class="footer__logo-group">
-                    <img src="assets/images/logo_full.png" alt="Dr. DarSun">
-                    <span class="footer__brand-text">Dr. DarSun</span>
-                </div>
+    <footer style="padding: 60px 0; border-top: 1px solid #2A2A2A; background: #0A0A0A; margin-top: 100px;">
+        <div class="container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+            <div style="color: #A0A0A0;">© 2026 Dr. DarSun Gourmet. Все права защищены.</div>
+            <div style="display: flex; gap: 15px;">
+                <a href="https://vk.ru/drdarsun" target="_blank" style="color: #fff;">ВК</a>
+                <a href="https://t.me/drdarsun" target="_blank" style="color: #fff;">Telegram</a>
+                <a href="https://www.instagram.com/drdarsun/" target="_blank" style="color: #fff;">Instagram</a>
             </div>
         </div>
-        <div class="footer__bottom"><div class="container">© 2026 Dr. DarSun</div></div>
     </footer>
 
     <script src="js/main.js"></script>
     <script type="module" src="js/catalog.js"></script>
     <script src="js/burger.js"></script>
-<script type="module" src="js/auth-header.js"></script>
+    <script type="module" src="js/auth-header.js"></script>
 </body>
 </html>
