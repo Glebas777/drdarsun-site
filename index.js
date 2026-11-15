@@ -26,7 +26,7 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3000;
 const CF_WORKER = 'https://supabase-proxy.turgleb7.workers.dev';
 const LAYERO_ORIGIN = 'https://drdarsun-site-main.layero.app';
 
