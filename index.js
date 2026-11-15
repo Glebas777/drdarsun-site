@@ -42,34 +42,48 @@ const transporter = nodemailer.createTransport({
 
 const verificationCodes = {};
 
-app.post('/api/send-code', async (req, res) => {
-    const { email } = req.body;
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
-    verificationCodes[email] = { code, expires: Date.now() + 15 * 60 * 1000 };
+// Отправка кода (через Supabase SMTP)
+document.getElementById('send-code-btn')?.addEventListener('click', async () => {
+    const email = document.getElementById('reg-email').value;
+    if (!email) return alert('Введите email');
 
-    try {
-        await transporter.sendMail({
-            from: `"Dr. DarSun" <drdarsunsendler@yandex.ru>`,
-            to: email,
-            subject: 'Код подтверждения Dr. DarSun',
-            text: `Ваш код: ${code}`,
-            html: `<h2>Ваш код: ${code}</h2>`
-        });
-        res.json({ success: true });
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ success: false, message: 'Ошибка отправки' });
+    const btn = document.getElementById('send-code-btn');
+    btn.disabled = true;
+
+    const { error } = await supabase.auth.signInWithOtp({
+        email: email,
+        options: { shouldCreateUser: true }
+    });
+
+    if (error) {
+        alert('Ошибка отправки: ' + error.message);
+        btn.disabled = false;
+    } else {
+        alert('Код отправлен на почту!');
+        document.getElementById('verify-block').style.display = 'block';
     }
 });
 
-app.post('/api/verify-code', (req, res) => {
-    const { email, code } = req.body;
-    const record = verificationCodes[email];
-    if (!record || record.code !== code || Date.now() > record.expires) {
-        return res.status(400).json({ success: false, message: 'Неверный код' });
+// Проверка кода (через Supabase)
+document.getElementById('verify-btn')?.addEventListener('click', async () => {
+    const email = document.getElementById('reg-email').value;
+    const code = document.getElementById('verify-code').value;
+
+    const { error } = await supabase.auth.verifyOtp({
+        email: email,
+        token: code,
+        type: 'email'
+    });
+
+    if (error) {
+        alert('Неверный код: ' + error.message);
+    } else {
+        alert('Почта подтверждена! Теперь вы можете завершить регистрацию.');
+        isEmailVerified = true;
+        document.getElementById('verify-block').style.display = 'none';
+        document.getElementById('submit-register').style.display = 'block';
+        document.getElementById('submit-register').textContent = 'Завершить регистрацию';
     }
-    delete verificationCodes[email];
-    res.json({ success: true });
 });
 
 // --- ЯНДЕКС ---
