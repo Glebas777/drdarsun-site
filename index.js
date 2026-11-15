@@ -30,60 +30,59 @@ const PORT = process.env.PORT || 8080;
 const CF_WORKER = 'https://supabase-proxy.turgleb7.workers.dev';
 const LAYERO_ORIGIN = 'https://drdarsun-site-main.layero.app';
 
-const transporter = nodemailer.createTransport({
+// --- НАСТРОЙКА ПОЧТЫ ---
+// 1. Отправка кодов (с твоей первой почты)
+const transporterSend = nodemailer.createTransport({
     host: 'smtp.yandex.ru',
     port: 465,
     secure: true,
     auth: {
-        user: 'drdarsunsendler@yandex.ru',
-        pass: process.env.POLUCHIT_POCHTA
+        user: process.env.MAIL_SEND_USER,
+        pass: process.env.MAIL_SEND_PASS
+    }
+});
+
+// 2. Отправка уведомлений тебе (со второй почты)
+const transporterNotify = nodemailer.createTransport({
+    host: 'smtp.yandex.ru',
+    port: 465,
+    secure: true,
+    auth: {
+        user: process.env.MAIL_RECEIVE_USER,
+        pass: process.env.MAIL_RECEIVE_PASS
     }
 });
 
 const verificationCodes = {};
 
-// Отправка кода (через Supabase SMTP)
-document.getElementById('send-code-btn')?.addEventListener('click', async () => {
-    const email = document.getElementById('reg-email').value;
-    if (!email) return alert('Введите email');
+app.post('/api/send-code', async (req, res) => {
+    const { email } = req.body;
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    verificationCodes[email] = { code, expires: Date.now() + 15 * 60 * 1000 };
 
-    const btn = document.getElementById('send-code-btn');
-    btn.disabled = true;
-
-    const { error } = await supabase.auth.signInWithOtp({
-        email: email,
-        options: { shouldCreateUser: true }
-    });
-
-    if (error) {
-        alert('Ошибка отправки: ' + error.message);
-        btn.disabled = false;
-    } else {
-        alert('Код отправлен на почту!');
-        document.getElementById('verify-block').style.display = 'block';
+    try {
+        await transporterSend.sendMail({
+            from: `"Dr. DarSun" <${process.env.MAIL_SEND_USER}>`,
+            to: email,
+            subject: 'Код подтверждения Dr. DarSun',
+            text: `Ваш код: ${code}`,
+            html: `<h2>Ваш код: ${code}</h2>`
+        });
+        res.json({ success: true });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false, message: 'Ошибка отправки' });
     }
 });
 
-// Проверка кода (через Supabase)
-document.getElementById('verify-btn')?.addEventListener('click', async () => {
-    const email = document.getElementById('reg-email').value;
-    const code = document.getElementById('verify-code').value;
-
-    const { error } = await supabase.auth.verifyOtp({
-        email: email,
-        token: code,
-        type: 'email'
-    });
-
-    if (error) {
-        alert('Неверный код: ' + error.message);
-    } else {
-        alert('Почта подтверждена! Теперь вы можете завершить регистрацию.');
-        isEmailVerified = true;
-        document.getElementById('verify-block').style.display = 'none';
-        document.getElementById('submit-register').style.display = 'block';
-        document.getElementById('submit-register').textContent = 'Завершить регистрацию';
+app.post('/api/verify-code', (req, res) => {
+    const { email, code } = req.body;
+    const record = verificationCodes[email];
+    if (!record || record.code !== code || Date.now() > record.expires) {
+        return res.status(400).json({ success: false, message: 'Неверный код' });
     }
+    delete verificationCodes[email];
+    res.json({ success: true });
 });
 
 // --- ЯНДЕКС ---
@@ -114,7 +113,6 @@ app.get('/auth/v1/callback/yandex', async (req, res) => {
 
         if (!email) throw new Error('No email');
 
-        // Генерируем Magic Link
         const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
             method: 'POST',
             headers: {
@@ -204,7 +202,6 @@ app.get('/auth/v1/callback/google', async (req, res) => {
 
         if (!email) throw new Error('No email');
 
-        // Генерируем Magic Link
         const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
             method: 'POST',
             headers: {
@@ -258,7 +255,6 @@ app.get('/auth/v1/callback/google', async (req, res) => {
         res.redirect('https://drdarsun.ru/login.html?error=auth_fail');
     }
 });
-
 
 app.post('/api/gigachat', async (req, res) => {
     try {
