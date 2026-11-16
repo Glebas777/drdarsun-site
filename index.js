@@ -370,7 +370,7 @@ app.post('/api/logout-others', async (req, res) => {
             method: 'POST',
             headers: {
                 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-                'Authorization': authHeader,
+                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`, // <--- SERVICE_ROLE!
                 'Content-Type': 'application/json'
             }
         });
