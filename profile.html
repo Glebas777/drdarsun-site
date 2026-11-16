@@ -161,13 +161,19 @@
     <div id="devices-list">Загрузка...</div>
 </div>
 
-                <div style="margin-bottom: 20px;">
-                    <h4>Двухфакторная аутентификация (2FA)</h4>
-                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">
-                        Защитите аккаунт дополнительным кодом. Работает с любым приложением: <strong>Яндекс.Ключ</strong>, <strong>Google Authenticator</strong>, <strong>Authy</strong>.
-                    </p>
-                    <button class="btn btn--primary" id="enable-2fa-btn">Включить 2FA</button>
-                </div>
+<div style="margin-bottom: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h4 style="margin: 0;">Двухфакторная аутентификация (2FA)</h4>
+            <p style="font-size: 13px; color: var(--text-muted); margin: 5px 0 0;">Защитите аккаунт дополнительным кодом</p>
+        </div>
+        <label class="toggle-switch">
+            <input type="checkbox" id="2fa-toggle">
+            <span class="toggle-slider"></span>
+        </label>
+    </div>
+    <div id="2fa-status" style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">Проверка...</div>
+</div>
 
                 <div style="margin-top: 20px;">
                     <h4>Резервные коды</h4>
@@ -191,6 +197,11 @@
     </div>
     <div id="my-qr-container" style="display: none; margin-top: 15px; text-align: center;"></div>
     <div id="qr-scan-result" style="margin-top: 10px; font-size: 14px; color: var(--text-muted);"></div>
+</div>
+<div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border);">
+    <button id="logout-btn" class="btn" style="border: 1px solid #F44336; color: #F44336; width: 100%;">
+        Выйти из аккаунта
+    </button>
 </div>
             </div>
 

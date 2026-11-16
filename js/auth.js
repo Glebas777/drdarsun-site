@@ -51,31 +51,15 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-        // Если пароль неверный — предлагаем войти по коду (OTP)
         if (error.message.includes('Invalid login credentials')) {
-            alert('Пароль неверный. Сейчас отправим код на почту.');
-            const { error: otpError } = await supabase.auth.signInWithOtp({ email });
-            if (otpError) return alert('Ошибка: ' + otpError.message);
-
-            document.getElementById('login-form').style.display = 'none';
-            document.getElementById('otp-form').style.display = 'block';
-            return;
+            // ... OTP логика (оставь как есть)
         }
         return alert('Ошибка: ' + error.message);
     }
 
-    // Проверяем 2FA
-    const { data: mfaData, error: mfaError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (!mfaError && mfaData.nextLevel === 'aal2' && mfaData.currentLevel !== 'aal2') {
-        document.getElementById('login-form').style.display = 'none';
-        document.getElementById('mfa-form').style.display = 'block';
-        return;
-    }
-
-    window.location.href = 'profile.html';
+    await check2FAAndRedirect(); // <--- ВМЕСТО старой проверки
 });
 
 // ==========================================
@@ -89,7 +73,7 @@ document.getElementById('otp-form')?.addEventListener('submit', async (e) => {
     const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
     if (error) return alert('Неверный код: ' + error.message);
 
-    window.location.href = 'profile.html';
+    await check2FAAndRedirect(); // <--- ДОБАВИТЬ
 });
 
 document.getElementById('back-to-login-from-otp')?.addEventListener('click', (e) => {
@@ -201,30 +185,25 @@ document.getElementById('mfa-form')?.addEventListener('submit', async (e) => {
 // ==========================================
 document.getElementById('qr-login-trigger')?.addEventListener('click', (e) => {
     e.preventDefault();
-
-    // Показываем модалку СНАЧАЛА (чтобы div имел размеры)
     document.getElementById('qr-login-modal').style.display = 'flex';
 
-    // Генерируем временный токен (заглушка, потом заменишь на реальный вызов Layero)
-    const qrToken = 'qr_' + Math.random().toString(36).substring(2, 15);
-    const qrUrl = `https://drdarsun.ru/qr-confirm?token=${qrToken}`;
-
     const container = document.getElementById('qr-login-container');
-    container.innerHTML = '';
+    container.innerHTML = '<div id="qr-reader" style="width:100%; max-width:300px;"></div>';
 
-    // Рисуем QR локально (библиотека qrcodejs)
-    if (window.QRCode) {
-        new QRCode(container, {
-            text: qrUrl,
-            width: 200,
-            height: 200,
-            colorDark: "#000000",
-            colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.H
-        });
-    } else {
-        container.innerHTML = '<p style="color: #F44336;">Библиотека QR не загружена</p>';
-    }
+    const html5QrCode = new Html5Qrcode("qr-reader");
+    html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        (decodedText) => {
+            html5QrCode.stop();
+            document.getElementById('qr-login-modal').style.display = 'none';
+            // Здесь обработка отсканированного QR — пока просто показываем
+            alert('Отсканировано: ' + decodedText);
+        },
+        () => {}
+    ).catch(err => {
+        container.innerHTML = '<p style="color: #F44336;">Ошибка камеры: ' + err + '</p>';
+    });
 });
 
 document.getElementById('close-qr-login')?.addEventListener('click', () => {
@@ -261,3 +240,20 @@ document.getElementById('backup-code-login')?.addEventListener('click', async (e
         alert('Ошибка соединения');
     }
 });
+
+// Универсальная проверка 2FA после любого входа
+async function check2FAAndRedirect() {
+    const { data: mfaData, error: mfaError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+    if (!mfaError && mfaData.nextLevel === 'aal2' && mfaData.currentLevel !== 'aal2') {
+        // 2FA включена, но не пройдена — показываем форму
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('otp-form').style.display = 'none';
+        document.getElementById('mfa-form').style.display = 'block';
+        return true; // 2FA нужна
+    }
+
+    // 2FA не нужна — пускаем
+    window.location.href = 'profile.html';
+    return false;
+}

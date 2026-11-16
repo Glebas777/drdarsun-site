@@ -359,57 +359,67 @@ logoutAllBtn.onclick = async () => {
 
     await loadDevices();
 
-    // 8. 2FA
-    const enable2faBtn = document.getElementById('enable-2fa-btn');
-    if (enable2faBtn) {
-        const { data: factors } = await supabase.auth.mfa.listFactors();
-        if (factors?.totp?.length > 0) {
-            enable2faBtn.textContent = 'Включено';
-            enable2faBtn.disabled = true;
-            enable2faBtn.style.background = '#4CAF50';
-            enable2faBtn.style.color = '#fff';
-        }
+const toggle2fa = document.getElementById('2fa-toggle');
+const status2fa = document.getElementById('2fa-status');
 
-        enable2faBtn.addEventListener('click', async () => {
-            if (enable2faBtn.disabled) return;
-            try {
-                const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Dr. DarSun 2FA' });
-                if (error) throw error;
-                const qrModal = document.createElement('div');
-                qrModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;display:flex;align-items:center;justify-content:center;';
-                qrModal.innerHTML = `
-                    <div style="background:var(--bg-card);padding:30px;border-radius:20px;text-align:center;max-width:400px;">
-                        <h3 style="margin-bottom:15px;">2FA</h3>
-                        <p style="color:var(--text-muted);margin-bottom:15px;">Отсканируйте QR-код в Яндекс.Ключ или Google Authenticator</p>
-                        <img src="${data.totp.qr_code}" style="width:200px;height:200px;margin-bottom:15px;">
-                        <p style="font-size:12px;color:var(--text-muted);margin-bottom:15px;">Ключ: <code>${data.totp.secret}</code></p>
-                        <input type="text" id="totp-code" placeholder="Введите 6 цифр" maxlength="6" style="width:100%;padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-color);color:var(--text-main);text-align:center;font-size:20px;margin-bottom:15px;">
-                        <button id="verify-totp" class="btn btn--primary" style="width:100%;margin-bottom:10px;">Подтвердить</button>
-                        <button id="close-totp" class="btn" style="width:100%;border:1px solid var(--border);">Отмена</button>
-                    </div>
-                `;
-                document.body.appendChild(qrModal);
-                document.getElementById('close-totp').onclick = () => {
-                    qrModal.remove();
-                    supabase.auth.mfa.unenroll({ factorId: data.id });
-                };
-                document.getElementById('verify-totp').onclick = async () => {
-                    const code = document.getElementById('totp-code').value;
-                    if (code.length !== 6) return alert('Введите 6 цифр');
-                    const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({ factorId: data.id, code });
-                    if (verifyError) alert('Неверный код: ' + verifyError.message);
-                    else {
-                        qrModal.remove();
-                        showToast('2FA активирован!');
-                        enable2faBtn.textContent = 'Включено';
-                        enable2faBtn.disabled = true;
-                    }
-                };
-            } catch (e) {
-                showToast('Ошибка: ' + e.message, 'error');
+if (toggle2fa) {
+    // Проверяем, включена ли 2FA
+    const { data: factors } = await supabase.auth.mfa.listFactors();
+    const has2fa = factors?.totp?.length > 0;
+    toggle2fa.checked = has2fa;
+    status2fa.textContent = has2fa ? 'Включена' : 'Отключена';
+
+    toggle2fa.addEventListener('change', async () => {
+        if (toggle2fa.checked) {
+            // Включаем — показываем QR
+            const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Dr. DarSun 2FA' });
+            if (error) { toggle2fa.checked = false; return showToast('Ошибка: ' + error.message, 'error'); }
+
+            // Показываем модалку с QR (можно использовать существующую логику)
+            const qrModal = document.createElement('div');
+            qrModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;display:flex;align-items:center;justify-content:center;';
+            qrModal.innerHTML = `
+                <div style="background:var(--bg-card);padding:30px;border-radius:20px;text-align:center;max-width:400px;">
+                    <h3>2FA</h3>
+                    <p style="color:var(--text-muted);margin:10px 0;">Отсканируйте QR в приложении</p>
+                    <img src="${data.totp.qr_code}" style="width:200px;height:200px;margin:10px 0;">
+                    <input type="text" id="totp-code" placeholder="000000" maxlength="6" style="width:100%;padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-color);color:var(--text-main);text-align:center;font-size:20px;margin-bottom:10px;">
+                    <button id="verify-totp" class="btn btn--primary" style="width:100%;">Подтвердить</button>
+                    <button id="close-totp" class="btn" style="width:100%;margin-top:10px;border:1px solid var(--border);">Отмена</button>
+                </div>
+            `;
+            document.body.appendChild(qrModal);
+
+            document.getElementById('close-totp').onclick = () => {
+                qrModal.remove();
+                toggle2fa.checked = false;
+                supabase.auth.mfa.unenroll({ factorId: data.id });
+            };
+
+            document.getElementById('verify-totp').onclick = async () => {
+                const code = document.getElementById('totp-code').value;
+                const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({ factorId: data.id, code });
+                if (verifyError) return alert('Неверный код: ' + verifyError.message);
+                qrModal.remove();
+                status2fa.textContent = 'Включена';
+                showToast('2FA активирована!');
+            };
+        } else {
+            // Отключаем
+            if (!confirm('Отключить 2FA? Аккаунт станет менее защищённым.')) {
+                toggle2fa.checked = true;
+                return;
             }
-        });
-    }
+            const { data: factors } = await supabase.auth.mfa.listFactors();
+            const totpFactor = factors?.totp?.[0];
+            if (totpFactor) {
+                await supabase.auth.mfa.unenroll({ factorId: totpFactor.id });
+                status2fa.textContent = 'Отключена';
+                showToast('2FA отключена');
+            }
+        }
+    });
+}
 
     // 9. РЕЗЕРВНЫЕ КОДЫ
     const generateBackupBtn = document.getElementById('generate-backup-codes');
@@ -568,6 +578,23 @@ scanQrBtn?.addEventListener('click', async () => {
     } catch (err) {
         qrScanResult.textContent = 'Ошибка камеры: ' + err;
     }
+});
+
+// --- ПРОСТОЙ ВЫХОД (не завершение сессии, а выход) ---
+document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    if (!confirm('Выйти из аккаунта?')) return;
+
+    // Удаляем текущее устройство из БД (чтобы не висело в списке)
+    const deviceKey = localStorage.getItem('device_key');
+    if (deviceKey) {
+        await supabase.from('devices').delete().eq('device_key', deviceKey);
+    }
+
+    // Выходим из Supabase
+    await supabase.auth.signOut();
+
+    // Перенаправляем на главную
+    window.location.href = 'index.html';
 });
 
 init();
