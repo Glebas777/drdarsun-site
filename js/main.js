@@ -26,6 +26,42 @@ async function updateHeaderAuth() {
 
 document.addEventListener('DOMContentLoaded', updateHeaderAuth);
 supabase.auth.onAuthStateChange(() => updateHeaderAuth());
+// --- ПРОВЕРКА: ЖИВ ЛИ КЛЮЧ УСТРОЙСТВА ---
+async function checkDeviceAlive() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return; // не залогинен — нечего проверять
+
+    const deviceKey = localStorage.getItem('device_key');
+    if (!deviceKey) return; // ключа нет — пропускаем (или можно выкинуть)
+
+    // Проверяем, есть ли наш ключ в таблице devices
+    const { data, error } = await supabase
+        .from('devices')
+        .select('device_key')
+        .eq('user_id', session.user.id)
+        .eq('device_key', deviceKey)
+        .maybeSingle();
+
+    // Если ошибка сети — не выкидываем (чтобы не было ложных срабатываний)
+    if (error) {
+        console.warn('Device check error:', error);
+        return;
+    }
+
+    // Если записи нет — значит, сессию завершили
+    if (!data) {
+        console.log('Сессия завершена (устройство удалено из БД). Выходим.');
+        await supabase.auth.signOut();
+        window.location.href = 'index.html';
+    }
+}
+
+// Вызываем при загрузке страницы
+document.addEventListener('DOMContentLoaded', checkDeviceAlive);
+// И при возврате на вкладку (если юзер переключился обратно)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkDeviceAlive();
+});
 // --- ГЛОБАЛЬНЫЙ СЛУШАТЕЛЬ ВЫХОДА (КИК) ---
 supabase.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') {

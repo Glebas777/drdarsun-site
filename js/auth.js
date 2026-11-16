@@ -87,15 +87,62 @@ document.getElementById('register-form')?.addEventListener('submit', async (e) =
     }
 });
 
+// Вход по Email (через OTP)
 document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    // Сначала пробуем обычный вход по паролю
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) alert('Ошибка: ' + error.message);
-    else window.location.href = 'profile.html';
+    if (!error) {
+        // Пароль верный — проверяем 2FA
+        const { data: mfaData, error: mfaError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (!mfaError && mfaData.nextLevel === 'aal2' && mfaData.currentLevel !== 'aal2') {
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('mfa-form').style.display = 'block';
+            return;
+        }
+        window.location.href = 'profile.html';
+        return;
+    }
+
+    // Если пароль неверный — предлагаем войти по OTP (код на почту)
+    if (error.message.includes('Invalid login credentials')) {
+        const { error: otpError } = await supabase.auth.signInWithOtp({ email });
+        if (otpError) return alert('Ошибка: ' + otpError.message);
+
+        alert('Пароль неверный. Мы отправили код на вашу почту.');
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('otp-form').style.display = 'block';
+        return;
+    }
+
+    alert('Ошибка: ' + error.message);
+});
+
+// Проверка OTP-кода
+document.getElementById('otp-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value;
+    const token = document.getElementById('otp-code').value;
+
+    const { error } = await supabase.auth.verifyOtp({
+        email: email,
+        token: token,
+        type: 'email'
+    });
+
+    if (error) return alert('Неверный код: ' + error.message);
+    window.location.href = 'profile.html';
+});
+
+// Кнопка "Назад" из OTP-формы
+document.getElementById('back-to-login-from-otp')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('otp-form').style.display = 'none';
+    document.getElementById('login-form').style.display = 'block';
 });
 
 const forgotForm = document.getElementById('forgot-form');

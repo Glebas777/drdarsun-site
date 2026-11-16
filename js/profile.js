@@ -506,22 +506,23 @@ logoutAllBtn.onclick = async () => {
     });
 }
 
-// QR-вход
 document.getElementById('qr-login-btn')?.addEventListener('click', async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    document.getElementById('qr-modal').style.display = 'flex';
 
-    // Генерируем временный токен (в реальности — через Layero, но пока заглушка)
     const qrToken = 'qr_' + Math.random().toString(36).substring(2, 15);
     const qrUrl = `https://drdarsun.ru/qr-confirm?token=${qrToken}`;
 
-    // Рисуем QR (через API, чтобы не тащить библиотеку)
-    const qrContainer = document.getElementById('qr-container');
-document.getElementById('qr-modal').style.display = 'flex';
-const canvas = document.getElementById('qr-canvas');
-QRCode.toCanvas(canvas, qrUrl, { width: 200, margin: 2 }, (error) => {
-    if (error) console.error('QR Error:', error);
-});
+    const qrContainer = document.getElementById('qrcode');
+    qrContainer.innerHTML = '';
+
+    new QRCode(qrContainer, {
+        text: qrUrl,
+        width: 200,
+        height: 200,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+    });
 });
 
 init();

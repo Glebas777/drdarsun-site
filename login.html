@@ -92,6 +92,19 @@
                 </div>
             </form>
 
+            <!-- ФОРМА OTP (вход по коду из письма) -->
+<form id="otp-form" class="auth-form" style="display: none;">
+    <h3 style="text-align: center; margin-bottom: 15px;">Введите код</h3>
+    <p style="text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;">Мы отправили 6-значный код на вашу почту</p>
+    <div class="input-group">
+        <input type="text" id="otp-code" placeholder="000000" maxlength="6" style="text-align: center; font-size: 24px; letter-spacing: 8px;">
+    </div>
+    <div class="login-actions">
+        <button type="submit" class="btn btn--primary btn--full">Подтвердить</button>
+    </div>
+    <a href="#" id="back-to-login-from-otp" style="display: block; text-align: center; margin-top: 15px; color: #888;">Назад</a>
+</form>
+
             <div class="auth-divider">
                 <span>или войти через</span>
             </div>
