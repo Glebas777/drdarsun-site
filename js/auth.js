@@ -134,17 +134,30 @@ document.getElementById('backup-code-login')?.addEventListener('click', async (e
 // ==========================================
 const forgotForm = document.getElementById('forgot-form');
 if (forgotForm) {
-    forgotForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const email = document.getElementById('forgot-email').value;
+let cooldown = false;
 
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: 'https://drdarsun.ru/reset.html'
-        });
+forgotForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (cooldown) return alert('Подождите    немного');
 
-        if (error) alert('Ошибка: ' + error.message);
-        else alert('Письмо для сброса пароля отправлено на почту.');
+    const email = document.getElementById('forgot-email').value;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://drdarsun.ru/reset.html'
     });
+
+    if (error) {
+        if (error.message.includes('For security purposes')) {
+            alert('Код уже отправлен. Подожди минуту.');
+        } else {
+            alert('Ошибка: ' + error.message);
+        }
+        return;
+    }
+
+    cooldown = true;
+    setTimeout(() => { cooldown = false; }, 60000);
+    alert('Ссылка отправлена на почту.');
+});
 }
 
 // ==========================================
@@ -181,4 +194,70 @@ document.getElementById('mfa-form')?.addEventListener('submit', async (e) => {
 
     if (verifyError) alert('Неверный код: ' + verifyError.message);
     else window.location.href = 'profile.html';
+});
+
+// ==========================================
+// ВХОД ПО QR-КОДУ (из модалки на логине)
+// ==========================================
+document.getElementById('qr-login-trigger')?.addEventListener('click', (e) => {
+    e.preventDefault();
+
+    // Показываем модалку СНАЧАЛА (чтобы div имел размеры)
+    document.getElementById('qr-login-modal').style.display = 'flex';
+
+    // Генерируем временный токен (заглушка, потом заменишь на реальный вызов Layero)
+    const qrToken = 'qr_' + Math.random().toString(36).substring(2, 15);
+    const qrUrl = `https://drdarsun.ru/qr-confirm?token=${qrToken}`;
+
+    const container = document.getElementById('qr-login-container');
+    container.innerHTML = '';
+
+    // Рисуем QR локально (библиотека qrcodejs)
+    if (window.QRCode) {
+        new QRCode(container, {
+            text: qrUrl,
+            width: 200,
+            height: 200,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
+        });
+    } else {
+        container.innerHTML = '<p style="color: #F44336;">Библиотека QR не загружена</p>';
+    }
+});
+
+document.getElementById('close-qr-login')?.addEventListener('click', () => {
+    document.getElementById('qr-login-modal').style.display = 'none';
+});
+
+// ==========================================
+// ВХОД ПО РЕЗЕРВНЫМ КОДАМ (их 6)
+// ==========================================
+document.getElementById('backup-code-login')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+
+    const code = prompt('Введите один из 6 резервных кодов:');
+    if (!code) return;
+
+    try {
+        const res = await fetch('https://drdarsun-site-main.layero.app/api/verify-backup-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: code.toUpperCase() })
+        });
+        const data = await res.json();
+
+        if (data.success && data.access_token) {
+            await supabase.auth.setSession({
+                access_token: data.access_token,
+                refresh_token: data.refresh_token
+            });
+            window.location.href = 'profile.html';
+        } else {
+            alert('Неверный или использованный код');
+        }
+    } catch (e) {
+        alert('Ошибка соединения');
+    }
 });

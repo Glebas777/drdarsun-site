@@ -256,3 +256,39 @@ body.auth-page {
 .bg-video.active {
     opacity: 1;
 }
+
+/* Дополнительные ссылки под формой входа */
+.login-extra-links {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 15px;
+}
+
+.login-extra-links a {
+    color: var(--text-muted);
+    font-size: 13px;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.login-extra-links a:hover {
+    color: var(--accent-gold);
+}
+
+/* На мобилке — чуть крупнее и с отступами */
+@media (max-width: 768px) {
+    .login-extra-links {
+        gap: 12px;
+        margin-top: 20px;
+    }
+    .login-extra-links a {
+        font-size: 14px;
+        padding: 8px 12px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        width: 100%;
+        text-align: center;
+    }
+}
