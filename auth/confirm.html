@@ -41,6 +41,8 @@
                 return;
             }
 
+            await new Promise(r => setTimeout(r, 2000));
+
             const { data: mfaData } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
             if (mfaData.nextLevel === 'aal2' && mfaData.currentLevel !== 'aal2') {
                 document.getElementById('status-title').textContent = 'Двухфакторная защита';

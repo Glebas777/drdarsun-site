@@ -197,6 +197,13 @@
                     <button type="submit" class="btn btn--primary">Сменить пароль</button>
                 </form>
 
+                <div id="password-hints" style="font-size: 12px; color: #888; margin-top: 5px; display: flex; flex-direction: column; gap: 4px;">
+    <div id="hint-length" style="display: flex; align-items: center; gap: 5px;">❌ Минимум 6 символов</div>
+    <div id="hint-upper" style="display: flex; align-items: center; gap: 5px;">❌ Заглавная буква</div>
+    <div id="hint-digit" style="display: flex; align-items: center; gap: 5px;">❌ Цифра</div>
+    <div id="hint-pwned" style="display: flex; align-items: center; gap: 5px;">❌ Проверка на утечки</div>
+</div>
+
                 <div style="margin-top: 40px; border-top: 1px solid var(--border); padding-top: 20px;">
                     <h4>Уведомления</h4>
                     <label><input type="checkbox" checked> Email</label><br>

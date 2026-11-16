@@ -92,6 +92,49 @@ document.getElementById('register-form')?.addEventListener('submit', async (e) =
     }
 });
 
+document.getElementById('reg-password')?.addEventListener('blur', async () => {
+    const val = document.getElementById('reg-password').value;
+    if (val.length < 6) return;
+
+    const hintPwned = document.getElementById('hint-pwned');
+    if (!hintPwned) return;
+
+    hintPwned.innerHTML = '⏳ Проверка на утечки...';
+    hintPwned.style.color = '#888';
+
+    try {
+        const msgBuffer = new TextEncoder().encode(val);
+        const hashBuffer = await crypto.subtle.digest('SHA-1', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+        const prefix = hashHex.substring(0, 5);
+        const suffix = hashHex.substring(5);
+        const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
+        const text = await response.text();
+        const lines = text.split('\n');
+        let isPwned = false;
+        let count = 0;
+        for (const line of lines) {
+            const [lineSuffix, lineCount] = line.split(':');
+            if (lineSuffix === suffix) {
+                isPwned = true;
+                count = parseInt(lineCount);
+                break;
+            }
+        }
+        if (isPwned) {
+            hintPwned.innerHTML = `❌ Пароль слит ${count} раз. Придумай другой.`;
+            hintPwned.style.color = '#F44336';
+        } else {
+            hintPwned.innerHTML = '✅ Пароль не найден в утечках';
+            hintPwned.style.color = '#4CAF50';
+        }
+    } catch (e) {
+        hintPwned.innerHTML = '⚠️ Не удалось проверить утечки';
+        hintPwned.style.color = '#FFA600';
+    }
+});
+
 // 6. Вход по Email
 document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();

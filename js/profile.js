@@ -321,4 +321,89 @@ window.showToast = function(message, type = 'success') {
     }, 3000);
 };
 
+const newPasswordInput = document.getElementById('new-password');
+if (newPasswordInput) {
+    // Легкость (мгновенно)
+    newPasswordInput.addEventListener('input', () => {
+        const val = newPasswordInput.value;
+        const hintLength = document.getElementById('hint-length');
+        const hintUpper = document.getElementById('hint-upper');
+        const hintDigit = document.getElementById('hint-digit');
+
+        if (val.length >= 6) {
+            hintLength.innerHTML = '✅ Минимум 6 символов';
+            hintLength.style.color = '#4CAF50';
+        } else {
+            hintLength.innerHTML = '❌ Минимум 6 символов';
+            hintLength.style.color = '#888';
+        }
+
+        if (/[A-Z]/.test(val)) {
+            hintUpper.innerHTML = '✅ Заглавная буква';
+            hintUpper.style.color = '#4CAF50';
+        } else {
+            hintUpper.innerHTML = '❌ Заглавная буква';
+            hintUpper.style.color = '#888';
+        }
+
+        if (/[0-9]/.test(val)) {
+            hintDigit.innerHTML = '✅ Цифра';
+            hintDigit.style.color = '#4CAF50';
+        } else {
+            hintDigit.innerHTML = '❌ Цифра';
+            hintDigit.style.color = '#888';
+        }
+    });
+
+    // Проверка на утечки (при потере фокуса)
+    newPasswordInput.addEventListener('blur', async () => {
+        const val = newPasswordInput.value;
+        if (val.length < 6) return;
+
+        const hintPwned = document.getElementById('hint-pwned');
+        hintPwned.innerHTML = '⏳ Проверка на утечки...';
+        hintPwned.style.color = '#888';
+
+        try {
+            // 1. Хешируем пароль (SHA-1)
+            const msgBuffer = new TextEncoder().encode(val);
+            const hashBuffer = await crypto.subtle.digest('SHA-1', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+
+            // 2. Берем первые 5 символов и остаток
+            const prefix = hashHex.substring(0, 5);
+            const suffix = hashHex.substring(5);
+
+            // 3. Отправляем только префикс в HIBP
+            const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
+            const text = await response.text();
+            const lines = text.split('\n');
+
+            let isPwned = false;
+            let count = 0;
+
+            for (const line of lines) {
+                const [lineSuffix, lineCount] = line.split(':');
+                if (lineSuffix === suffix) {
+                    isPwned = true;
+                    count = parseInt(lineCount);
+                    break;
+                }
+            }
+
+            if (isPwned) {
+                hintPwned.innerHTML = `❌ Пароль слит ${count} раз. Придумай другой.`;
+                hintPwned.style.color = '#F44336';
+            } else {
+                hintPwned.innerHTML = '✅ Пароль не найден в утечках';
+                hintPwned.style.color = '#4CAF50';
+            }
+        } catch (e) {
+            hintPwned.innerHTML = '⚠️ Не удалось проверить утечки';
+            hintPwned.style.color = '#FFA600';
+        }
+    });
+}
+
 init();
