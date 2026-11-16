@@ -240,27 +240,46 @@ body.auth-page {
     }
 }
 
+/* Контейнер для фона */
 .video-background {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -1;
+    width: 100vw;
+    height: 100vh;
+    z-index: -2;
     overflow: hidden;
+    background: #000;
 }
 
+/* Сами видео */
 .bg-video {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    top: 50%;
+    left: 50%;
+    min-width: 100%;
+    min-height: 100%;
+    width: auto;
+    height: auto;
+    transform: translate(-50%, -50%);
     object-fit: cover;
     opacity: 0;
     transition: opacity 1.5s ease-in-out;
 }
 
+/* Активное видео (которое сейчас видно) */
 .bg-video.active {
     opacity: 1;
+}
+
+/* Затемнение поверх видео (чтобы текст читался) */
+.video-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6); /* Чуть темнее, чтобы форма выделялась */
+    z-index: -1;
+    pointer-events: none;
 }
