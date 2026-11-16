@@ -390,7 +390,7 @@ app.post('/api/delete-account', async (req, res) => {
     try {
         const userRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
             headers: { 
-                'apikey': process.env.SUPABASE_ANON_KEY,
+                'apikey': process.env.SUPABASE_ANON_KEY, // <--- ANON
                 'Authorization': authHeader 
             }
         });
@@ -404,6 +404,7 @@ app.post('/api/delete-account', async (req, res) => {
                 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
             }
         });
+        
         if (!delRes.ok) throw new Error('Delete failed');
         res.json({ success: true });
     } catch (e) {

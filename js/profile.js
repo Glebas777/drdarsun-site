@@ -115,15 +115,15 @@ async function init() {
             <button class="btn" id="logout-other-devices" style="margin-top: 10px; border: 1px solid var(--border);">Выйти везде, кроме этого</button>
         `;
 
-        document.getElementById('logout-all-devices')?.addEventListener('click', async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            await fetch('https://drdarsun-site-main.layero.app/api/logout-all', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${session.access_token}` }
-            });
-            await supabase.auth.signOut();
-            window.location.href = 'index.html';
-        });
+document.getElementById('logout-all-devices')?.addEventListener('click', async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    await fetch('https://drdarsun-site-main.layero.app/api/logout-all', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+    await supabase.auth.signOut();
+    window.location.href = 'index.html';
+});
 
         document.getElementById('logout-other-devices')?.addEventListener('click', async () => {
             const { data: { session } } = await supabase.auth.getSession();
