@@ -8,6 +8,10 @@ localStorage.removeItem('sb-rrpcqrvkhmlrdqvffnax-auth-token');
         showToast('Сессия истекла. Войдите заново.', 'error');
         return window.location.href = 'login.html';
     }
+    const { data: w } = await supabase.from('wallets').select('avatar_url').eq('user_id', session.user.id).maybeSingle();
+if (w && w.avatar_url && currentAvatar) {
+    currentAvatar.src = w.avatar_url;
+}
 
     // 1. ДАННЫЕ
     document.getElementById('user-name').textContent = session.user.user_metadata.full_name || 'Гость';
@@ -43,24 +47,42 @@ localStorage.removeItem('sb-rrpcqrvkhmlrdqvffnax-auth-token');
                 return;
             }
 
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                const base64 = event.target.result;
-                
-                // Сохраняем в базу
-                const { error } = await supabase
-                    .from('wallets')
-                    .update({ avatar_url: base64 })
-                    .eq('user_id', session.user.id);
-
-                if (error) {
-                    showToast('Ошибка сохранения: ' + error.message, 'error');
-                } else {
-                    currentAvatar.src = base64; // Обновляем превью
-                    showToast('Аватарка обновлена!');
-                }
-            };
-            reader.readAsDataURL(file);
+const reader = new FileReader();
+reader.onload = (event) => {
+    const img = new Image();
+    img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const maxSize = 500; // Максимальная ширина/высота
+        let width = img.width;
+        let height = img.height;
+        if (width > height && width > maxSize) {
+            height *= maxSize / width;
+            width = maxSize;
+        } else if (height > maxSize) {
+            width *= maxSize / height;
+            height = maxSize;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        
+        // Сохраняем в базу
+        const { error } = await supabase
+            .from('wallets')
+            .update({ avatar_url: compressedBase64 })
+            .eq('user_id', session.user.id);
+        
+        if (error) showToast('Ошибка: ' + error.message, 'error');
+        else {
+            currentAvatar.src = compressedBase64;
+            showToast('Аватарка обновлена!');
+        }
+    };
+    img.src = event.target.result;
+};
+reader.readAsDataURL(file);
         });
     }
 

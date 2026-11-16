@@ -7,8 +7,14 @@
 </head>
 <body style="background: #0A0A0A; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
     <div style="text-align: center;">
-        <h2>Проверяем токен...</h2>
+        <h2 id="status-title">Проверяем токен...</h2>
         <p id="status">Пожалуйста, подождите.</p>
+
+        <!-- Форма для 2FA (появится, если нужно) -->
+        <div id="mfa-block" style="display: none; margin-top: 20px;">
+            <input type="text" id="mfa-code" placeholder="Введите 6 цифр" maxlength="6" style="width: 100%; padding: 15px; border-radius: 12px; border: 1px solid #333; background: #0A0A0A; color: #fff; text-align: center; font-size: 24px; letter-spacing: 8px; margin-bottom: 15px; outline: none;">
+            <button id="mfa-verify" style="width: 100%; padding: 15px; border-radius: 12px; background: #D4AF37; color: #000; border: none; font-weight: bold; font-size: 16px; cursor: pointer;">Подтвердить</button>
+        </div>
     </div>
 
     <script>
@@ -16,10 +22,9 @@
         const SUPABASE_URL = 'https://drdarsun-site-main.layero.app';
         const SUPABASE_ANON_KEY = 'sb_publishable_1Fh3LgYtH3wEkQjvBfiZsA_WZZsfsLF'; 
 
-        // 2. Создаем клиент (называем его supabaseClient, чтобы не конфликтовать)
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // 3. Логика проверки
+        // 2. Логика проверки
         async function confirm() {
             const params = new URLSearchParams(window.location.search);
             const token_hash = params.get('token_hash');
@@ -37,11 +42,45 @@
 
             if (error) {
                 document.getElementById('status').textContent = 'Ошибка: ' + error.message;
+                return;
+            }
+
+            // 3. Проверяем, нужна ли 2FA
+            const { data: mfaData, error: mfaError } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+            
+            if (!mfaError && mfaData.nextLevel === 'aal2' && mfaData.currentLevel !== 'aal2') {
+                // Нужен код 2FA
+                document.getElementById('status-title').textContent = 'Двухфакторная защита';
+                document.getElementById('status').textContent = 'Введите код из Яндекс.Ключа или Google Authenticator:';
+                document.getElementById('mfa-block').style.display = 'block';
             } else {
+                // 2FA не нужна — пускаем в профиль
                 document.getElementById('status').textContent = 'Успех! Перенаправление...';
                 window.location.href = 'https://drdarsun.ru/profile.html';
             }
         }
+
+        // 4. Обработчик кнопки 2FA
+        document.getElementById('mfa-verify')?.addEventListener('click', async () => {
+            const code = document.getElementById('mfa-code').value;
+            if (code.length !== 6) return alert('Введите 6 цифр');
+
+            const { data: factors } = await supabaseClient.auth.mfa.listFactors();
+            const totpFactor = factors.totp[0];
+            if (!totpFactor) return alert('Фактор не найден');
+
+            const { error: verifyError } = await supabaseClient.auth.mfa.challengeAndVerify({
+                factorId: totpFactor.id,
+                code: code
+            });
+
+            if (verifyError) {
+                alert('Неверный код: ' + verifyError.message);
+            } else {
+                document.getElementById('status').textContent = 'Успех! Перенаправление...';
+                window.location.href = 'https://drdarsun.ru/profile.html';
+            }
+        });
 
         confirm();
     </script>
