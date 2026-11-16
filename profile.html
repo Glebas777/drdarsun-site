@@ -169,11 +169,12 @@
     <button class="btn btn--primary" id="enable-2fa-btn">Включить 2FA</button>
 </div>
 
-                <div>
-                    <h4>Резервные коды</h4>
-                    <button class="btn" id="generate-backup-codes" style="border: 1px solid var(--border);">Сгенерировать коды</button>
-                    <div id="backup-codes-list" style="margin-top: 10px; display: none;"></div>
-                </div>
+<div style="margin-top: 20px;">
+    <h4>Резервные коды</h4>
+    <p style="font-size: 13px; color: var(--text-muted);">Одноразовые коды для входа, если потеряли телефон.</p>
+    <button class="btn" id="generate-backup-codes" style="border: 1px solid var(--border);">Сгенерировать коды</button>
+    <div id="backup-codes-list" style="margin-top: 10px; display: none; background: #1A1A1A; padding: 15px; border-radius: 12px;"></div>
+</div>
                 <div style="margin-bottom: 20px;">
     <h4>Face ID / Отпечаток (Passkey)</h4>
     <button class="btn btn--primary" id="enable-passkey-btn">Включить Passkey</button>
@@ -194,21 +195,26 @@
                 <form class="settings-form" id="password-form">
                     <label>Новый пароль</label>
                     <input type="password" id="new-password" placeholder="Минимум 6 символов">
-                    <button type="submit" class="btn btn--primary">Сменить пароль</button>
-                </form>
-
-                <div id="password-hints" style="font-size: 12px; color: #888; margin-top: 5px; display: flex; flex-direction: column; gap: 4px;">
+                                    <div id="password-hints" style="font-size: 12px; color: #888; margin-top: 5px; display: flex; flex-direction: column; gap: 4px;">
     <div id="hint-length" style="display: flex; align-items: center; gap: 5px;">❌ Минимум 6 символов</div>
     <div id="hint-upper" style="display: flex; align-items: center; gap: 5px;">❌ Заглавная буква</div>
     <div id="hint-digit" style="display: flex; align-items: center; gap: 5px;">❌ Цифра</div>
     <div id="hint-pwned" style="display: flex; align-items: center; gap: 5px;">❌ Проверка на утечки</div>
 </div>
+                    <button type="submit" class="btn btn--primary">Сменить пароль</button>
+                </form>
 
-                <div style="margin-top: 40px; border-top: 1px solid var(--border); padding-top: 20px;">
-                    <h4>Уведомления</h4>
-                    <label><input type="checkbox" checked> Email</label><br>
-                    <label><input type="checkbox" checked> Telegram</label><br>
-                </div>
+
+
+<div style="margin-top: 40px; border-top: 1px solid var(--border); padding-top: 20px;">
+    <h4>Уведомления на почту</h4>
+    <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 15px;">Текущая почта для уведомлений: <strong id="notify-email">Загрузка...</strong></p>
+    
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button class="btn" id="change-notify-email" style="border: 1px solid var(--border);">Сменить почту</button>
+        <button class="btn" id="disable-notify" style="border: 1px solid #F44336; color: #F44336;">Отключить уведомления</button>
+    </div>
+</div>
 
                 <div style="margin-top: 40px; border-top: 1px solid var(--border); padding-top: 20px;">
                     <h4 style="color: #F44336;">Удаление аккаунта</h4>

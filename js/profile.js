@@ -171,33 +171,58 @@ async function init() {
         });
     });
 
-    // 7. БЕЗОПАСНОСТЬ (ВЫХОДЫ)
+    // --- УСТРОЙСТВА ---
     const devicesList = document.getElementById('devices-list');
     if (devicesList) {
-        devicesList.innerHTML = `
-            <div class="device-item">
-                <div>
-                    <p style="margin: 0; font-weight: 500;">Текущее устройство</p>
-                    <p style="margin: 0; font-size: 12px; color: var(--text-muted);">${navigator.userAgent}</p>
-                </div>
-            </div>
-            <button class="btn" id="logout-all-devices" style="margin-top: 10px; border: 1px solid var(--border);">Выйти на всех устройствах</button>
-            <button class="btn" id="logout-other-devices" style="margin-top: 10px; border: 1px solid var(--border);">Выйти везде, кроме этого</button>
-        `;
+        // Генерируем или получаем ключ устройства
+        let deviceKey = localStorage.getItem('device_key');
+        if (!deviceKey) {
+            deviceKey = 'dev_' + Math.random().toString(36).substring(2, 10);
+            localStorage.setItem('device_key', deviceKey);
+        }
 
-        document.getElementById('logout-all-devices')?.addEventListener('click', async () => {
+        // Определяем имя устройства (браузер + ОС)
+        const deviceName = navigator.userAgent.split(' ').slice(0, 2).join(' ');
+
+        // Сохраняем/обновляем устройство в БД
+        await supabase.from('devices').upsert({
+            user_id: session.user.id,
+            device_key: deviceKey,
+            device_name: deviceName,
+            last_active: new Date().toISOString()
+        }, { onConflict: 'device_key' });
+
+        // Загружаем список устройств
+        const { data: devices, error } = await supabase
+            .from('devices')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .order('last_active', { ascending: false });
+
+        if (error || !devices || devices.length === 0) {
+            devicesList.innerHTML = '<div class="empty-state">Нет активных устройств.</div>';
+        } else {
+            devicesList.innerHTML = devices.map(d => `
+                <div class="device-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px;">
+                    <div>
+                        <p style="margin: 0; font-weight: 500; color: #fff;">${d.device_name}</p>
+                        <p style="margin: 0; font-size: 12px; color: var(--text-muted);">${new Date(d.last_active).toLocaleString('ru-RU')}</p>
+                    </div>
+                    ${d.device_key === deviceKey ? '<span style="color: #4CAF50; font-size: 12px;">Текущее</span>' : ''}
+                </div>
+            `).join('');
+        }
+
+        // Кнопки выхода
+        const logoutAllBtn = document.createElement('button');
+        logoutAllBtn.className = 'btn';
+        logoutAllBtn.style = 'margin-top: 10px; border: 1px solid var(--border);';
+        logoutAllBtn.textContent = 'Выйти на всех устройствах';
+        logoutAllBtn.onclick = async () => {
             await supabase.auth.signOut();
             window.location.href = 'index.html';
-        });
-
-        document.getElementById('logout-other-devices')?.addEventListener('click', async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            await fetch('https://drdarsun-site-main.layero.app/api/logout-others', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${session.access_token}` }
-            });
-            showToast('Другие сессии закрыты!');
-        });
+        };
+        devicesList.appendChild(logoutAllBtn);
     }
 
     // 8. 2FA
@@ -405,5 +430,74 @@ if (newPasswordInput) {
         }
     });
 }
+
+    // --- УВЕДОМЛЕНИЯ ---
+    const notifyEmail = document.getElementById('notify-email');
+    const changeNotifyBtn = document.getElementById('change-notify-email');
+    const disableNotifyBtn = document.getElementById('disable-notify');
+
+    if (notifyEmail) {
+        const { data: settings } = await supabase.from('notification_settings').select('*').eq('user_id', session.user.id).maybeSingle();
+        if (settings) {
+            notifyEmail.textContent = session.user.email + (settings.email_enabled ? ' (включены)' : ' (отключены)');
+        } else {
+            notifyEmail.textContent = session.user.email;
+            // Создаем настройки по умолчанию
+            await supabase.from('notification_settings').insert({ user_id: session.user.id });
+        }
+    }
+
+    changeNotifyBtn?.addEventListener('click', async () => {
+        const newEmail = prompt('Введите новую почту для уведомлений:');
+        if (!newEmail) return;
+        const res = await fetch('https://drdarsun-site-main.layero.app/api/change-email', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ newEmail })
+        });
+        if (res.ok) showToast('Письмо для подтверждения отправлено!');
+        else showToast('Ошибка смены почты', 'error');
+    });
+
+    disableNotifyBtn?.addEventListener('click', async () => {
+        await supabase.from('notification_settings').update({ email_enabled: false }).eq('user_id', session.user.id);
+        showToast('Уведомления отключены');
+        if (notifyEmail) notifyEmail.textContent = session.user.email + ' (отключены)';
+    });
+
+    // --- РЕЗЕРВНЫЕ КОДЫ ---
+    const generateBackupBtn = document.getElementById('generate-backup-codes');
+    const backupCodesList = document.getElementById('backup-codes-list');
+
+    if (generateBackupBtn && backupCodesList) {
+        generateBackupBtn.addEventListener('click', async () => {
+            // Генерируем 5 кодов
+            const codes = [];
+            for (let i = 0; i < 5; i++) {
+                codes.push(Math.random().toString(36).substring(2, 8).toUpperCase());
+            }
+
+            // Сохраняем в БД
+            const { error } = await supabase.from('backup_codes').insert(
+                codes.map(c => ({ user_id: session.user.id, code: c }))
+            );
+
+            if (error) {
+                showToast('Ошибка сохранения: ' + error.message, 'error');
+                return;
+            }
+
+            // Показываем
+            backupCodesList.style.display = 'block';
+            backupCodesList.innerHTML = `
+                <p style="color: #D4AF37; font-weight: 600; margin-bottom: 10px;">Сохраните эти коды (они больше не покажутся):</p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    ${codes.map(c => `<code style="background: #0A0A0A; padding: 10px; border-radius: 8px; text-align: center; font-size: 16px; border: 1px solid #333; color: #fff;">${c}</code>`).join('')}
+                </div>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 10px;">Каждый код можно использовать один раз.</p>
+            `;
+            showToast('Резервные коды сгенерированы!');
+        });
+    }
 
 init();

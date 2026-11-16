@@ -41,10 +41,10 @@
                 return;
             }
 
-            await new Promise(r => setTimeout(r, 2000));
-
-            const { data: mfaData } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
-            if (mfaData.nextLevel === 'aal2' && mfaData.currentLevel !== 'aal2') {
+await new Promise(r => setTimeout(r, 1500));
+const { data: mfaData } = await supabaseClient.auth.mfa.getAuthenticatorLevel();
+if (mfaData.nextLevel === 'aal2' && mfaData.currentLevel !== 'aal2') {
+    document.getElementById('mfa-block').style.display = 'block';
                 document.getElementById('status-title').textContent = 'Двухфакторная защита';
                 document.getElementById('status').textContent = 'Введите код из Яндекс.Ключа или Google Authenticator:';
                 document.getElementById('mfa-block').style.display = 'block';

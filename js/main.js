@@ -66,36 +66,6 @@ if (themeToggle) {
     });
 }
 
-// --- ЧАТ НА ГЛАВНОЙ ---
-document.addEventListener('DOMContentLoaded', () => {
-    const botToggle = document.getElementById('bot-toggle');
-    const botModal = document.getElementById('bot-modal');
-    const botClose = document.getElementById('bot-close');
-    const botMessages = document.getElementById('chat-messages');
-
-    if (botToggle && botModal) {
-        botToggle.addEventListener('click', () => {
-            botModal.style.display = botModal.style.display === 'flex' ? 'none' : 'flex';
-        });
-    }
-    if (botClose && botModal) {
-        botClose.addEventListener('click', () => botModal.style.display = 'none');
-    }
-
-    // Обработка кнопок быстрых ответов
-    document.querySelectorAll('.bot-opt').forEach(btn => {
-        btn.addEventListener('click', () => {
-            if (botMessages) {
-                botMessages.innerHTML += `<div class="msg-wrapper user"><div class="msg">${btn.dataset.msg}</div></div>`;
-                setTimeout(() => {
-                    botMessages.innerHTML += `<div class="msg-wrapper bot"><div class="msg">Доктор уже готовит ответ!</div></div>`;
-                    botMessages.scrollTop = botMessages.scrollHeight;
-                }, 500);
-            }
-        });
-    });
-});
-
 // Голосовой ввод
 const micBtn = document.getElementById('mic-btn');
 if (micBtn) {
@@ -176,3 +146,38 @@ window.showToast = function(message, type = 'success') {
     }, 3000);
 };
 
+// ЧАТ
+document.addEventListener('DOMContentLoaded', () => {
+    const botToggle = document.getElementById('bot-toggle');
+    const botModal = document.getElementById('bot-modal');
+    const botClose = document.getElementById('bot-close');
+    const chatSend = document.getElementById('chat-send');
+    const chatInput = document.getElementById('chat-input');
+    const chatMessages = document.getElementById('chat-messages');
+
+    if (botToggle && botModal) {
+        botToggle.addEventListener('click', () => {
+            botModal.style.display = botModal.style.display === 'flex' ? 'none' : 'flex';
+        });
+    }
+    if (botClose) botClose.addEventListener('click', () => botModal.style.display = 'none');
+
+    if (chatSend && chatInput) {
+        chatSend.addEventListener('click', async () => {
+            const text = chatInput.value.trim();
+            if (!text) return;
+            chatMessages.innerHTML += `<div class="msg-wrapper user"><div class="msg">${text}</div></div>`;
+            chatInput.value = '';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            const res = await fetch('https://drdarsun-site-main.layero.app/api/gigachat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: text, history: [] })
+            });
+            const data = await res.json();
+            chatMessages.innerHTML += `<div class="msg-wrapper bot"><div class="msg">${data.reply || 'Ошибка'}</div></div>`;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        });
+    }
+});
