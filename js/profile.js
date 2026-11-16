@@ -31,6 +31,39 @@ localStorage.removeItem('sb-rrpcqrvkhmlrdqvffnax-auth-token');
             const file = e.target.files[0];
             if (!file) return;
 
+                if (avatarInput) {
+        avatarInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Проверка веса (10 МБ = 10 * 1024 * 1024 байт)
+            if (file.size > 10 * 1024 * 1024) {
+                showToast('Файл слишком большой. Максимум 10 МБ.', 'error');
+                avatarInput.value = ''; // Очищаем инпут
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                const base64 = event.target.result;
+                
+                // Сохраняем в базу
+                const { error } = await supabase
+                    .from('wallets')
+                    .update({ avatar_url: base64 })
+                    .eq('user_id', session.user.id);
+
+                if (error) {
+                    showToast('Ошибка сохранения: ' + error.message, 'error');
+                } else {
+                    currentAvatar.src = base64; // Обновляем превью
+                    showToast('Аватарка обновлена!');
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
             // 1. Конвертируем в Base64 (или загружаем в Supabase Storage)
             const reader = new FileReader();
             reader.onload = async (event) => {

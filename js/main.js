@@ -66,25 +66,34 @@ if (themeToggle) {
 }
 
 // --- ЧАТ НА ГЛАВНОЙ ---
-const botToggle = document.getElementById('bot-toggle');
-const botModal = document.getElementById('bot-modal');
-const botClose = document.getElementById('bot-close');
-const botMessages = document.getElementById('bot-messages');
+document.addEventListener('DOMContentLoaded', () => {
+    const botToggle = document.getElementById('bot-toggle');
+    const botModal = document.getElementById('bot-modal');
+    const botClose = document.getElementById('bot-close');
+    const botMessages = document.getElementById('chat-messages');
 
-if (botToggle && botModal) {
-    botToggle.addEventListener('click', () => botModal.style.display = 'flex');
-    botClose.addEventListener('click', () => botModal.style.display = 'none');
-    
+    if (botToggle && botModal) {
+        botToggle.addEventListener('click', () => {
+            botModal.style.display = botModal.style.display === 'flex' ? 'none' : 'flex';
+        });
+    }
+    if (botClose && botModal) {
+        botClose.addEventListener('click', () => botModal.style.display = 'none');
+    }
+
+    // Обработка кнопок быстрых ответов
     document.querySelectorAll('.bot-opt').forEach(btn => {
         btn.addEventListener('click', () => {
-            botMessages.innerHTML += `<div class="bot-msg user">${btn.dataset.msg}</div>`;
-            setTimeout(() => {
-                botMessages.innerHTML += `<div class="bot-msg">Доктор уже готовит ответ!</div>`;
-                botMessages.scrollTop = botMessages.scrollHeight;
-            }, 500);
+            if (botMessages) {
+                botMessages.innerHTML += `<div class="msg-wrapper user"><div class="msg">${btn.dataset.msg}</div></div>`;
+                setTimeout(() => {
+                    botMessages.innerHTML += `<div class="msg-wrapper bot"><div class="msg">Доктор уже готовит ответ!</div></div>`;
+                    botMessages.scrollTop = botMessages.scrollHeight;
+                }, 500);
+            }
         });
     });
-}
+});
 
 // Голосовой ввод
 const micBtn = document.getElementById('mic-btn');
