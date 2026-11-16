@@ -19,22 +19,6 @@
     z-index: 0;
     background-color: #000;
 }
-.bg-video {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    min-width: 100%;
-    min-height: 100%;
-    width: auto;
-    height: auto;
-    object-fit: cover;
-    opacity: 0;
-    transition: opacity 1.5s ease-in-out;
-    pointer-events: none; /* Отключает клики по видео */
-    user-select: none; /* Запрещает выделение */
-    -webkit-user-drag: none; /* Запрещает перетаскивание картинки */
-}
 
 .bg-video.active {
     opacity: 1;
