@@ -184,11 +184,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // --- СТОРОЖЕВОЙ ТАЙМЕР СЕССИИ ---
 setInterval(async () => {
+    // Если мы на странице входа или регистрации — не трогаем
+    const currentPage = window.location.pathname.split('/').pop();
+    if (currentPage === 'login.html' || currentPage === 'register.html' || currentPage === '') {
+        return; // Не выкидываем
+    }
+
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error || !session) {
-        // Если сессии нет (ее отозвали) — выкидываем на главную
-        if (window.location.pathname !== '/index.html' && window.location.pathname !== '/') {
-            window.location.href = 'index.html';
-        }
+        window.location.href = 'index.html';
     }
-}, 5000); // Проверяем каждые 5 секунд
+}, 5000);
