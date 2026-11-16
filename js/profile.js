@@ -11,7 +11,7 @@ async function init() {
     document.getElementById('user-name').textContent = session.user.user_metadata.full_name || 'Гость';
     document.getElementById('user-email').textContent = session.user.email;
 
-    // 2. АВАТАРКА (ЗАГРУЗКА)
+    // 2. АВАТАРКА
     const avatarInput = document.getElementById('avatar-input');
     const currentAvatar = document.getElementById('current-avatar');
     const editorModal = document.getElementById('avatar-editor-modal');
@@ -20,7 +20,6 @@ async function init() {
     const editorSave = document.getElementById('editor-save');
     const editorCancel = document.getElementById('editor-cancel');
 
-    // Загружаем текущую аватарку
     if (currentAvatar) {
         const { data: w } = await supabase.from('wallets').select('avatar_url').eq('user_id', session.user.id).maybeSingle();
         if (w && w.avatar_url) currentAvatar.src = w.avatar_url;
@@ -171,20 +170,16 @@ async function init() {
         });
     });
 
-    // --- УСТРОЙСТВА ---
+    // 7. УСТРОЙСТВА
     const devicesList = document.getElementById('devices-list');
     if (devicesList) {
-        // Генерируем или получаем ключ устройства
         let deviceKey = localStorage.getItem('device_key');
         if (!deviceKey) {
             deviceKey = 'dev_' + Math.random().toString(36).substring(2, 10);
             localStorage.setItem('device_key', deviceKey);
         }
-
-        // Определяем имя устройства (браузер + ОС)
         const deviceName = navigator.userAgent.split(' ').slice(0, 2).join(' ');
 
-        // Сохраняем/обновляем устройство в БД
         await supabase.from('devices').upsert({
             user_id: session.user.id,
             device_key: deviceKey,
@@ -192,7 +187,6 @@ async function init() {
             last_active: new Date().toISOString()
         }, { onConflict: 'device_key' });
 
-        // Загружаем список устройств
         const { data: devices, error } = await supabase
             .from('devices')
             .select('*')
@@ -213,7 +207,6 @@ async function init() {
             `).join('');
         }
 
-        // Кнопки выхода
         const logoutAllBtn = document.createElement('button');
         logoutAllBtn.className = 'btn';
         logoutAllBtn.style = 'margin-top: 10px; border: 1px solid var(--border);';
@@ -325,6 +318,71 @@ async function init() {
             showToast('Ошибка удаления', 'error');
         }
     });
+
+    // 11. УВЕДОМЛЕНИЯ
+    const notifyEmail = document.getElementById('notify-email');
+    const changeNotifyBtn = document.getElementById('change-notify-email');
+    const disableNotifyBtn = document.getElementById('disable-notify');
+
+    if (notifyEmail) {
+        const { data: settings } = await supabase.from('notification_settings').select('*').eq('user_id', session.user.id).maybeSingle();
+        if (settings) {
+            notifyEmail.textContent = session.user.email + (settings.email_enabled ? ' (включены)' : ' (отключены)');
+        } else {
+            notifyEmail.textContent = session.user.email;
+            await supabase.from('notification_settings').insert({ user_id: session.user.id });
+        }
+    }
+
+    changeNotifyBtn?.addEventListener('click', async () => {
+        const newEmail = prompt('Введите новую почту для уведомлений:');
+        if (!newEmail) return;
+        const res = await fetch('https://drdarsun-site-main.layero.app/api/change-email', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ newEmail })
+        });
+        if (res.ok) showToast('Письмо для подтверждения отправлено!');
+        else showToast('Ошибка смены почты', 'error');
+    });
+
+    disableNotifyBtn?.addEventListener('click', async () => {
+        await supabase.from('notification_settings').update({ email_enabled: false }).eq('user_id', session.user.id);
+        showToast('Уведомления отключены');
+        if (notifyEmail) notifyEmail.textContent = session.user.email + ' (отключены)';
+    });
+
+    // 12. РЕЗЕРВНЫЕ КОДЫ
+    const generateBackupBtn = document.getElementById('generate-backup-codes');
+    const backupCodesList = document.getElementById('backup-codes-list');
+
+    if (generateBackupBtn && backupCodesList) {
+        generateBackupBtn.addEventListener('click', async () => {
+            const codes = [];
+            for (let i = 0; i < 5; i++) {
+                codes.push(Math.random().toString(36).substring(2, 8).toUpperCase());
+            }
+
+            const { error } = await supabase.from('backup_codes').insert(
+                codes.map(c => ({ user_id: session.user.id, code: c }))
+            );
+
+            if (error) {
+                showToast('Ошибка сохранения: ' + error.message, 'error');
+                return;
+            }
+
+            backupCodesList.style.display = 'block';
+            backupCodesList.innerHTML = `
+                <p style="color: #D4AF37; font-weight: 600; margin-bottom: 10px;">Сохраните эти коды (они больше не покажутся):</p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    ${codes.map(c => `<code style="background: #0A0A0A; padding: 10px; border-radius: 8px; text-align: center; font-size: 16px; border: 1px solid #333; color: #fff;">${c}</code>`).join('')}
+                </div>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 10px;">Каждый код можно использовать один раз.</p>
+            `;
+            showToast('Резервные коды сгенерированы!');
+        });
+    }
 }
 
 // --- ТОСТЫ ---
@@ -346,9 +404,9 @@ window.showToast = function(message, type = 'success') {
     }, 3000);
 };
 
+// Проверка пароля (вынесена в отдельную функцию, чтобы не мешать init)
 const newPasswordInput = document.getElementById('new-password');
 if (newPasswordInput) {
-    // Легкость (мгновенно)
     newPasswordInput.addEventListener('input', () => {
         const val = newPasswordInput.value;
         const hintLength = document.getElementById('hint-length');
@@ -380,7 +438,6 @@ if (newPasswordInput) {
         }
     });
 
-    // Проверка на утечки (при потере фокуса)
     newPasswordInput.addEventListener('blur', async () => {
         const val = newPasswordInput.value;
         if (val.length < 6) return;
@@ -390,24 +447,17 @@ if (newPasswordInput) {
         hintPwned.style.color = '#888';
 
         try {
-            // 1. Хешируем пароль (SHA-1)
             const msgBuffer = new TextEncoder().encode(val);
             const hashBuffer = await crypto.subtle.digest('SHA-1', msgBuffer);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-
-            // 2. Берем первые 5 символов и остаток
             const prefix = hashHex.substring(0, 5);
             const suffix = hashHex.substring(5);
-
-            // 3. Отправляем только префикс в HIBP
             const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
             const text = await response.text();
             const lines = text.split('\n');
-
             let isPwned = false;
             let count = 0;
-
             for (const line of lines) {
                 const [lineSuffix, lineCount] = line.split(':');
                 if (lineSuffix === suffix) {
@@ -416,7 +466,6 @@ if (newPasswordInput) {
                     break;
                 }
             }
-
             if (isPwned) {
                 hintPwned.innerHTML = `❌ Пароль слит ${count} раз. Придумай другой.`;
                 hintPwned.style.color = '#F44336';
@@ -430,74 +479,5 @@ if (newPasswordInput) {
         }
     });
 }
-
-    // --- УВЕДОМЛЕНИЯ ---
-    const notifyEmail = document.getElementById('notify-email');
-    const changeNotifyBtn = document.getElementById('change-notify-email');
-    const disableNotifyBtn = document.getElementById('disable-notify');
-
-    if (notifyEmail) {
-        const { data: settings } = await supabase.from('notification_settings').select('*').eq('user_id', session.user.id).maybeSingle();
-        if (settings) {
-            notifyEmail.textContent = session.user.email + (settings.email_enabled ? ' (включены)' : ' (отключены)');
-        } else {
-            notifyEmail.textContent = session.user.email;
-            // Создаем настройки по умолчанию
-            await supabase.from('notification_settings').insert({ user_id: session.user.id });
-        }
-    }
-
-    changeNotifyBtn?.addEventListener('click', async () => {
-        const newEmail = prompt('Введите новую почту для уведомлений:');
-        if (!newEmail) return;
-        const res = await fetch('https://drdarsun-site-main.layero.app/api/change-email', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ newEmail })
-        });
-        if (res.ok) showToast('Письмо для подтверждения отправлено!');
-        else showToast('Ошибка смены почты', 'error');
-    });
-
-    disableNotifyBtn?.addEventListener('click', async () => {
-        await supabase.from('notification_settings').update({ email_enabled: false }).eq('user_id', session.user.id);
-        showToast('Уведомления отключены');
-        if (notifyEmail) notifyEmail.textContent = session.user.email + ' (отключены)';
-    });
-
-    // --- РЕЗЕРВНЫЕ КОДЫ ---
-    const generateBackupBtn = document.getElementById('generate-backup-codes');
-    const backupCodesList = document.getElementById('backup-codes-list');
-
-    if (generateBackupBtn && backupCodesList) {
-        generateBackupBtn.addEventListener('click', async () => {
-            // Генерируем 5 кодов
-            const codes = [];
-            for (let i = 0; i < 5; i++) {
-                codes.push(Math.random().toString(36).substring(2, 8).toUpperCase());
-            }
-
-            // Сохраняем в БД
-            const { error } = await supabase.from('backup_codes').insert(
-                codes.map(c => ({ user_id: session.user.id, code: c }))
-            );
-
-            if (error) {
-                showToast('Ошибка сохранения: ' + error.message, 'error');
-                return;
-            }
-
-            // Показываем
-            backupCodesList.style.display = 'block';
-            backupCodesList.innerHTML = `
-                <p style="color: #D4AF37; font-weight: 600; margin-bottom: 10px;">Сохраните эти коды (они больше не покажутся):</p>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    ${codes.map(c => `<code style="background: #0A0A0A; padding: 10px; border-radius: 8px; text-align: center; font-size: 16px; border: 1px solid #333; color: #fff;">${c}</code>`).join('')}
-                </div>
-                <p style="font-size: 12px; color: var(--text-muted); margin-top: 10px;">Каждый код можно использовать один раз.</p>
-            `;
-            showToast('Резервные коды сгенерированы!');
-        });
-    }
 
 init();
