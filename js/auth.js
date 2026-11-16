@@ -98,10 +98,24 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) alert('Ошибка: ' + error.message);
-    else window.location.href = 'profile.html';
+    if (error) {
+        return alert('Ошибка: ' + error.message);
+    }
+
+    // Проверяем, нужен ли код 2FA
+    const { data: mfaData, error: mfaError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    
+    if (!mfaError && mfaData.nextLevel === 'aal2' && mfaData.currentLevel !== 'aal2') {
+        // 2FA включена — показываем поле для кода
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('mfa-form').style.display = 'block';
+        return;
+    }
+
+    // Если 2FA нет — пускаем сразу
+    window.location.href = 'profile.html';
 });
 
 // 7. Восстановление пароля
@@ -158,4 +172,27 @@ document.getElementById('back-to-login')?.addEventListener('click', (e) => {
     e.preventDefault();
     document.getElementById('forgot-form').style.display = 'none';
     document.getElementById('login-form').style.display = 'block';
+});
+
+// Вход по 2FA коду
+document.getElementById('mfa-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = document.getElementById('mfa-code').value;
+    if (code.length !== 6) return alert('Введите 6 цифр');
+
+    const { data: factors } = await supabase.auth.mfa.listFactors();
+    const totpFactor = factors.totp[0];
+    
+    if (!totpFactor) return alert('Фактор не найден');
+
+    const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({ 
+        factorId: totpFactor.id, 
+        code: code 
+    });
+
+    if (verifyError) {
+        alert('Неверный код: ' + verifyError.message);
+    } else {
+        window.location.href = 'profile.html';
+    }
 });

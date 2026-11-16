@@ -82,6 +82,16 @@
         <a href="#" class="back-to-login" id="back-to-login" style="color: var(--text-muted); text-decoration: none; font-size: 14px;">Вернуться ко входу</a>
     </div>
 </form>
+<!-- ФОРМА ДЛЯ 2FA -->
+<form id="mfa-form" style="display: none;">
+    <h2>Введите код</h2>
+    <p style="color: #aaa;">Введите 6-значный код из Яндекс.Ключа или Google Authenticator</p>
+    <div class="input-group">
+        <label>Код</label>
+        <input type="text" id="mfa-code" placeholder="000000" maxlength="6" style="text-align: center; font-size: 24px; letter-spacing: 8px;">
+    </div>
+    <button type="submit" class="btn btn--primary btn--full">Подтвердить</button>
+</form>
 
             <div class="auth-divider">
                 <span>или войти через</span>

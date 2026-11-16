@@ -13,32 +13,68 @@ localStorage.removeItem('sb-rrpcqrvkhmlrdqvffnax-auth-token');
     document.getElementById('user-name').textContent = session.user.user_metadata.full_name || 'Гость';
     document.getElementById('user-email').textContent = session.user.email;
 
-    // 2. АВАТАРКА (ЗАГРУЗКА)
+    // 2. АВАТАРКА (ЗАГРУЗКА И СОХРАНЕНИЕ)
     const avatarInput = document.getElementById('avatar-input');
     const avatarPreview = document.getElementById('avatar-preview');
+    const currentAvatar = document.getElementById('current-avatar');
+
+    // Загружаем текущую аватарку из базы
+    if (currentAvatar) {
+        const { data: w } = await supabase.from('wallets').select('avatar_url').eq('user_id', session.user.id).maybeSingle();
+        if (w && w.avatar_url) {
+            currentAvatar.src = w.avatar_url;
+        }
+    }
+
     if (avatarInput) {
-        avatarInput.addEventListener('change', (e) => {
+        avatarInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
+
+            // 1. Конвертируем в Base64 (или загружаем в Supabase Storage)
             const reader = new FileReader();
-            reader.onload = (event) => {
-                avatarPreview.innerHTML = `<img src="${event.target.result}" alt="Avatar">`;
+            reader.onload = async (event) => {
+                const base64 = event.target.result;
+                
+                // 2. Сохраняем в базу (в поле avatar_url)
+                const { error } = await supabase
+                    .from('wallets')
+                    .update({ avatar_url: base64 })
+                    .eq('user_id', session.user.id);
+
+                if (error) {
+                    showToast('Ошибка сохранения: ' + error.message, 'error');
+                } else {
+                    currentAvatar.src = base64;
+                    showToast('Аватарка обновлена!');
+                }
             };
             reader.readAsDataURL(file);
         });
     }
 
-    // 3. АВАТАРКА (ВЫБОР)
+    // 3. ВЫБОР ИЗ ГОТОВЫХ
     const chooseAvatarBtn = document.getElementById('choose-avatar-btn');
     const avatarModal = document.getElementById('avatar-modal');
-    const currentAvatar = document.getElementById('current-avatar');
     if (chooseAvatarBtn && avatarModal) {
         chooseAvatarBtn.addEventListener('click', () => avatarModal.style.display = 'flex');
     }
-    window.selectAvatar = function(src) {
+
+    window.selectAvatar = async function(src) {
         if (currentAvatar) currentAvatar.src = src;
         if (avatarModal) avatarModal.style.display = 'none';
-        showToast('Аватарка выбрана!');
+        
+        // Сохраняем в базу
+        const { error } = await supabase
+            .from('wallets')
+            .update({ avatar_url: src })
+            .eq('user_id', session.user.id);
+
+        if (error) {
+            showToast('Ошибка сохранения: ' + error.message, 'error');
+        } else {
+            showToast('Аватарка выбрана и сохранена!');
+        }
     };
 
     // 4. КОШЕЛЕК
