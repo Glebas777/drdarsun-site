@@ -11,106 +11,89 @@ async function init() {
     document.getElementById('user-name').textContent = session.user.user_metadata.full_name || 'Гость';
     document.getElementById('user-email').textContent = session.user.email;
 
-    // 2. АВАТАРКА (ЗАГРУЗКА С РЕДАКТОРОМ)
+    // 2. АВАТАРКА
     const avatarInput = document.getElementById('avatar-input');
     const currentAvatar = document.getElementById('current-avatar');
     const editorModal = document.getElementById('avatar-editor-modal');
     const editorImage = document.getElementById('editor-image');
+    const cropArea = document.getElementById('crop-area');
     const editorSave = document.getElementById('editor-save');
     const editorCancel = document.getElementById('editor-cancel');
 
-    // Загружаем текущую аватарку из базы
+    // Загружаем текущую аватарку
     if (currentAvatar) {
         const { data: w } = await supabase.from('wallets').select('avatar_url').eq('user_id', session.user.id).maybeSingle();
-        if (w && w.avatar_url) {
-            currentAvatar.src = w.avatar_url;
-        }
+        if (w && w.avatar_url) currentAvatar.src = w.avatar_url;
     }
 
-    let imgX = 0, imgY = 0, imgScale = 1;
+    let isDragging = false;
+    let startX = 0, startY = 0;
+    let imgX = 0, imgY = 0;
 
     if (avatarInput) {
         avatarInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
-
-            // Проверка веса
             if (file.size > 10 * 1024 * 1024) {
                 showToast('Файл слишком большой. Максимум 10 МБ.', 'error');
                 avatarInput.value = '';
                 return;
             }
-
             const reader = new FileReader();
             reader.onload = (event) => {
                 editorImage.src = event.target.result;
-                editorImage.style.transform = 'translate(0px, 0px) scale(1)';
-                imgX = 0; imgY = 0; imgScale = 1;
+                editorImage.style.transform = 'translate(0px, 0px)';
+                imgX = 0; imgY = 0;
                 editorModal.style.display = 'flex';
             };
             reader.readAsDataURL(file);
         });
     }
 
-    // Движение фото (мышкой)
-    if (editorImage) {
-        let isDragging = false;
-        let startX, startY;
-
-        editorImage.addEventListener('mousedown', (e) => {
+    if (cropArea) {
+        cropArea.addEventListener('mousedown', (e) => {
             isDragging = true;
             startX = e.clientX - imgX;
             startY = e.clientY - imgY;
+            cropArea.style.cursor = 'grabbing';
         });
-
         window.addEventListener('mousemove', (e) => {
-            if (isDragging) {
-                imgX = e.clientX - startX;
-                imgY = e.clientY - startY;
-                editorImage.style.transform = `translate(${imgX}px, ${imgY}px) scale(${imgScale})`;
-            }
+            if (!isDragging) return;
+            imgX = e.clientX - startX;
+            imgY = e.clientY - startY;
+            editorImage.style.transform = `translate(${imgX}px, ${imgY}px)`;
         });
-
         window.addEventListener('mouseup', () => {
             isDragging = false;
-        });
-
-        // Масштаб колесиком
-        editorImage.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            imgScale += e.deltaY * -0.001;
-            imgScale = Math.min(Math.max(1, imgScale), 3); // От 1 до 3
-            editorImage.style.transform = `translate(${imgX}px, ${imgY}px) scale(${imgScale})`;
+            cropArea.style.cursor = 'grab';
         });
     }
 
-    // Сохранение
     if (editorSave) {
         editorSave.addEventListener('click', async () => {
             const canvas = document.createElement('canvas');
             canvas.width = 300;
             canvas.height = 300;
             const ctx = canvas.getContext('2d');
-
-            // Рисуем круг
             ctx.beginPath();
             ctx.arc(150, 150, 150, 0, Math.PI * 2);
             ctx.clip();
 
-            // Рисуем изображение
             const img = new Image();
             img.onload = async () => {
-                const drawX = (canvas.width - img.width * imgScale) / 2 + imgX;
-                const drawY = (canvas.height - img.height * imgScale) / 2 + imgY;
-                ctx.drawImage(img, drawX, drawY, img.width * imgScale, img.height * imgScale);
+                // Центрируем изображение
+                const drawX = (canvas.width - img.width) / 2 + imgX;
+                const drawY = (canvas.height - img.height) / 2 + imgY;
+                ctx.drawImage(img, drawX, drawY, img.width, img.height);
 
                 const base64 = canvas.toDataURL('image/jpeg', 0.8);
 
-                // Сохраняем в базу
                 const { error } = await supabase
                     .from('wallets')
-                    .update({ avatar_url: base64 })
-                    .eq('user_id', session.user.id);
+                    .upsert({ 
+                        user_id: session.user.id, 
+                        avatar_url: base64 
+                    }, { onConflict: 'user_id' });
 
                 if (error) {
                     showToast('Ошибка: ' + error.message, 'error');
