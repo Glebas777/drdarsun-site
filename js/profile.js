@@ -1,6 +1,8 @@
 import { supabase } from './supabase-client.js';
 
 async function init() {
+    // Полная очистка при выходе
+localStorage.removeItem('sb-rrpcqrvkhmlrdqvffnax-auth-token');
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error || !session) {
         showToast('Сессия истекла. Войдите заново.', 'error');
@@ -147,6 +149,7 @@ document.getElementById('logout-all-devices')?.addEventListener('click', async (
         headers: { 'Authorization': `Bearer ${session.access_token}` }
     });
     await supabase.auth.signOut();
+    localStorage.clear();
     window.location.href = 'index.html';
 });
 
@@ -185,17 +188,21 @@ if (!error && data.all && data.all.length > 0) {
                 if (error) throw error;
                 const qrModal = document.createElement('div');
                 qrModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;display:flex;align-items:center;justify-content:center;';
-                qrModal.innerHTML = `
-                    <div style="background:var(--bg-card);padding:30px;border-radius:20px;text-align:center;max-width:400px;">
-                        <h3 style="margin-bottom:15px;">2FA</h3>
-                        <p style="color:var(--text-muted);margin-bottom:15px;">Отсканируйте QR-код в Google Authenticator</p>
-                        <img src="${data.totp.qr_code}" style="width:200px;height:200px;margin-bottom:15px;">
-                        <p style="font-size:12px;color:var(--text-muted);margin-bottom:15px;">Ключ: <code>${data.totp.secret}</code></p>
-                        <input type="text" id="totp-code" placeholder="Введите 6 цифр" maxlength="6" style="width:100%;padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-color);color:var(--text-main);text-align:center;font-size:20px;margin-bottom:15px;">
-                        <button id="verify-totp" class="btn btn--primary" style="width:100%;margin-bottom:10px;">Подтвердить</button>
-                        <button id="close-totp" class="btn" style="width:100%;border:1px solid var(--border);">Отмена</button>
-                    </div>
-                `;
+qrModal.innerHTML = `
+    <div style="background:var(--bg-card);padding:30px;border-radius:20px;text-align:center;max-width:400px;">
+        <h3 style="margin-bottom:15px;">2FA</h3>
+        <p style="color:var(--text-muted);margin-bottom:15px;">
+            Отсканируйте QR-код в <strong>Яндекс.Ключ</strong> или <strong>Google Authenticator</strong>
+        </p>
+        <img src="${data.totp.qr_code}" style="width:200px;height:200px;margin-bottom:15px;">
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:15px;">
+            Ключ для ручного ввода: <code>${data.totp.secret}</code>
+        </p>
+        <input type="text" id="totp-code" placeholder="Введите 6 цифр" maxlength="6" style="width:100%;padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-color);color:var(--text-main);text-align:center;font-size:20px;margin-bottom:15px;">
+        <button id="verify-totp" class="btn btn--primary" style="width:100%;margin-bottom:10px;">Подтвердить</button>
+        <button id="close-totp" class="btn" style="width:100%;border:1px solid var(--border);">Отмена</button>
+    </div>
+`;
                 document.body.appendChild(qrModal);
                 document.getElementById('close-totp').onclick = () => {
                     qrModal.remove();
