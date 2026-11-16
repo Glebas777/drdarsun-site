@@ -1,17 +1,14 @@
 import { supabase } from './supabase-client.js';
-const chatInput = document.getElementById('chat-input');
 
 // --- УНИВЕРСАЛЬНЫЙ ХЕДЕР ---
 async function updateHeaderAuth() {
     const container = document.getElementById('auth-buttons');
     if (!container) return;
 
-    // Показываем "Загрузку" (чтобы не мигало)
     container.innerHTML = `<span style="color: #888; font-size: 14px;">...</span>`;
 
     try {
         const { data: { session } } = await supabase.auth.getSession();
-        
         if (session) {
             const userName = session.user.user_metadata.full_name || 'Профиль';
             container.innerHTML = `
@@ -27,9 +24,9 @@ async function updateHeaderAuth() {
     }
 }
 
-// Запускаем сразу (и на всякий случай через секунду, если DOM еще не готов)
 document.addEventListener('DOMContentLoaded', updateHeaderAuth);
-window.addEventListener('load', updateHeaderAuth);
+supabase.auth.onAuthStateChange(() => updateHeaderAuth());
+
 // --- СМЕНА ТЕМЫ ---
 const themeToggle = document.getElementById('theme-toggle');
 const heroVideo = document.getElementById('hero-video');
@@ -66,7 +63,49 @@ if (themeToggle) {
     });
 }
 
-// Голосовой ввод
+// --- ЧАТ НА ГЛАВНОЙ ---
+const botToggle = document.getElementById('bot-toggle');
+const botModal = document.getElementById('bot-modal');
+const botClose = document.getElementById('bot-close');
+const chatMessages = document.getElementById('chat-messages');
+const chatInput = document.getElementById('chat-input');
+const chatSend = document.getElementById('chat-send');
+
+if (botToggle && botModal) {
+    botToggle.addEventListener('click', () => {
+        botModal.style.display = botModal.style.display === 'flex' ? 'none' : 'flex';
+    });
+}
+if (botClose) botClose.addEventListener('click', () => botModal.style.display = 'none');
+
+if (chatSend && chatInput) {
+    chatSend.addEventListener('click', async () => {
+        const text = chatInput.value.trim();
+        if (!text) return;
+        
+        chatMessages.innerHTML += `<div class="msg-wrapper user"><div class="msg">${text}</div></div>`;
+        chatInput.value = '';
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        try {
+            const res = await fetch('https://drdarsun-site-main.layero.app/api/gigachat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: text, history: [] })
+            });
+            const data = await res.json();
+            chatMessages.innerHTML += `<div class="msg-wrapper bot"><div class="msg">${data.reply || 'Ошибка'}</div></div>`;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        } catch (e) {
+            chatMessages.innerHTML += `<div class="msg-wrapper bot"><div class="msg">Ошибка связи</div></div>`;
+        }
+    });
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') chatSend.click();
+    });
+}
+
+// --- ГОЛОСОВОЙ ВВОД ---
 const micBtn = document.getElementById('mic-btn');
 if (micBtn) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -83,50 +122,18 @@ if (micBtn) {
 
         recognition.onresult = (event) => {
             const text = event.results[0][0].transcript;
-            chatInput.value = text;
+            if (chatInput) chatInput.value = text;
             micBtn.style.color = '';
         };
 
-        recognition.onerror = () => {
-            micBtn.style.color = '';
-        };
-
-        recognition.onend = () => {
-            micBtn.style.color = '';
-        };
+        recognition.onerror = () => { micBtn.style.color = ''; };
+        recognition.onend = () => { micBtn.style.color = ''; };
     } else {
-        micBtn.style.display = 'none'; // Скрываем, если браузер не поддерживает
+        micBtn.style.display = 'none';
     }
 }
 
-// Обновляем хедер после входа/выхода
-supabase.auth.onAuthStateChange((event, session) => {
-    updateHeaderAuth();
-});
-
-// --- ЖЕСТКИЙ СТОРОЖ ХЕДЕРА ---
-setInterval(async () => {
-    const container = document.getElementById('auth-buttons');
-    if (!container) return;
-
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (session) {
-        // Если вошли, показываем профиль
-        if (!container.innerHTML.includes('profile.html')) {
-            container.innerHTML = `
-                <a href="cart.html" class="header__btn" style="text-decoration: none; margin-right: 10px;">Корзина</a>
-                <a href="profile.html" class="header__btn" style="text-decoration: none;">Личный кабинет</a>
-            `;
-        }
-    } else {
-        // Если не вошли, показываем войти
-        if (!container.innerHTML.includes('login.html')) {
-            container.innerHTML = `<a href="login.html" class="header__btn" style="text-decoration: none;">Войти</a>`;
-        }
-    }
-}, 1000);
-
+// --- ТОСТЫ ---
 window.showToast = function(message, type = 'success') {
     let container = document.querySelector('.toast-container');
     if (!container) {
@@ -136,7 +143,7 @@ window.showToast = function(message, type = 'success') {
     }
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.innerHTML = `<span>${message}</span>`;
+    toast.textContent = message;
     container.appendChild(toast);
     
     setTimeout(() => toast.classList.add('show'), 10);
@@ -145,53 +152,3 @@ window.showToast = function(message, type = 'success') {
         setTimeout(() => toast.remove(), 400);
     }, 3000);
 };
-
-// ЧАТ
-document.addEventListener('DOMContentLoaded', () => {
-    const botToggle = document.getElementById('bot-toggle');
-    const botModal = document.getElementById('bot-modal');
-    const botClose = document.getElementById('bot-close');
-    const chatSend = document.getElementById('chat-send');
-    const chatInput = document.getElementById('chat-input');
-    const chatMessages = document.getElementById('chat-messages');
-
-    if (botToggle && botModal) {
-        botToggle.addEventListener('click', () => {
-            botModal.style.display = botModal.style.display === 'flex' ? 'none' : 'flex';
-        });
-    }
-    if (botClose) botClose.addEventListener('click', () => botModal.style.display = 'none');
-
-    if (chatSend && chatInput) {
-        chatSend.addEventListener('click', async () => {
-            const text = chatInput.value.trim();
-            if (!text) return;
-            chatMessages.innerHTML += `<div class="msg-wrapper user"><div class="msg">${text}</div></div>`;
-            chatInput.value = '';
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-
-            const res = await fetch('https://drdarsun-site-main.layero.app/api/gigachat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text, history: [] })
-            });
-            const data = await res.json();
-            chatMessages.innerHTML += `<div class="msg-wrapper bot"><div class="msg">${data.reply || 'Ошибка'}</div></div>`;
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        });
-    }
-});
-
-// --- СТОРОЖЕВОЙ ТАЙМЕР СЕССИИ ---
-setInterval(async () => {
-    // Если мы на странице входа или регистрации — не трогаем
-    const currentPage = window.location.pathname.split('/').pop();
-    if (currentPage === 'login.html' || currentPage === 'register.html' || currentPage === '') {
-        return; // Не выкидываем
-    }
-
-    const { data: { session }, error } = await supabase.auth.getSession();
-    if (error || !session) {
-        window.location.href = 'index.html';
-    }
-}, 5000);
