@@ -1,8 +1,8 @@
 import { supabase } from './supabase-client.js';
 
 async function init() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session) {
         showToast('Сессия истекла. Войдите заново.', 'error');
         return window.location.href = 'login.html';
     }
@@ -166,13 +166,13 @@ document.getElementById('logout-all-devices')?.addEventListener('click', async (
     const enable2faBtn = document.getElementById('enable-2fa-btn');
     if (enable2faBtn) {
         // Проверяем, есть ли уже фактор
-        const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
-        if (!factorsError && factors.totp && factors.totp.length > 0) {
-            enable2faBtn.textContent = 'Включено';
-            enable2faBtn.disabled = true;
-            enable2faBtn.style.background = '#4CAF50';
-            enable2faBtn.style.color = '#fff';
-        }
+const { data, error } = await supabase.auth.mfa.listFactors();
+if (!error && data.all && data.all.length > 0) {
+    enable2faBtn.textContent = 'Включено';
+    enable2faBtn.disabled = true;
+    enable2faBtn.style.background = '#4CAF50';
+    enable2faBtn.style.color = '#fff';
+}
 
         enable2faBtn.addEventListener('click', async () => {
             if (enable2faBtn.disabled) return;
