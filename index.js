@@ -118,20 +118,28 @@ app.get('/auth/v1/callback/yandex', async (req, res) => {
         const name = userData.real_name || userData.display_name;
         if (!email) throw new Error('No email');
 
-        const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
-            method: 'POST',
-            headers: {
-                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                type: 'magiclink',
-                email: email,
-                options: { redirect_to: 'https://drdarsun.ru/profile.html' }
-            })
-        });
-        const linkData = await linkRes.json();
+const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
+    method: 'POST',
+    headers: {
+        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+        type: 'magiclink',
+        email: email,
+        options: { redirect_to: 'https://drdarsun.ru/profile.html' }
+    })
+});
+
+const linkData = await linkRes.json();
+
+// Берем action_link и переписываем домен на Layero
+let actionLink = linkData.action_link;
+if (actionLink) {
+    actionLink = actionLink.replace('https://rrpcqrvkhmlrdqvffnax.supabase.co', 'https://drdarsun-site-main.layero.app');
+    return res.redirect(actionLink);
+}
         
         if (linkData.error || !linkData.hashed_token) {
             await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
@@ -194,20 +202,28 @@ app.get('/auth/v1/callback/google', async (req, res) => {
         const name = userData.name;
         if (!email) throw new Error('No email');
 
-        const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
-            method: 'POST',
-            headers: {
-                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                type: 'magiclink',
-                email: email,
-                options: { redirect_to: 'https://drdarsun.ru/profile.html' }
-            })
-        });
-        const linkData = await linkRes.json();
+const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
+    method: 'POST',
+    headers: {
+        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+        type: 'magiclink',
+        email: email,
+        options: { redirect_to: 'https://drdarsun.ru/profile.html' }
+    })
+});
+
+const linkData = await linkRes.json();
+
+// Берем action_link и переписываем домен на Layero
+let actionLink = linkData.action_link;
+if (actionLink) {
+    actionLink = actionLink.replace('https://rrpcqrvkhmlrdqvffnax.supabase.co', 'https://drdarsun-site-main.layero.app');
+    return res.redirect(actionLink);
+}
         
         if (linkData.error || !linkData.hashed_token) {
             await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
