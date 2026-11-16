@@ -89,13 +89,25 @@
             <div class="profile-tab active" id="tab-info">
                 <h2 class="tab-title">Личные данные</h2>
 <div class="avatar-upload">
-    <div class="avatar-preview" id="avatar-preview">
+    <div class="avatar-preview" id="avatar-preview" style="cursor: pointer;" onclick="document.getElementById('avatar-input').click()">
         <img src="assets/images/dr_darsun_avatar_01_default_shield_sun.png" alt="Avatar" id="current-avatar" style="width: 100%; height: 100%; object-fit: cover;">
     </div>
     <div style="display: flex; flex-direction: column; gap: 10px;">
         <input type="file" id="avatar-input" accept="image/*" style="display: none;">
         <button class="btn btn--primary" onclick="document.getElementById('avatar-input').click()">Загрузить фото</button>
         <button class="btn" id="choose-avatar-btn" style="border: 1px solid var(--border);">Выбрать из готовых</button>
+    </div>
+</div>
+
+<!-- Модалка редактора аватарки -->
+<div id="avatar-editor-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 99999; align-items: center; justify-content: center; flex-direction: column;">
+    <h3 style="color: #fff; margin-bottom: 20px;">Обрежьте фото</h3>
+    <div style="width: 300px; height: 300px; border-radius: 50%; overflow: hidden; position: relative; border: 4px solid #D4AF37; background: #000;">
+        <img id="editor-image" style="position: absolute; cursor: move; user-select: none; max-width: none; transform-origin: center center;">
+    </div>
+    <div style="margin-top: 20px; display: flex; gap: 15px;">
+        <button id="editor-save" class="btn btn--primary">Сохранить</button>
+        <button id="editor-cancel" class="btn" style="border: 1px solid #333;">Отмена</button>
     </div>
 </div>
 

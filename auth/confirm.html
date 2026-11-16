@@ -45,6 +45,8 @@
                 return;
             }
 
+            
+
             // 3. Проверяем, нужна ли 2FA
             const { data: mfaData, error: mfaError } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
             

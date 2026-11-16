@@ -11,26 +11,30 @@ async function init() {
     document.getElementById('user-name').textContent = session.user.user_metadata.full_name || 'Гость';
     document.getElementById('user-email').textContent = session.user.email;
 
-    // 2. АВАТАРКА
+    // 2. АВАТАРКА (ЗАГРУЗКА С РЕДАКТОРОМ)
     const avatarInput = document.getElementById('avatar-input');
     const currentAvatar = document.getElementById('current-avatar');
-    const avatarModal = document.getElementById('avatar-modal');
-    const chooseAvatarBtn = document.getElementById('choose-avatar-btn');
+    const editorModal = document.getElementById('avatar-editor-modal');
+    const editorImage = document.getElementById('editor-image');
+    const editorSave = document.getElementById('editor-save');
+    const editorCancel = document.getElementById('editor-cancel');
 
-    // Загружаем текущую аватарку
+    // Загружаем текущую аватарку из базы
     if (currentAvatar) {
         const { data: w } = await supabase.from('wallets').select('avatar_url').eq('user_id', session.user.id).maybeSingle();
-        if (w && w.avatar_url) currentAvatar.src = w.avatar_url;
+        if (w && w.avatar_url) {
+            currentAvatar.src = w.avatar_url;
+        }
     }
 
-    // Загрузка новой аватарки
+    let imgX = 0, imgY = 0, imgScale = 1;
+
     if (avatarInput) {
-        avatarInput.addEventListener('change', async (e) => {
+        avatarInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
-            if (!file) {
-                showToast('Файл не выбран', 'error');
-                return;
-            }
+            if (!file) return;
+
+            // Проверка веса
             if (file.size > 10 * 1024 * 1024) {
                 showToast('Файл слишком большой. Максимум 10 МБ.', 'error');
                 avatarInput.value = '';
@@ -39,59 +43,93 @@ async function init() {
 
             const reader = new FileReader();
             reader.onload = (event) => {
-                const img = new Image();
-                img.onload = async () => {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    const maxSize = 500;
-                    let width = img.width;
-                    let height = img.height;
-                    if (width > height && width > maxSize) {
-                        height *= maxSize / width;
-                        width = maxSize;
-                    } else if (height > maxSize) {
-                        width *= maxSize / height;
-                        height = maxSize;
-                    }
-                    canvas.width = width;
-                    canvas.height = height;
-                    ctx.drawImage(img, 0, 0, width, height);
-                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-
-                    const { error } = await supabase
-                        .from('wallets')
-                        .update({ avatar_url: compressedBase64 })
-                        .eq('user_id', session.user.id);
-
-                    if (error) showToast('Ошибка: ' + error.message, 'error');
-                    else {
-                        currentAvatar.src = compressedBase64;
-                        showToast('Аватарка обновлена!');
-                    }
-                };
-                img.src = event.target.result;
+                editorImage.src = event.target.result;
+                editorImage.style.transform = 'translate(0px, 0px) scale(1)';
+                imgX = 0; imgY = 0; imgScale = 1;
+                editorModal.style.display = 'flex';
             };
             reader.readAsDataURL(file);
         });
     }
 
-    // Выбор из готовых
-    if (chooseAvatarBtn && avatarModal) {
-        chooseAvatarBtn.addEventListener('click', () => avatarModal.style.display = 'flex');
+    // Движение фото (мышкой)
+    if (editorImage) {
+        let isDragging = false;
+        let startX, startY;
+
+        editorImage.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.clientX - imgX;
+            startY = e.clientY - imgY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                imgX = e.clientX - startX;
+                imgY = e.clientY - startY;
+                editorImage.style.transform = `translate(${imgX}px, ${imgY}px) scale(${imgScale})`;
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        // Масштаб колесиком
+        editorImage.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            imgScale += e.deltaY * -0.001;
+            imgScale = Math.min(Math.max(1, imgScale), 3); // От 1 до 3
+            editorImage.style.transform = `translate(${imgX}px, ${imgY}px) scale(${imgScale})`;
+        });
     }
 
-    window.selectAvatar = async function(src) {
-        if (currentAvatar) currentAvatar.src = src;
-        if (avatarModal) avatarModal.style.display = 'none';
+    // Сохранение
+    if (editorSave) {
+        editorSave.addEventListener('click', async () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 300;
+            canvas.height = 300;
+            const ctx = canvas.getContext('2d');
 
-        const { error } = await supabase
-            .from('wallets')
-            .update({ avatar_url: src })
-            .eq('user_id', session.user.id);
+            // Рисуем круг
+            ctx.beginPath();
+            ctx.arc(150, 150, 150, 0, Math.PI * 2);
+            ctx.clip();
 
-        if (error) showToast('Ошибка сохранения: ' + error.message, 'error');
-        else showToast('Аватарка выбрана и сохранена!');
-    };
+            // Рисуем изображение
+            const img = new Image();
+            img.onload = async () => {
+                const drawX = (canvas.width - img.width * imgScale) / 2 + imgX;
+                const drawY = (canvas.height - img.height * imgScale) / 2 + imgY;
+                ctx.drawImage(img, drawX, drawY, img.width * imgScale, img.height * imgScale);
+
+                const base64 = canvas.toDataURL('image/jpeg', 0.8);
+
+                // Сохраняем в базу
+                const { error } = await supabase
+                    .from('wallets')
+                    .update({ avatar_url: base64 })
+                    .eq('user_id', session.user.id);
+
+                if (error) {
+                    showToast('Ошибка: ' + error.message, 'error');
+                } else {
+                    currentAvatar.src = base64;
+                    showToast('Аватарка обновлена!');
+                    editorModal.style.display = 'none';
+                }
+            };
+            img.src = editorImage.src;
+        });
+    }
+
+    if (editorCancel) {
+        editorCancel.addEventListener('click', () => {
+            editorModal.style.display = 'none';
+            avatarInput.value = '';
+        });
+    }
 
     // 3. КОШЕЛЕК
     const walletEl = document.getElementById('wallet-balance');
