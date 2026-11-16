@@ -1,0 +1,109 @@
+@media (max-width: 768px) {
+    /* Общие настройки страницы */
+    body.auth-page {
+        padding: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: flex-start; /* Прижимаем к верху, чтобы не прыгало при клавиатуре */
+        justify-content: center;
+    }
+
+    /* Контейнер с формой */
+    .auth-container {
+        width: 100%;
+        max-width: 100%;
+        padding: 0 16px;
+        margin-top: 20px;
+        margin-bottom: 40px;
+    }
+
+    /* Сама карточка */
+    .auth-box {
+        padding: 24px 20px;
+        border-radius: 24px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    /* Логотип */
+    .auth-logo-img {
+        max-width: 140px;
+        margin: 0 auto 20px;
+        display: block;
+    }
+
+    /* Заголовки */
+    .auth-header h2 {
+        font-size: 26px;
+        text-align: center;
+        margin-bottom: 8px;
+    }
+    .auth-header p {
+        font-size: 14px;
+        text-align: center;
+        margin-bottom: 24px;
+    }
+
+    /* Поля ввода */
+    .input-group {
+        margin-bottom: 16px;
+    }
+    .input-group input {
+        padding: 14px 16px;
+        font-size: 16px; /* Важно: 16px, чтобы iOS не зумил при фокусе */
+    }
+
+    /* Кнопки */
+    .btn {
+        padding: 16px;
+        font-size: 16px;
+        width: 100%;
+    }
+
+    /* Соцсети (Яндекс, Google) */
+    .auth-socials {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .social-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 14px;
+        font-size: 15px;
+    }
+
+    /* Ссылки внизу */
+    .auth-footer {
+        text-align: center;
+        margin-top: 24px;
+        font-size: 14px;
+    }
+
+    /* Кнопка "На главную" */
+    .back-btn {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        font-size: 14px;
+        padding: 8px 12px;
+        background: rgba(0,0,0,0.5);
+        border-radius: 20px;
+        backdrop-filter: blur(5px);
+        z-index: 10;
+    }
+
+    /* Блок подтверждения кода (если есть) */
+    #verify-block {
+        margin-top: 20px;
+        padding-top: 20px;
+    }
+    .verify-code-input {
+        font-size: 24px;
+        padding: 12px;
+    }
+
+    /* Видео-фон на мобилке (если есть) */
+    .video-background video {
+        object-fit: cover;
+    }
+}

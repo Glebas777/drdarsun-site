@@ -57,6 +57,7 @@ document.getElementById('verify-btn')?.addEventListener('click', async () => {
         if (data.success) {
             alert('Почта подтверждена!');
             isEmailVerified = true;
+            document.getElementById('submit-register').disabled = false;
             document.getElementById('verify-block').style.display = 'none';
             document.getElementById('submit-register').style.display = 'block';
             document.getElementById('submit-register').textContent = 'Завершить регистрацию';

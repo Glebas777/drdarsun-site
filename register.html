@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/auth-mobile.css">
     <link rel="stylesheet" href="css/auth.css">
     
     <style>
@@ -123,12 +124,12 @@
                     <input type="password" id="reg-password" placeholder="••••••••" required>
                 </div>
 
-                <div id="password-hints" style="font-size: 12px; color: #888; margin-top: 5px; display: flex; flex-direction: column; gap: 4px;">
-    <div id="hint-length" style="display: flex; align-items: center; gap: 5px;">❌ Минимум 6 символов</div>
-    <div id="hint-upper" style="display: flex; align-items: center; gap: 5px;">❌ Заглавная буква</div>
-    <div id="hint-digit" style="display: flex; align-items: center; gap: 5px;">❌ Цифра</div>
-    <div id="hint-pwned" style="display: flex; align-items: center; gap: 5px;">❌ Проверка на утечки</div>
-</div>
+                    <div id="password-hints" style="font-size: 12px; color: #888; margin-top: 5px; display: flex; flex-direction: column; gap: 4px;">
+        <div id="hint-length" style="display: flex; align-items: center; gap: 5px;">❌ Минимум 6 символов</div>
+        <div id="hint-upper" style="display: flex; align-items: center; gap: 5px;">❌ Заглавная буква</div>
+        <div id="hint-digit" style="display: flex; align-items: center; gap: 5px;">❌ Цифра</div>
+        <div id="hint-pwned" style="display: flex; align-items: center; gap: 5px;">❌ Проверка на утечки</div>
+    </div>
 
 <!-- Блок подтверждения (скрыт) -->
 <div id="verify-block" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #2A2A2A;">
@@ -142,7 +143,7 @@
 </div>
 
                 <div class="login-actions">
-                    <button type="submit" class="btn btn--primary btn--full" id="submit-register">Зарегистрироваться</button>
+                    <button type="submit" class="btn btn--primary btn--full" id="submit-register" disabled>Зарегистрироваться</button>
                 </div>
             </form>
 
