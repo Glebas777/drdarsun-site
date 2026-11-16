@@ -11,105 +11,28 @@
     
     <link rel="stylesheet" href="css/base.css">
     <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/auth-mobile.css">
     
     <style>
-        /* Стили для кнопки внутри инпута */
-        .input-with-btn {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-        .input-with-btn input {
-            padding-right: 50px;
-        }
-        .send-code-btn {
-            position: absolute;
-            right: 10px;
-            background: transparent;
-            border: none;
-            color: #D4AF37;
-            cursor: pointer;
-            font-size: 20px;
-            transition: transform 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .send-code-btn:hover {
-            transform: scale(1.1);
-        }
-        .send-code-btn:disabled {
-            color: #555;
-            cursor: not-allowed;
-        }
-        
-        /* Блок подтверждения */
-        #verify-block {
-            display: none;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #2A2A2A;
-        }
-        .verify-title {
-            color: #D4AF37;
-            font-size: 14px;
-            margin-bottom: 10px;
-            text-align: center;
-        }
-        .verify-code-input {
-            width: 100%;
-            padding: 15px;
-            background: #0A0A0A;
-            border: 1px solid #2A2A2A;
-            border-radius: 12px;
-            color: #fff;
-            text-align: center;
-            font-size: 24px;
-            letter-spacing: 10px;
-            outline: none;
-            margin-bottom: 10px;
-        }
-        .verify-code-input:focus {
-            border-color: #D4AF37;
-        }
-        
-        /* Видео фон */
-        .video-background {
-            position: fixed;
-            inset: 0;
-            z-index: -1;
-            overflow: hidden;
-        }
-        .bg-video {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            opacity: 0;
-            transition: opacity 1.5s ease;
-        }
-        .bg-video.active {
-            opacity: 1;
-        }
-        .video-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 0;
-        }
+        .auth-container { max-width: 420px; margin: 0 auto; padding: 20px; }
+        .input-with-btn { position: relative; display: flex; align-items: center; }
+        .input-with-btn input { padding-right: 50px; }
+        .send-code-btn { position: absolute; right: 10px; background: transparent; border: none; color: #D4AF37; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; }
+        .send-code-btn:hover { transform: scale(1.1); }
+        #verify-block { display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #2A2A2A; }
+        .verify-title { color: #D4AF37; font-size: 14px; margin-bottom: 10px; text-align: center; }
+        .verify-code-input { width: 100%; padding: 15px; background: #0A0A0A; border: 1px solid #2A2A2A; border-radius: 12px; color: #fff; text-align: center; font-size: 24px; letter-spacing: 10px; outline: none; margin-bottom: 15px; }
     </style>
 </head>
 <body class="auth-page">
 
-    <!-- ФОН С ВИДЕО -->
     <div class="video-background">
-        <video class="bg-video active" src="assets/videos/кадр1.mp4" muted playsinline autoplay loop></video>
-        <video class="bg-video" src="assets/videos/кадр2.mp4" muted playsinline loop></video>
-        <video class="bg-video" src="assets/videos/кадр3.mp4" muted playsinline loop></video>
-        <video class="bg-video" src="assets/videos/кадр4.mp4" muted playsinline loop></video>
-        <video class="bg-video" src="assets/videos/кадр5.mp4" muted playsinline loop></video>
-        <video class="bg-video" src="assets/videos/кадр6.mp4" muted playsinline loop></video>
+        <video class="bg-video active" src="assets/videos/кадр1.mp4" muted playsinline autoplay></video>
+        <video class="bg-video" src="assets/videos/кадр2.mp4" muted playsinline></video>
+        <video class="bg-video" src="assets/videos/кадр3.mp4" muted playsinline></video>
+        <video class="bg-video" src="assets/videos/кадр4.mp4" muted playsinline></video>
+        <video class="bg-video" src="assets/videos/кадр5.mp4" muted playsinline></video>
+        <video class="bg-video" src="assets/videos/кадр6.mp4" muted playsinline></video>
     </div>
     <div class="video-overlay"></div>
 
@@ -131,7 +54,6 @@
                     <label>Имя</label>
                     <input type="text" id="reg-name" placeholder="Ваше имя" required>
                 </div>
-
                 <div class="input-group">
                     <label>Email</label>
                     <div class="input-with-btn">
@@ -141,32 +63,20 @@
                         </button>
                     </div>
                 </div>
-
                 <div class="input-group">
                     <label>Пароль</label>
                     <input type="password" id="reg-password" placeholder="••••••••" required>
-                </div>
-
-                <div id="password-hints" style="font-size: 12px; color: #888; margin-top: 5px; display: flex; flex-direction: column; gap: 4px;">
-                    <div id="hint-length" style="display: flex; align-items: center; gap: 5px;">❌ Минимум 6 символов</div>
-                    <div id="hint-upper" style="display: flex; align-items: center; gap: 5px;">❌ Заглавная буква</div>
-                    <div id="hint-digit" style="display: flex; align-items: center; gap: 5px;">❌ Цифра</div>
-                    <div id="hint-pwned" style="display: flex; align-items: center; gap: 5px;">❌ Проверка на утечки</div>
                 </div>
 
                 <!-- Блок подтверждения -->
                 <div id="verify-block">
                     <p class="verify-title">Введите 4-значный код из письма</p>
                     <input type="text" id="verify-code" class="verify-code-input" placeholder="0000" maxlength="4">
-                    
-                    <p id="verify-timer" style="font-size: 12px; color: #888; text-align: center; margin-bottom: 15px;"></p>
-                    
-                    <button type="button" id="verify-btn" class="btn btn--primary btn--full" style="background: #4CAF50; color: #fff; border: none; margin-bottom: 10px;">Подтвердить</button>
-                    <button type="button" id="cancel-verify-btn" class="btn btn--full" style="background: transparent; color: #888; border: 1px solid #333;">Отмена</button>
+                    <button type="button" id="verify-btn" class="btn btn--primary btn--full" style="background: #4CAF50; color: #fff; border: none;">Подтвердить почту</button>
                 </div>
 
                 <div class="login-actions">
-                    <button type="submit" class="btn btn--primary btn--full" id="submit-register">Зарегистрироваться</button>
+                    <button type="submit" class="btn btn--primary btn--full" id="submit-register" style="display: none;">Зарегистрироваться</button>
                 </div>
             </form>
 
@@ -192,26 +102,20 @@
     </div>
 
     <script>
-        // ПЕРЕКЛЮЧЕНИЕ ВИДЕО (ИСПРАВЛЕНО)
         document.addEventListener('DOMContentLoaded', () => {
             const videos = document.querySelectorAll('.bg-video');
             if (videos.length <= 1) return;
-
             let currentIndex = 0;
             videos[0].play().catch(() => {});
-
             setInterval(() => {
                 videos[currentIndex].classList.remove('active');
                 videos[currentIndex].pause();
-                
                 currentIndex = (currentIndex + 1) % videos.length;
-                
                 videos[currentIndex].classList.add('active');
                 videos[currentIndex].play().catch(() => {});
-            }, 10000); // Меняем каждые 10 секунд
+            }, 10000);
         });
-    </script>   
-
+    </script>
     <script type="module" src="js/auth.js"></script>
     <script src="js/burger.js"></script>
 </body>

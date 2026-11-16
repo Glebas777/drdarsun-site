@@ -1,5 +1,42 @@
 import { supabase } from './supabase-client.js';
 
+// Функция для тостов
+window.showToast = function(message, type = 'success') {
+    let container = document.querySelector('.toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 400);
+    }, 3000);
+};
+
+// Функция выбора готовой аватарки (вызывается из HTML)
+window.selectAvatar = async function(src) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const { error } = await supabase
+        .from('wallets')
+        .upsert({ user_id: session.user.id, avatar_url: src }, { onConflict: 'user_id' });
+
+    if (error) {
+        showToast('Ошибка: ' + error.message, 'error');
+    } else {
+        document.getElementById('current-avatar').src = src;
+        document.getElementById('avatar-modal').style.display = 'none';
+        showToast('Аватарка обновлена!');
+    }
+};
+
 async function init() {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     if (sessionError || !session) {
@@ -19,6 +56,8 @@ async function init() {
     const cropArea = document.getElementById('crop-area');
     const editorSave = document.getElementById('editor-save');
     const editorCancel = document.getElementById('editor-cancel');
+    const chooseAvatarBtn = document.getElementById('choose-avatar-btn');
+    const avatarModal = document.getElementById('avatar-modal');
 
     if (currentAvatar) {
         const { data: w } = await supabase.from('wallets').select('avatar_url').eq('user_id', session.user.id).maybeSingle();
@@ -46,6 +85,12 @@ async function init() {
                 editorModal.style.display = 'flex';
             };
             reader.readAsDataURL(file);
+        });
+    }
+
+    if (chooseAvatarBtn) {
+        chooseAvatarBtn.addEventListener('click', () => {
+            avatarModal.style.display = 'flex';
         });
     }
 
@@ -111,16 +156,15 @@ async function init() {
     // 3. КОШЕЛЕК
     const walletEl = document.getElementById('wallet-balance');
     if (walletEl) {
-        const { data: w, error } = await supabase.from('wallets').select('balance').eq('user_id', session.user.id).maybeSingle();
-        if (error) { console.error(error); walletEl.textContent = '0 ₽'; }
-        else walletEl.textContent = w ? `${w.balance} ₽` : '0 ₽';
+        const { data: w } = await supabase.from('wallets').select('balance').eq('user_id', session.user.id).maybeSingle();
+        walletEl.textContent = w ? `${w.balance} ₽` : '0 ₽';
     }
 
     // 4. ИСТОРИЯ ОПЕРАЦИЙ
     const transactionsList = document.getElementById('transactions-list');
     if (transactionsList) {
-        const { data: tx, error } = await supabase.from('transactions').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
-        if (error || !tx || tx.length === 0) {
+        const { data: tx } = await supabase.from('transactions').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
+        if (!tx || tx.length === 0) {
             transactionsList.innerHTML = '<div class="empty-state">Пока нет операций.</div>';
         } else {
             transactionsList.innerHTML = tx.map(t => `
@@ -139,23 +183,16 @@ async function init() {
         if (!orders || orders.length === 0) {
             ordersList.innerHTML = '<div class="empty-state">У вас пока нет заказов.</div>';
         } else {
-            ordersList.innerHTML = orders.map(o => {
-                let statusImg = '01_in_progress_gold.png';
-                if (o.status === 'Доставлен') statusImg = '03_delivered_green.png';
-                else if (o.status === 'В пути') statusImg = '02_in_transit_blue.png';
-                else if (o.status === 'Отменен') statusImg = '04_cancelled_red.png';
-                return `
+            ordersList.innerHTML = orders.map(o => `
                 <div class="order-card">
                     <div class="order-header">
                         <strong>Заказ #${o.id.split('-')[0]}</strong>
-                        <div style="background-image: url('assets/images/${statusImg}'); background-size: cover; padding: 6px 16px; border-radius: 20px; color: #fff; font-weight: 600; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.6); box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-                            ${o.status || 'В обработке'}
-                        </div>
+                        <span class="order-status" style="background: rgba(212,175,55,0.2); color: #D4AF37; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">${o.status || 'В обработке'}</span>
                     </div>
                     <div style="font-size: 14px; color: var(--text-muted);">Товары: ${Array.isArray(o.items) ? o.items.length : '0'} шт.</div>
                     <div style="margin-top: 10px; font-weight: 600; color: var(--accent-green);">Итого: ${o.total} ₽</div>
                 </div>
-                `}).join('');
+            `).join('');
         }
     }
 
@@ -170,7 +207,7 @@ async function init() {
         });
     });
 
-    // --- УСТРОЙСТВА ---
+    // 7. УСТРОЙСТВА
     const devicesList = document.getElementById('devices-list');
     if (devicesList) {
         let deviceKey = localStorage.getItem('device_key');
@@ -181,7 +218,6 @@ async function init() {
 
         const deviceName = navigator.userAgent.split(' ').slice(0, 2).join(' ');
 
-        // Сохраняем/обновляем устройство
         await supabase.from('devices').upsert({
             user_id: session.user.id,
             device_key: deviceKey,
@@ -189,27 +225,21 @@ async function init() {
             last_active: new Date().toISOString()
         }, { onConflict: 'device_key' });
 
-        // Загружаем список
-        const { data: devices, error } = await supabase
-            .from('devices')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .order('last_active', { ascending: false });
+        const { data: devices } = await supabase.from('devices').select('*').eq('user_id', session.user.id).order('last_active', { ascending: false });
 
-        if (error || !devices || devices.length === 0) {
+        if (!devices || devices.length === 0) {
             devicesList.innerHTML = '<div class="empty-state">Нет активных устройств.</div>';
         } else {
             devicesList.innerHTML = devices.map(d => `
-                <div class="device-item" data-key="${d.device_key}" data-name="${d.device_name}" data-date="${d.last_active}" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.borderColor='#D4AF37'" onmouseout="this.style.borderColor='var(--border)'">
+                <div class="device-item" data-key="${d.device_key}" data-name="${d.device_name}" data-date="${d.last_active}">
                     <div>
                         <p style="margin: 0; font-weight: 500; color: #fff;">${d.device_name}</p>
                         <p style="margin: 0; font-size: 12px; color: var(--text-muted);">${new Date(d.last_active).toLocaleString('ru-RU')}</p>
                     </div>
-                    ${d.device_key === deviceKey ? '<span style="color: #4CAF50; font-size: 12px; font-weight: 600;">Текущее</span>' : ''}
+                    ${d.device_key === deviceKey ? '<span style="color: #4CAF50; font-size: 12px;">Текущее</span>' : ''}
                 </div>
             `).join('');
 
-            // Обработчик клика по устройству
             document.querySelectorAll('.device-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const key = item.dataset.key;
@@ -220,21 +250,17 @@ async function init() {
                     document.getElementById('modal-device-date').textContent = new Date(date).toLocaleString('ru-RU');
                     document.getElementById('device-modal').style.display = 'flex';
 
-                    // Копировать данные
                     document.getElementById('modal-copy-btn').onclick = () => {
-                        const text = `Устройство: ${name}\nДата входа: ${new Date(date).toLocaleString('ru-RU')}\nКлюч: ${key}`;
-                        navigator.clipboard.writeText(text).then(() => {
+                        navigator.clipboard.writeText(`Устройство: ${name}\nКлюч: ${key}`).then(() => {
                             showToast('Данные скопированы!');
                             document.getElementById('device-modal').style.display = 'none';
                         });
                     };
 
-                    // Завершить сессию
                     document.getElementById('modal-end-btn').onclick = async () => {
                         await supabase.from('devices').delete().eq('device_key', key);
-                        showToast('Сессия завершена (устройство удалено из списка)');
+                        showToast('Сессия завершена');
                         document.getElementById('device-modal').style.display = 'none';
-                        // Если это текущее устройство — выкидываем
                         if (key === deviceKey) {
                             await supabase.auth.signOut();
                             window.location.href = 'index.html';
@@ -247,39 +273,6 @@ async function init() {
                 });
             });
         }
-
-        // Кнопки под списком
-        const controls = document.createElement('div');
-        controls.style = 'display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px;';
-        
-        const logoutAllBtn = document.createElement('button');
-        logoutAllBtn.className = 'btn';
-        logoutAllBtn.style = 'border: 1px solid #F44336; color: #F44336;';
-        logoutAllBtn.textContent = 'Завершить все сессии (включая эту)';
-        logoutAllBtn.onclick = async () => {
-            if (!confirm('Вы уверены? Все устройства будут выкинуты.')) return;
-            await supabase.auth.signOut();
-            window.location.href = 'index.html';
-        };
-
-        const logoutOtherBtn = document.createElement('button');
-        logoutOtherBtn.className = 'btn';
-        logoutOtherBtn.style = 'border: 1px solid var(--border);';
-        logoutOtherBtn.textContent = 'Завершить все сессии, кроме этой';
-        logoutOtherBtn.onclick = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            await fetch('https://drdarsun-site-main.layero.app/api/logout-others', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${session.access_token}` }
-            });
-            // Удаляем все устройства, кроме текущего
-            await supabase.from('devices').delete().eq('user_id', session.user.id).neq('device_key', deviceKey);
-            showToast('Все другие сессии завершены');
-        };
-
-        controls.appendChild(logoutOtherBtn);
-        controls.appendChild(logoutAllBtn);
-        devicesList.appendChild(controls);
     }
 
     // 8. 2FA
@@ -334,42 +327,87 @@ async function init() {
         });
     }
 
-    // 9. СМЕНА ИМЕНИ И ПАРОЛЯ
-    const settingsForm = document.getElementById('settings-form');
-    if (settingsForm) {
-        document.getElementById('settings-name').value = session.user.user_metadata.full_name || '';
-        settingsForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const newName = document.getElementById('settings-name').value;
-            const { error } = await supabase.auth.updateUser({ data: { full_name: newName } });
-            if (error) showToast('Ошибка: ' + error.message, 'error');
-            else {
-                showToast('Имя обновлено!');
-                document.getElementById('user-name').textContent = newName;
-            }
-        });
+    // 9. РЕЗЕРВНЫЕ КОДЫ
+    const generateBackupBtn = document.getElementById('generate-backup-codes');
+    const backupCodesList = document.getElementById('backup-codes-list');
+
+    if (generateBackupBtn && backupCodesList) {
+        const { data: existingCodes } = await supabase.from('backup_codes').select('code, is_used').eq('user_id', session.user.id);
+
+        if (existingCodes && existingCodes.length > 0) {
+            generateBackupBtn.style.display = 'none';
+            backupCodesList.style.display = 'block';
+            backupCodesList.innerHTML = `
+                <p style="color: #D4AF37; font-weight: 600; margin-bottom: 10px;">Ваши резервные коды:</p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    ${existingCodes.map(c => `<code style="background: #0A0A0A; padding: 10px; border-radius: 8px; text-align: center; font-size: 16px; border: 1px solid #333; color: ${c.is_used ? '#555' : '#fff'}; text-decoration: ${c.is_used ? 'line-through' : 'none'};">${c.code.charAt(0)}***${c.code.slice(-2)}</code>`).join('')}
+                </div>
+            `;
+        } else {
+            generateBackupBtn.addEventListener('click', async () => {
+                const codes = [];
+                for (let i = 0; i < 6; i++) codes.push(Math.random().toString(36).substring(2, 8).toUpperCase());
+
+                const { error } = await supabase.from('backup_codes').insert(codes.map(c => ({ user_id: session.user.id, code: c })));
+
+                if (error) return showToast('Ошибка: ' + error.message, 'error');
+
+                backupCodesList.style.display = 'block';
+                backupCodesList.innerHTML = `
+                    <p style="color: #D4AF37; font-weight: 600; margin-bottom: 10px;">Сохраните эти коды:</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        ${codes.map((c, i) => `<code style="background: #0A0A0A; padding: 10px; border-radius: 8px; text-align: center; font-size: 16px; border: 1px solid #333; color: #fff;">${i+1}. ${c}</code>`).join('')}
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                        <button id="copy-backup" class="btn" style="background: #333; color: #fff; border: none; flex: 1;">Скопировать</button>
+                        <button id="download-backup" class="btn" style="background: #333; color: #fff; border: none; flex: 1;">Скачать .txt</button>
+                    </div>
+                `;
+                showToast('Коды сгенерированы!');
+
+                document.getElementById('copy-backup').onclick = () => {
+                    navigator.clipboard.writeText(codes.map((c, i) => `${i+1}. ${c}`).join('\n')).then(() => showToast('Скопировано!'));
+                };
+
+                document.getElementById('download-backup').onclick = () => {
+                    const blob = new Blob([codes.map((c, i) => `${i+1}. ${c}`).join('\n')], { type: 'text/plain' });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = 'dr_darsun_backup_codes.txt';
+                    a.click();
+                };
+            });
+        }
     }
 
-    const passwordForm = document.getElementById('password-form');
-    if (passwordForm) {
-        passwordForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const newPassword = document.getElementById('new-password').value;
-            if (newPassword.length < 6) return showToast('Пароль слишком короткий', 'error');
-            const { error } = await supabase.auth.updateUser({ password: newPassword });
-            if (error) showToast('Ошибка: ' + error.message, 'error');
-            else {
-                showToast('Пароль изменен!');
-                passwordForm.reset();
-            }
-        });
-    }
+    // 10. НАСТРОЙКИ
+    document.getElementById('settings-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const newName = document.getElementById('settings-name').value;
+        const { error } = await supabase.auth.updateUser({ data: { full_name: newName } });
+        if (error) showToast('Ошибка: ' + error.message, 'error');
+        else {
+            showToast('Имя обновлено!');
+            document.getElementById('user-name').textContent = newName;
+        }
+    });
 
-    // 10. УДАЛЕНИЕ
+    document.getElementById('password-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const newPassword = document.getElementById('new-password').value;
+        if (newPassword.length < 6) return showToast('Пароль слишком короткий', 'error');
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+        if (error) showToast('Ошибка: ' + error.message, 'error');
+        else {
+            showToast('Пароль изменен!');
+            document.getElementById('password-form').reset();
+        }
+    });
+
+    // 11. УДАЛЕНИЕ
     document.getElementById('delete-account-btn')?.addEventListener('click', async () => {
         if (!confirm('Удалить аккаунт? Это необратимо.')) return;
         if (!confirm('Точно? Все данные будут удалены.')) return;
-        if (!confirm('Последнее предупреждение. Удалить?')) return;
         const { data: { session } } = await supabase.auth.getSession();
         const res = await fetch('https://drdarsun-site-main.layero.app/api/delete-account', {
             method: 'POST',
@@ -382,233 +420,6 @@ async function init() {
             showToast('Ошибка удаления', 'error');
         }
     });
-
-    // 11. УВЕДОМЛЕНИЯ
-    const notifyEmail = document.getElementById('notify-email');
-    const changeNotifyBtn = document.getElementById('change-notify-email');
-    const disableNotifyBtn = document.getElementById('disable-notify');
-
-    if (notifyEmail) {
-        const { data: settings } = await supabase.from('notification_settings').select('*').eq('user_id', session.user.id).maybeSingle();
-        if (settings) {
-            notifyEmail.textContent = session.user.email + (settings.email_enabled ? ' (включены)' : ' (отключены)');
-        } else {
-            notifyEmail.textContent = session.user.email;
-            await supabase.from('notification_settings').insert({ user_id: session.user.id });
-        }
-    }
-
-    changeNotifyBtn?.addEventListener('click', async () => {
-        const newEmail = prompt('Введите новую почту для уведомлений:');
-        if (!newEmail) return;
-        const res = await fetch('https://drdarsun-site-main.layero.app/api/change-email', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ newEmail })
-        });
-        if (res.ok) showToast('Письмо для подтверждения отправлено!');
-        else showToast('Ошибка смены почты', 'error');
-    });
-
-    disableNotifyBtn?.addEventListener('click', async () => {
-        await supabase.from('notification_settings').update({ email_enabled: false }).eq('user_id', session.user.id);
-        showToast('Уведомления отключены');
-        if (notifyEmail) notifyEmail.textContent = session.user.email + ' (отключены)';
-    });
-
-    // --- РЕЗЕРВНЫЕ КОДЫ ---
-    const generateBackupBtn = document.getElementById('generate-backup-codes');
-    const backupCodesList = document.getElementById('backup-codes-list');
-
-    if (generateBackupBtn && backupCodesList) {
-        // Проверяем, есть ли уже коды
-        const { data: existingCodes } = await supabase
-            .from('backup_codes')
-            .select('code, is_used')
-            .eq('user_id', session.user.id);
-
-        if (existingCodes && existingCodes.length > 0) {
-            // Если коды есть, показываем их в замаскированном виде
-            generateBackupBtn.style.display = 'none'; // Скрываем кнопку генерации
-            backupCodesList.style.display = 'block';
-            
-            backupCodesList.innerHTML = `
-                <p style="color: #D4AF37; font-weight: 600; margin-bottom: 10px;">Ваши резервные коды:</p>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    ${existingCodes.map(c => `
-                        <code style="background: #0A0A0A; padding: 10px; border-radius: 8px; text-align: center; font-size: 16px; border: 1px solid #333; color: ${c.is_used ? '#555' : '#fff'}; text-decoration: ${c.is_used ? 'line-through' : 'none'};">
-                            ${c.code.charAt(0)}***${c.code.slice(-2)}
-                        </code>
-                    `).join('')}
-                </div>
-                <p style="font-size: 12px; color: var(--text-muted); margin-top: 10px;">Если вы потеряли коды, обратитесь к администратору.</p>
-            `;
-        } else {
-            // Если кодов нет, показываем кнопку генерации
-            generateBackupBtn.style.display = 'block';
-            
-            generateBackupBtn.addEventListener('click', async () => {
-                // Генерируем 6 кодов
-                const codes = [];
-                for (let i = 0; i < 6; i++) {
-                    codes.push(Math.random().toString(36).substring(2, 8).toUpperCase());
-                }
-
-                // Сохраняем в БД
-                const { error } = await supabase.from('backup_codes').insert(
-                    codes.map(c => ({ user_id: session.user.id, code: c }))
-                );
-
-                if (error) {
-                    showToast('Ошибка сохранения: ' + error.message, 'error');
-                    return;
-                }
-
-                // Показываем коды (только один раз!)
-                backupCodesList.style.display = 'block';
-                backupCodesList.innerHTML = `
-                    <p style="color: #D4AF37; font-weight: 600; margin-bottom: 10px;">Сохраните эти коды (они больше не покажутся в полном виде):</p>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        ${codes.map((c, i) => `<code style="background: #0A0A0A; padding: 10px; border-radius: 8px; text-align: center; font-size: 16px; border: 1px solid #333; color: #fff;">${i+1}. ${c}</code>`).join('')}
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-top: 15px;">
-                        <button id="copy-backup" class="btn" style="background: #333; color: #fff; border: none; flex: 1;">Скопировать все</button>
-                        <button id="download-backup" class="btn" style="background: #333; color: #fff; border: none; flex: 1;">Скачать .txt</button>
-                    </div>
-                `;
-                showToast('Коды сгенерированы! Сохраните их.');
-
-                // Скопировать все
-                document.getElementById('copy-backup').onclick = () => {
-                    const text = codes.map((c, i) => `${i+1}. ${c}`).join('\n');
-                    navigator.clipboard.writeText(text).then(() => showToast('Коды скопированы!'));
-                };
-
-                // Скачать .txt
-                document.getElementById('download-backup').onclick = () => {
-                    const text = codes.map((c, i) => `${i+1}. ${c}`).join('\n');
-                    const blob = new Blob([text], { type: 'text/plain' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'dr_darsun_backup_codes.txt';
-                    a.click();
-                    URL.revokeObjectURL(url);
-                };
-            });
-        }
-    }
 }
-
-// --- ТОСТЫ ---
-window.showToast = function(message, type = 'success') {
-    let container = document.querySelector('.toast-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.className = 'toast-container';
-        document.body.appendChild(container);
-    }
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-    container.appendChild(toast);
-    setTimeout(() => toast.classList.add('show'), 10);
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 400);
-    }, 3000);
-};
-
-// Проверка пароля (вынесена в отдельную функцию, чтобы не мешать init)
-const newPasswordInput = document.getElementById('new-password');
-if (newPasswordInput) {
-    newPasswordInput.addEventListener('input', () => {
-        const val = newPasswordInput.value;
-        const hintLength = document.getElementById('hint-length');
-        const hintUpper = document.getElementById('hint-upper');
-        const hintDigit = document.getElementById('hint-digit');
-
-        if (val.length >= 6) {
-            hintLength.innerHTML = '✅ Минимум 6 символов';
-            hintLength.style.color = '#4CAF50';
-        } else {
-            hintLength.innerHTML = '❌ Минимум 6 символов';
-            hintLength.style.color = '#888';
-        }
-
-        if (/[A-Z]/.test(val)) {
-            hintUpper.innerHTML = '✅ Заглавная буква';
-            hintUpper.style.color = '#4CAF50';
-        } else {
-            hintUpper.innerHTML = '❌ Заглавная буква';
-            hintUpper.style.color = '#888';
-        }
-
-        if (/[0-9]/.test(val)) {
-            hintDigit.innerHTML = '✅ Цифра';
-            hintDigit.style.color = '#4CAF50';
-        } else {
-            hintDigit.innerHTML = '❌ Цифра';
-            hintDigit.style.color = '#888';
-        }
-    });
-
-    newPasswordInput.addEventListener('blur', async () => {
-        const val = newPasswordInput.value;
-        if (val.length < 6) return;
-
-        const hintPwned = document.getElementById('hint-pwned');
-        hintPwned.innerHTML = '⏳ Проверка на утечки...';
-        hintPwned.style.color = '#888';
-
-        try {
-            const msgBuffer = new TextEncoder().encode(val);
-            const hashBuffer = await crypto.subtle.digest('SHA-1', msgBuffer);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-            const prefix = hashHex.substring(0, 5);
-            const suffix = hashHex.substring(5);
-            const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
-            const text = await response.text();
-            const lines = text.split('\n');
-            let isPwned = false;
-            let count = 0;
-            for (const line of lines) {
-                const [lineSuffix, lineCount] = line.split(':');
-                if (lineSuffix === suffix) {
-                    isPwned = true;
-                    count = parseInt(lineCount);
-                    break;
-                }
-            }
-            if (isPwned) {
-                hintPwned.innerHTML = `❌ Пароль слит ${count} раз. Придумай другой.`;
-                hintPwned.style.color = '#F44336';
-            } else {
-                hintPwned.innerHTML = '✅ Пароль не найден в утечках';
-                hintPwned.style.color = '#4CAF50';
-            }
-        } catch (e) {
-            hintPwned.innerHTML = '⚠️ Не удалось проверить утечки';
-            hintPwned.style.color = '#FFA600';
-        }
-    });
-}
-
-document.getElementById('logout-other-devices')?.addEventListener('click', async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    
-    const res = await fetch('https://drdarsun-site-main.layero.app/api/logout-others', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
-    });
-    
-    if (res.ok) {
-        showToast('Другие устройства выкинуты!');
-    } else {
-        showToast('Ошибка', 'error');
-    }
-});
 
 init();
