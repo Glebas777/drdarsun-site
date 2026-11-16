@@ -1,4 +1,5 @@
 import { supabase } from './supabase-client.js';
+const chatInput = document.getElementById('chat-input');
 
 // --- УНИВЕРСАЛЬНЫЙ ХЕДЕР ---
 async function updateHeaderAuth() {
@@ -174,3 +175,4 @@ window.showToast = function(message, type = 'success') {
         setTimeout(() => toast.remove(), 400);
     }, 3000);
 };
+

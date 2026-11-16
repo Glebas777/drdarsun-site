@@ -1,8 +1,8 @@
 import { supabase } from './supabase-client.js';
 
 async function init() {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    if (error || !session) {
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session) {
         showToast('Сессия истекла. Войдите заново.', 'error');
         return window.location.href = 'login.html';
     }
@@ -11,7 +11,7 @@ async function init() {
     document.getElementById('user-name').textContent = session.user.user_metadata.full_name || 'Гость';
     document.getElementById('user-email').textContent = session.user.email;
 
-    // 2. АВАТАРКА
+    // 2. АВАТАРКА (ЗАГРУЗКА)
     const avatarInput = document.getElementById('avatar-input');
     const currentAvatar = document.getElementById('current-avatar');
     const editorModal = document.getElementById('avatar-editor-modal');
@@ -81,7 +81,6 @@ async function init() {
 
             const img = new Image();
             img.onload = async () => {
-                // Центрируем изображение
                 const drawX = (canvas.width - img.width) / 2 + imgX;
                 const drawY = (canvas.height - img.height) / 2 + imgY;
                 ctx.drawImage(img, drawX, drawY, img.width, img.height);
@@ -90,14 +89,10 @@ async function init() {
 
                 const { error } = await supabase
                     .from('wallets')
-                    .upsert({ 
-                        user_id: session.user.id, 
-                        avatar_url: base64 
-                    }, { onConflict: 'user_id' });
+                    .upsert({ user_id: session.user.id, avatar_url: base64 }, { onConflict: 'user_id' });
 
-                if (error) {
-                    showToast('Ошибка: ' + error.message, 'error');
-                } else {
+                if (error) showToast('Ошибка: ' + error.message, 'error');
+                else {
                     currentAvatar.src = base64;
                     showToast('Аватарка обновлена!');
                     editorModal.style.display = 'none';
@@ -191,13 +186,7 @@ async function init() {
         `;
 
         document.getElementById('logout-all-devices')?.addEventListener('click', async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            await fetch('https://drdarsun-site-main.layero.app/api/logout-all', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${session.access_token}` }
-            });
             await supabase.auth.signOut();
-            localStorage.clear();
             window.location.href = 'index.html';
         });
 
@@ -214,8 +203,8 @@ async function init() {
     // 8. 2FA
     const enable2faBtn = document.getElementById('enable-2fa-btn');
     if (enable2faBtn) {
-        const { data, error } = await supabase.auth.mfa.listFactors();
-        if (!error && data.all && data.all.length > 0) {
+        const { data: factors } = await supabase.auth.mfa.listFactors();
+        if (factors?.totp?.length > 0) {
             enable2faBtn.textContent = 'Включено';
             enable2faBtn.disabled = true;
             enable2faBtn.style.background = '#4CAF50';
@@ -224,42 +213,31 @@ async function init() {
 
         enable2faBtn.addEventListener('click', async () => {
             if (enable2faBtn.disabled) return;
-
             try {
-                const { data, error } = await supabase.auth.mfa.enroll({ 
-                    factorType: 'totp',
-                    friendlyName: 'Dr. DarSun 2FA'
-                });
+                const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Dr. DarSun 2FA' });
                 if (error) throw error;
-
                 const qrModal = document.createElement('div');
                 qrModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;display:flex;align-items:center;justify-content:center;';
                 qrModal.innerHTML = `
                     <div style="background:var(--bg-card);padding:30px;border-radius:20px;text-align:center;max-width:400px;">
                         <h3 style="margin-bottom:15px;">2FA</h3>
-                        <p style="color:var(--text-muted);margin-bottom:15px;">
-                            Отсканируйте QR-код в <strong>Яндекс.Ключ</strong> или <strong>Google Authenticator</strong>
-                        </p>
+                        <p style="color:var(--text-muted);margin-bottom:15px;">Отсканируйте QR-код в Яндекс.Ключ или Google Authenticator</p>
                         <img src="${data.totp.qr_code}" style="width:200px;height:200px;margin-bottom:15px;">
-                        <p style="font-size:12px;color:var(--text-muted);margin-bottom:15px;">
-                            Ключ для ручного ввода: <code>${data.totp.secret}</code>
-                        </p>
+                        <p style="font-size:12px;color:var(--text-muted);margin-bottom:15px;">Ключ: <code>${data.totp.secret}</code></p>
                         <input type="text" id="totp-code" placeholder="Введите 6 цифр" maxlength="6" style="width:100%;padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-color);color:var(--text-main);text-align:center;font-size:20px;margin-bottom:15px;">
                         <button id="verify-totp" class="btn btn--primary" style="width:100%;margin-bottom:10px;">Подтвердить</button>
                         <button id="close-totp" class="btn" style="width:100%;border:1px solid var(--border);">Отмена</button>
                     </div>
                 `;
                 document.body.appendChild(qrModal);
-
                 document.getElementById('close-totp').onclick = () => {
                     qrModal.remove();
                     supabase.auth.mfa.unenroll({ factorId: data.id });
                 };
-
                 document.getElementById('verify-totp').onclick = async () => {
                     const code = document.getElementById('totp-code').value;
                     if (code.length !== 6) return alert('Введите 6 цифр');
-                    const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({ factorId: data.id, code: code });
+                    const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({ factorId: data.id, code });
                     if (verifyError) alert('Неверный код: ' + verifyError.message);
                     else {
                         qrModal.remove();
@@ -305,10 +283,10 @@ async function init() {
         });
     }
 
-    // 10. УДАЛЕНИЕ АККАУНТА
+    // 10. УДАЛЕНИЕ
     document.getElementById('delete-account-btn')?.addEventListener('click', async () => {
-        if (!confirm('Вы уверены, что хотите удалить аккаунт? Это действие необратимо.')) return;
-        if (!confirm('Точно? Все ваши заказы и данные будут удалены.')) return;
+        if (!confirm('Удалить аккаунт? Это необратимо.')) return;
+        if (!confirm('Точно? Все данные будут удалены.')) return;
         if (!confirm('Последнее предупреждение. Удалить?')) return;
         const { data: { session } } = await supabase.auth.getSession();
         const res = await fetch('https://drdarsun-site-main.layero.app/api/delete-account', {
