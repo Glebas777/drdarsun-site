@@ -199,7 +199,7 @@ async function init() {
             devicesList.innerHTML = devices.map(d => `
                 <div class="device-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px;">
                     <div>
-                        <p style="margin: 0; font-weight: 500; color: #fff;">${d.device_name}</p>
+                        <p style="margin: 0; font-weight: 500; color: #000000;">${d.device_name}</p>
                         <p style="margin: 0; font-size: 12px; color: var(--text-muted);">${new Date(d.last_active).toLocaleString('ru-RU')}</p>
                     </div>
                     ${d.device_key === deviceKey ? '<span style="color: #4CAF50; font-size: 12px;">Текущее</span>' : ''}
@@ -479,5 +479,21 @@ if (newPasswordInput) {
         }
     });
 }
+
+document.getElementById('logout-other-devices')?.addEventListener('click', async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    
+    const res = await fetch('https://drdarsun-site-main.layero.app/api/logout-others', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+    
+    if (res.ok) {
+        showToast('Другие устройства выкинуты!');
+    } else {
+        showToast('Ошибка', 'error');
+    }
+});
 
 init();

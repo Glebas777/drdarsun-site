@@ -181,3 +181,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// --- СТОРОЖЕВОЙ ТАЙМЕР СЕССИИ ---
+setInterval(async () => {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session) {
+        // Если сессии нет (ее отозвали) — выкидываем на главную
+        if (window.location.pathname !== '/index.html' && window.location.pathname !== '/') {
+            window.location.href = 'index.html';
+        }
+    }
+}, 5000); // Проверяем каждые 5 секунд

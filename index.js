@@ -366,11 +366,12 @@ app.post('/api/logout-others', async (req, res) => {
     if (!authHeader) return res.status(401).json({ error: 'No auth' });
 
     try {
+        // Отзываем все сессии, КРОМЕ текущей (scope: others)
         await fetch(`${process.env.SUPABASE_URL}/auth/v1/logout?scope=others`, {
             method: 'POST',
             headers: {
                 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`, // <--- SERVICE_ROLE!
+                'Authorization': authHeader, // Токен юзера (чтобы знать, какую сессию оставить)
                 'Content-Type': 'application/json'
             }
         });
