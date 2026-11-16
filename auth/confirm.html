@@ -9,19 +9,11 @@
     <div style="text-align: center;">
         <h2 id="title">Проверяем токен...</h2>
         <p id="status">Пожалуйста, подождите.</p>
-        
-        <!-- Блок для ввода 2FA (если включена) -->
-        <div id="mfa-block" style="display: none; margin-top: 20px;">
-            <p style="color: #aaa; font-size: 14px;">Введите код из приложения (2FA)</p>
-            <input type="text" id="mfa-code" placeholder="000000" maxlength="6" style="width: 100%; padding: 15px; background: #0A0A0A; border: 1px solid #333; border-radius: 12px; color: #fff; text-align: center; font-size: 24px; letter-spacing: 8px; outline: none; margin: 10px 0;">
-            <button id="mfa-submit" style="width: 100%; padding: 15px; border-radius: 12px; background: #D4AF37; color: #000; border: none; font-weight: bold; cursor: pointer;">Подтвердить</button>
-        </div>
     </div>
 
     <script>
-        // Прямой URL Supabase
         const SUPABASE_URL = 'https://rrpcqrvkhmlrdqvffnax.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_1Fh3LgYtH3wEkQjvBfiZsA_WZZsfsLF'; // Вставь свой ключ!
+        const SUPABASE_ANON_KEY = 'ТВОЙ_ANON_KEY_ИЗ_ENV'; // Вставь свой ключ!
 
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
             auth: {
@@ -52,39 +44,8 @@
                 return;
             }
 
-            // ПРОВЕРКА 2FA
-            const { data: mfaData, error: mfaError } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
-            
-            if (!mfaError && mfaData.nextLevel === 'aal2' && mfaData.currentLevel !== 'aal2') {
-                // 2FA включена — показываем поле ввода
-                document.getElementById('title').textContent = 'Введите код 2FA';
-                document.getElementById('status').textContent = 'Аккаунт защищен.';
-                document.getElementById('mfa-block').style.display = 'block';
-
-                document.getElementById('mfa-submit').addEventListener('click', async () => {
-                    const code = document.getElementById('mfa-code').value;
-                    if (code.length !== 6) return alert('Введите 6 цифр');
-
-                    const { data: factors } = await supabaseClient.auth.mfa.listFactors();
-                    const totpFactor = factors.totp[0];
-                    if (!totpFactor) return alert('Фактор не найден');
-
-                    const { error: verifyError } = await supabaseClient.auth.mfa.challengeAndVerify({
-                        factorId: totpFactor.id,
-                        code: code
-                    });
-
-                    if (verifyError) {
-                        alert('Неверный код: ' + verifyError.message);
-                    } else {
-                        window.location.href = 'https://drdarsun.ru/profile.html';
-                    }
-                });
-            } else {
-                // 2FA нет — пускаем сразу
-                document.getElementById('status').textContent = 'Успех! Перенаправление...';
-                window.location.href = 'https://drdarsun.ru/profile.html';
-            }
+            document.getElementById('status').textContent = 'Успех! Перенаправление...';
+            window.location.href = 'https://drdarsun.ru/profile.html';
         }
 
         confirm();
