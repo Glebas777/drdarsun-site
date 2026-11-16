@@ -59,7 +59,7 @@ app.post('/api/verify-code', (req, res) => {
     res.json({ success: true });
 });
 
-// --- ЯНДЕКС (Костыль) ---
+// --- ЯНДЕКС ---
 app.get('/auth/v1/callback/yandex', async (req, res) => {
     const { code } = req.query;
     if (!code) return res.redirect('https://drdarsun.ru/login.html?error=no_code');
@@ -84,30 +84,31 @@ app.get('/auth/v1/callback/yandex', async (req, res) => {
         const name = userData.real_name || userData.display_name;
         if (!email) throw new Error('No email');
 
-        // Генерируем Magic Link
-        const linkRes = await supabaseAdmin.auth.admin.generateLink({
+        // Пытаемся сгенерировать ссылку
+        let linkData = await supabaseAdmin.auth.admin.generateLink({
             type: 'magiclink',
             email: email,
             options: { redirect_to: 'https://drdarsun.ru/profile.html' }
         });
 
-        if (linkRes.error || !linkRes.data.properties?.hashed_token) {
-            // Если юзера нет — создаем
+        // Если юзера нет — создаем и генерируем ссылку СРАЗУ
+        if (linkData.error || !linkData.data.properties?.hashed_token) {
             await supabaseAdmin.auth.admin.createUser({ email, email_confirm: true, user_metadata: { full_name: name } });
-            const retryLink = await supabaseAdmin.auth.admin.generateLink({
+            linkData = await supabaseAdmin.auth.admin.generateLink({
                 type: 'magiclink', email: email, options: { redirect_to: 'https://drdarsun.ru/profile.html' }
             });
-            return res.redirect(`https://drdarsun.ru/auth/confirm?token_hash=${retryLink.data.properties.hashed_token}&type=magiclink`);
         }
-        
-        res.redirect(`https://drdarsun.ru/auth/confirm?token_hash=${linkRes.data.properties.hashed_token}&type=magiclink`);
+
+        const tokenHash = linkData.data.properties.hashed_token;
+        return res.redirect(`https://drdarsun.ru/auth/confirm?token_hash=${tokenHash}&type=magiclink`);
+
     } catch (e) {
         console.error(e);
         res.redirect('https://drdarsun.ru/login.html?error=auth_fail');
     }
 });
 
-// --- GOOGLE (Костыль) ---
+// --- GOOGLE ---
 app.get('/auth/v1/callback/google', async (req, res) => {
     const { code } = req.query;
     if (!code) return res.redirect('https://drdarsun.ru/login.html?error=no_code');
@@ -134,19 +135,20 @@ app.get('/auth/v1/callback/google', async (req, res) => {
         const name = userData.name;
         if (!email) throw new Error('No email');
 
-        const linkRes = await supabaseAdmin.auth.admin.generateLink({
+        let linkData = await supabaseAdmin.auth.admin.generateLink({
             type: 'magiclink', email: email, options: { redirect_to: 'https://drdarsun.ru/profile.html' }
         });
 
-        if (linkRes.error || !linkRes.data.properties?.hashed_token) {
+        if (linkData.error || !linkData.data.properties?.hashed_token) {
             await supabaseAdmin.auth.admin.createUser({ email, email_confirm: true, user_metadata: { full_name: name } });
-            const retryLink = await supabaseAdmin.auth.admin.generateLink({
+            linkData = await supabaseAdmin.auth.admin.generateLink({
                 type: 'magiclink', email: email, options: { redirect_to: 'https://drdarsun.ru/profile.html' }
             });
-            return res.redirect(`https://drdarsun.ru/auth/confirm?token_hash=${retryLink.data.properties.hashed_token}&type=magiclink`);
         }
 
-        res.redirect(`https://drdarsun.ru/auth/confirm?token_hash=${linkRes.data.properties.hashed_token}&type=magiclink`);
+        const tokenHash = linkData.data.properties.hashed_token;
+        return res.redirect(`https://drdarsun.ru/auth/confirm?token_hash=${tokenHash}&type=magiclink`);
+
     } catch (e) {
         console.error(e);
         res.redirect('https://drdarsun.ru/login.html?error=auth_fail');
