@@ -80,6 +80,49 @@ function renderProducts() {
     `).join('');
 }
 
+// --- ИИ В КАТАЛОГЕ (Cloudflare Worker) ---
+const catBotToggle = document.getElementById('catalog-bot-toggle');
+const catBotModal = document.getElementById('catalog-bot-modal');
+const catBotClose = document.getElementById('catalog-bot-close');
+const catChatMessages = document.getElementById('catalog-chat-messages');
+const catChatInput = document.getElementById('catalog-chat-input');
+const catChatSend = document.getElementById('catalog-chat-send');
+
+if (catBotToggle && catBotModal) {
+    catBotToggle.addEventListener('click', () => {
+        catBotModal.style.display = catBotModal.style.display === 'flex' ? 'none' : 'flex';
+    });
+    catBotClose.addEventListener('click', () => catBotModal.style.display = 'none');
+
+    catChatSend.addEventListener('click', async () => {
+        const text = catChatInput.value.trim();
+        if (!text) return;
+
+        // Добавляем сообщение юзера
+        catChatMessages.innerHTML += `<div style="background: #D4AF37; color: #000; padding: 10px 15px; border-radius: 12px; border-bottom-right-radius: 2px; font-size: 14px; max-width: 80%; align-self: flex-end;">${text}</div>`;
+        catChatInput.value = '';
+
+        // Стучимся в наш НОВЫЙ Worker (darsun-catalog-bot)
+        try {
+            const res = await fetch('https://darsun-catalog-bot.turgleb7.workers.dev/api/catalog-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: text, history: [] })
+            });
+            const data = await res.json();
+            
+            catChatMessages.innerHTML += `<div style="background: #222; padding: 10px 15px; border-radius: 12px; border-bottom-left-radius: 2px; font-size: 14px; max-width: 80%;">${data.reply || 'Ошибка'}</div>`;
+            catChatMessages.scrollTop = catChatMessages.scrollHeight;
+        } catch (e) {
+            catChatMessages.innerHTML += `<div style="background: #F44336; color: #fff; padding: 10px 15px; border-radius: 12px; border-bottom-left-radius: 2px; font-size: 14px; max-width: 80%;">Ошибка связи.</div>`;
+        }
+    });
+
+    catChatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') catChatSend.click();
+    });
+}
+
 // 7. Загрузка товаров из БД (или заглушка)
 async function loadProducts() {
     // Если таблицы products еще нет, используем заглушку

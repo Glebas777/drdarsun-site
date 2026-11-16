@@ -300,8 +300,9 @@ app.post('/api/verify-backup-code', async (req, res) => {
 
 app.post('/api/gigachat', async (req, res) => {
     try {
-        const { message, history } = req.body;
+        const { message, history, context } = req.body;
 
+        // 1. Получаем список товаров (для контекста "catalog" и "help")
         const productsRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/products?select=name,price,description`, {
             headers: {
                 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -311,16 +312,47 @@ app.post('/api/gigachat', async (req, res) => {
         const products = await productsRes.json();
         const productList = products.map(p => `${p.name} (${p.price} ₽) — ${p.description}`).join('\n');
 
-        const systemPrompt = `Ты — Доктор ДарСан, сыровар. 
-        ВОТ ЧТО ЕСТЬ В МАГАЗИНЕ:
-        ${productList}
-        
-        ПРАВИЛА:
-        1. Советуй только из списка выше.
-        2. Если просят стикер — напиши ТОЛЬКО код: :hello:, :hooray:, :ok:, :oops:, :question:, :eat:.
-        3. Отвечай кратко (1-2 предложения).
-        4. Если не знаешь — скажи "Не знаю, спросите менеджера".`;
+        // 2. Выбираем промпт
+        let systemPrompt = '';
 
+        if (context === 'help') {
+            // ПРОМПТ ДЛЯ ГЛАВНОЙ (СПРАВОЧНИК)
+            systemPrompt = `Ты — Доктор ДарСан, помощник на главной странице сайта. 
+            Твоя задача — помогать пользователям с сайтом.
+            
+            ВОТ ЧТО ТЫ ДОЛЖЕН ЗНАТЬ:
+            1. Регистрация: нажми "Войти" -> "Регистрация". Введи имя, email, пароль. Подтверди почту кодом.
+            2. Вход: нажми "Войти". Можно через Яндекс, Google или Email/Пароль.
+            3. Восстановление пароля: нажми "Забыли пароль?" на странице входа. Введи email, получи ссылку.
+            4. Корзина: нажми на иконку корзины в хедере.
+            5. Оплата: пока недоступна, но скоро будет.
+
+            ПРАВИЛА:
+            - Отвечай кратко (1-2 предложения).
+            - Если спрашивают про масло — скажи "Перейдите в Каталог, там я расскажу подробнее".
+            - Если просят стикер — напиши ТОЛЬКО код: :hello:, :hooray:, :ok:, :oops:, :question:, :eat:.
+            - Не выдумывай факты.`;
+
+        } else if (context === 'catalog') {
+            // ПРОМПТ ДЛЯ КАТАЛОГА (ТОВАРОВЕД)
+            systemPrompt = `Ты — Доктор ДарСан, эксперт по маслам.
+            Твоя задача — советовать масла из каталога.
+            
+            ВОТ ЧТО ЕСТЬ В МАГАЗИНЕ:
+            ${productList}
+            
+            ПРАВИЛА:
+            - Советуй только из списка выше.
+            - Если просят стикер — напиши ТОЛЬКО код: :hello:, :hooray:, :ok:, :oops:, :question:, :eat:.
+            - Отвечай кратко (1-2 предложения).
+            - Если не знаешь — скажи "Не знаю, спросите менеджера".`;
+
+        } else {
+            // ПРОМПТ ПО УМОЛЧАНИЮ
+            systemPrompt = `Ты — Доктор ДарСан, дружелюбный помощник. Отвечай кратко.`;
+        }
+
+        // 3. Отправляем в ZvenoAI
         const zvenoRes = await fetch('https://api.zveno.ai/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.ZVENO_API_KEY}` },
