@@ -188,7 +188,7 @@ async function init() {
                     <div class="order-header">
                         <strong>Заказ #${o.id.split('-')[0]}</strong>
                         <span class="order-status" style="background: rgba(212,175,55,0.2); color: #D4AF37; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">${o.status || 'В обработке'}</span>
-                    </div>
+                </div>
                     <div style="font-size: 14px; color: var(--text-muted);">Товары: ${Array.isArray(o.items) ? o.items.length : '0'} шт.</div>
                     <div style="margin-top: 10px; font-weight: 600; color: var(--accent-green);">Итого: ${o.total} ₽</div>
                 </div>
