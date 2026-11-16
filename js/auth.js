@@ -239,3 +239,32 @@ document.getElementById('mfa-form')?.addEventListener('submit', async (e) => {
         window.location.href = 'profile.html';
     }
 });
+
+// --- ВХОД ПО РЕЗЕРВНОМУ КОДУ ---
+document.getElementById('backup-code-login')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    const code = prompt('Введите резервный код:');
+    if (!code) return;
+
+    // Проверяем код в БД (через Layero, чтобы не палить логику)
+    fetch('https://drdarsun-site-main.layero.app/api/verify-backup-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code.toUpperCase() })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            // Если код верный, Layero возвращает сессию (или токен)
+            if (data.access_token) {
+                supabase.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
+                window.location.href = 'profile.html';
+            } else {
+                alert('Ошибка: сервер не вернул сессию');
+            }
+        } else {
+            alert('Неверный или использованный код');
+        }
+    })
+    .catch(() => alert('Ошибка соединения'));
+});

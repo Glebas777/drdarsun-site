@@ -91,6 +91,8 @@ app.post('/api/verify-code', (req, res) => {
     res.json({ success: true });
 });
 
+
+
 // --- ЯНДЕКС ---
 app.get('/auth/v1/callback/yandex', async (req, res) => {
     const { code } = req.query;
@@ -255,6 +257,44 @@ if (actionLink) {
     } catch (e) {
         console.error('Google Auth Error:', e);
         res.redirect('https://drdarsun.ru/login.html?error=auth_fail');
+    }
+});
+
+app.post('/api/verify-backup-code', async (req, res) => {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ success: false, message: 'Введите код' });
+
+    try {
+        // 1. Ищем код в БД
+        const { data: foundCode, error } = await supabaseAdmin
+            .from('backup_codes')
+            .select('*')
+            .eq('code', code)
+            .eq('is_used', false)
+            .single();
+
+        if (error || !foundCode) {
+            return res.status(400).json({ success: false, message: 'Неверный или использованный код' });
+        }
+
+        // 2. Помечаем код использованным
+        await supabaseAdmin.from('backup_codes').update({ is_used: true }).eq('id', foundCode.id);
+
+        // 3. Получаем юзера и генерируем для него сессию
+        const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(foundCode.user_id);
+        if (!user) return res.status(400).json({ success: false, message: 'Пользователь не найден' });
+
+        // 4. Генерируем Magic Link (или просто возвращаем токен)
+        const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+            type: 'magiclink',
+            email: user.email,
+            options: { redirect_to: 'https://drdarsun.ru/profile.html' }
+        });
+
+        res.json({ success: true, access_token: linkData.properties.access_token, refresh_token: linkData.properties.refresh_token });
+    } catch (e) {
+        console.error('Backup Code Error:', e);
+        res.status(500).json({ success: false, message: 'Ошибка сервера' });
     }
 });
 

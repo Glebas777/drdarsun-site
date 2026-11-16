@@ -416,36 +416,87 @@ async function init() {
         if (notifyEmail) notifyEmail.textContent = session.user.email + ' (отключены)';
     });
 
-    // 12. РЕЗЕРВНЫЕ КОДЫ
+    // --- РЕЗЕРВНЫЕ КОДЫ ---
     const generateBackupBtn = document.getElementById('generate-backup-codes');
     const backupCodesList = document.getElementById('backup-codes-list');
 
     if (generateBackupBtn && backupCodesList) {
-        generateBackupBtn.addEventListener('click', async () => {
-            const codes = [];
-            for (let i = 0; i < 5; i++) {
-                codes.push(Math.random().toString(36).substring(2, 8).toUpperCase());
-            }
+        // Проверяем, есть ли уже коды
+        const { data: existingCodes } = await supabase
+            .from('backup_codes')
+            .select('code, is_used')
+            .eq('user_id', session.user.id);
 
-            const { error } = await supabase.from('backup_codes').insert(
-                codes.map(c => ({ user_id: session.user.id, code: c }))
-            );
-
-            if (error) {
-                showToast('Ошибка сохранения: ' + error.message, 'error');
-                return;
-            }
-
+        if (existingCodes && existingCodes.length > 0) {
+            // Если коды есть, показываем их в замаскированном виде
+            generateBackupBtn.style.display = 'none'; // Скрываем кнопку генерации
             backupCodesList.style.display = 'block';
+            
             backupCodesList.innerHTML = `
-                <p style="color: #D4AF37; font-weight: 600; margin-bottom: 10px;">Сохраните эти коды (они больше не покажутся):</p>
+                <p style="color: #D4AF37; font-weight: 600; margin-bottom: 10px;">Ваши резервные коды:</p>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    ${codes.map(c => `<code style="background: #0A0A0A; padding: 10px; border-radius: 8px; text-align: center; font-size: 16px; border: 1px solid #333; color: #fff;">${c}</code>`).join('')}
+                    ${existingCodes.map(c => `
+                        <code style="background: #0A0A0A; padding: 10px; border-radius: 8px; text-align: center; font-size: 16px; border: 1px solid #333; color: ${c.is_used ? '#555' : '#fff'}; text-decoration: ${c.is_used ? 'line-through' : 'none'};">
+                            ${c.code.charAt(0)}***${c.code.slice(-2)}
+                        </code>
+                    `).join('')}
                 </div>
-                <p style="font-size: 12px; color: var(--text-muted); margin-top: 10px;">Каждый код можно использовать один раз.</p>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 10px;">Если вы потеряли коды, обратитесь к администратору.</p>
             `;
-            showToast('Резервные коды сгенерированы!');
-        });
+        } else {
+            // Если кодов нет, показываем кнопку генерации
+            generateBackupBtn.style.display = 'block';
+            
+            generateBackupBtn.addEventListener('click', async () => {
+                // Генерируем 6 кодов
+                const codes = [];
+                for (let i = 0; i < 6; i++) {
+                    codes.push(Math.random().toString(36).substring(2, 8).toUpperCase());
+                }
+
+                // Сохраняем в БД
+                const { error } = await supabase.from('backup_codes').insert(
+                    codes.map(c => ({ user_id: session.user.id, code: c }))
+                );
+
+                if (error) {
+                    showToast('Ошибка сохранения: ' + error.message, 'error');
+                    return;
+                }
+
+                // Показываем коды (только один раз!)
+                backupCodesList.style.display = 'block';
+                backupCodesList.innerHTML = `
+                    <p style="color: #D4AF37; font-weight: 600; margin-bottom: 10px;">Сохраните эти коды (они больше не покажутся в полном виде):</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        ${codes.map((c, i) => `<code style="background: #0A0A0A; padding: 10px; border-radius: 8px; text-align: center; font-size: 16px; border: 1px solid #333; color: #fff;">${i+1}. ${c}</code>`).join('')}
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                        <button id="copy-backup" class="btn" style="background: #333; color: #fff; border: none; flex: 1;">Скопировать все</button>
+                        <button id="download-backup" class="btn" style="background: #333; color: #fff; border: none; flex: 1;">Скачать .txt</button>
+                    </div>
+                `;
+                showToast('Коды сгенерированы! Сохраните их.');
+
+                // Скопировать все
+                document.getElementById('copy-backup').onclick = () => {
+                    const text = codes.map((c, i) => `${i+1}. ${c}`).join('\n');
+                    navigator.clipboard.writeText(text).then(() => showToast('Коды скопированы!'));
+                };
+
+                // Скачать .txt
+                document.getElementById('download-backup').onclick = () => {
+                    const text = codes.map((c, i) => `${i+1}. ${c}`).join('\n');
+                    const blob = new Blob([text], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'dr_darsun_backup_codes.txt';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                };
+            });
+        }
     }
 }
 
