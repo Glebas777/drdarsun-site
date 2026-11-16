@@ -91,7 +91,11 @@ if (chatSend && chatInput) {
             const res = await fetch('https://drdarsun-site-main.layero.app/api/gigachat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text, history: [] })
+                body: JSON.stringify({ 
+                    message: text, 
+                    history: history,
+                    context: 'help'
+                })
             });
             const data = await res.json();
             chatMessages.innerHTML += `<div class="msg-wrapper bot"><div class="msg">${data.reply || 'Ошибка'}</div></div>`;
