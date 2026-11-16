@@ -6,26 +6,27 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.js"></script>
 </head>
 <body style="background: #0A0A0A; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
-    <div style="text-align: center;">
-        <h2 id="status-title">Проверяем токен...</h2>
-        <p id="status">Пожалуйста, подождите.</p>
-
-        <div id="mfa-block" style="display: none; margin-top: 20px;">
-            <input type="text" id="mfa-code" placeholder="Введите 6 цифр" maxlength="6" style="width: 100%; padding: 15px; border-radius: 12px; border: 1px solid #333; background: #0A0A0A; color: #fff; text-align: center; font-size: 24px; letter-spacing: 8px; margin-bottom: 15px; outline: none;">
-            <button id="mfa-verify" style="width: 100%; padding: 15px; border-radius: 12px; background: #D4AF37; color: #000; border: none; font-weight: bold; font-size: 16px; cursor: pointer;">Подтвердить</button>
+    <div style="text-align: center; max-width: 400px; width: 90%;">
+        <div id="loading">
+            <h2>Проверяем токен...</h2>
+            <p id="status">Пожалуйста, подождите.</p>
+        </div>
+        <div id="mfa-block" style="display: none;">
+            <h2>Двухфакторная аутентификация</h2>
+            <p>Введите 6-значный код из приложения.</p>
+            <input type="text" id="mfa-code" placeholder="000000" maxlength="6" style="width: 100%; padding: 15px; text-align: center; font-size: 24px; letter-spacing: 5px; margin: 15px 0; border-radius: 8px; border: 1px solid #333; background: #151515; color: #fff;">
+            <button id="mfa-submit" style="width: 100%; padding: 15px; background: #D4AF37; color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Подтвердить</button>
         </div>
     </div>
 
     <script>
         const SUPABASE_URL = 'https://drdarsun-site-main.layero.app';
-        const SUPABASE_ANON_KEY = 'sb_publishable_1Fh3LgYtH3wEkQjvBfiZsA_WZZsfsLF'; 
+        const SUPABASE_ANON_KEY = 'ТВОЙ_ANON_KEY_ИЗ_ENV';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         async function confirm() {
             const params = new URLSearchParams(window.location.search);
             const token_hash = params.get('token_hash');
-            const type = params.get('type');
-
             if (!token_hash) {
                 document.getElementById('status').textContent = 'Ошибка: токен не найден.';
                 return;
@@ -41,32 +42,36 @@
                 return;
             }
 
-await new Promise(r => setTimeout(r, 1500));
-const { data: mfaData } = await supabaseClient.auth.mfa.getAuthenticatorLevel();
-if (mfaData.nextLevel === 'aal2' && mfaData.currentLevel !== 'aal2') {
-    document.getElementById('mfa-block').style.display = 'block';
-                document.getElementById('status-title').textContent = 'Двухфакторная защита';
-                document.getElementById('status').textContent = 'Введите код из Яндекс.Ключа или Google Authenticator:';
+            // ПРОВЕРКА 2FA
+            const { data: mfaData, error: mfaError } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+            
+            if (!mfaError && mfaData.nextLevel === 'aal2' && mfaData.currentLevel !== 'aal2') {
+                // Показываем блок ввода 2FA
+                document.getElementById('loading').style.display = 'none';
                 document.getElementById('mfa-block').style.display = 'block';
             } else {
-                document.getElementById('status').textContent = 'Успех! Перенаправление...';
+                // 2FA не нужна
                 window.location.href = 'https://drdarsun.ru/profile.html';
             }
         }
 
-        document.getElementById('mfa-verify')?.addEventListener('click', async () => {
+        // Обработка ввода 2FA
+        document.getElementById('mfa-submit')?.addEventListener('click', async () => {
             const code = document.getElementById('mfa-code').value;
             if (code.length !== 6) return alert('Введите 6 цифр');
+
             const { data: factors } = await supabaseClient.auth.mfa.listFactors();
             const totpFactor = factors.totp[0];
             if (!totpFactor) return alert('Фактор не найден');
-            const { error: verifyError } = await supabaseClient.auth.mfa.challengeAndVerify({
+
+            const { error } = await supabaseClient.auth.mfa.challengeAndVerify({
                 factorId: totpFactor.id,
                 code: code
             });
-            if (verifyError) alert('Неверный код: ' + verifyError.message);
-            else {
-                document.getElementById('status').textContent = 'Успех! Перенаправление...';
+
+            if (error) {
+                alert('Неверный код');
+            } else {
                 window.location.href = 'https://drdarsun.ru/profile.html';
             }
         });

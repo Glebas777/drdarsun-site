@@ -10,7 +10,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="css/base.css">
-    <link rel="stylesheet" href="css/auth-mobile.css">
     <link rel="stylesheet" href="css/auth.css">
     
     <style>
@@ -21,7 +20,7 @@
             align-items: center;
         }
         .input-with-btn input {
-            padding-right: 50px; /* Место для кнопки */
+            padding-right: 50px;
         }
         .send-code-btn {
             position: absolute;
@@ -68,25 +67,49 @@
             font-size: 24px;
             letter-spacing: 10px;
             outline: none;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
         .verify-code-input:focus {
             border-color: #D4AF37;
+        }
+        
+        /* Видео фон */
+        .video-background {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            overflow: hidden;
+        }
+        .bg-video {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 1.5s ease;
+        }
+        .bg-video.active {
+            opacity: 1;
+        }
+        .video-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 0;
         }
     </style>
 </head>
 <body class="auth-page">
 
-    
-
     <!-- ФОН С ВИДЕО -->
     <div class="video-background">
-        <video class="bg-video active" src="assets/videos/кадр1.mp4" muted playsinline autoplay></video>
-        <video class="bg-video" src="assets/videos/кадр2.mp4" muted playsinline></video>
-        <video class="bg-video" src="assets/videos/кадр3.mp4" muted playsinline></video>
-        <video class="bg-video" src="assets/videos/кадр4.mp4" muted playsinline></video>
-        <video class="bg-video" src="assets/videos/кадр5.mp4" muted playsinline></video>
-        <video class="bg-video" src="assets/videos/кадр6.mp4" muted playsinline></video>
+        <video class="bg-video active" src="assets/videos/кадр1.mp4" muted playsinline autoplay loop></video>
+        <video class="bg-video" src="assets/videos/кадр2.mp4" muted playsinline loop></video>
+        <video class="bg-video" src="assets/videos/кадр3.mp4" muted playsinline loop></video>
+        <video class="bg-video" src="assets/videos/кадр4.mp4" muted playsinline loop></video>
+        <video class="bg-video" src="assets/videos/кадр5.mp4" muted playsinline loop></video>
+        <video class="bg-video" src="assets/videos/кадр6.mp4" muted playsinline loop></video>
     </div>
     <div class="video-overlay"></div>
 
@@ -124,26 +147,26 @@
                     <input type="password" id="reg-password" placeholder="••••••••" required>
                 </div>
 
-                    <div id="password-hints" style="font-size: 12px; color: #888; margin-top: 5px; display: flex; flex-direction: column; gap: 4px;">
-        <div id="hint-length" style="display: flex; align-items: center; gap: 5px;">❌ Минимум 6 символов</div>
-        <div id="hint-upper" style="display: flex; align-items: center; gap: 5px;">❌ Заглавная буква</div>
-        <div id="hint-digit" style="display: flex; align-items: center; gap: 5px;">❌ Цифра</div>
-        <div id="hint-pwned" style="display: flex; align-items: center; gap: 5px;">❌ Проверка на утечки</div>
-    </div>
+                <div id="password-hints" style="font-size: 12px; color: #888; margin-top: 5px; display: flex; flex-direction: column; gap: 4px;">
+                    <div id="hint-length" style="display: flex; align-items: center; gap: 5px;">❌ Минимум 6 символов</div>
+                    <div id="hint-upper" style="display: flex; align-items: center; gap: 5px;">❌ Заглавная буква</div>
+                    <div id="hint-digit" style="display: flex; align-items: center; gap: 5px;">❌ Цифра</div>
+                    <div id="hint-pwned" style="display: flex; align-items: center; gap: 5px;">❌ Проверка на утечки</div>
+                </div>
 
-<!-- Блок подтверждения (скрыт) -->
-<div id="verify-block" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #2A2A2A;">
-    <p class="verify-title" style="color: #D4AF37; font-size: 14px; margin-bottom: 10px; text-align: center;">Введите 4-значный код из письма</p>
-    <input type="text" id="verify-code" class="verify-code-input" placeholder="0000" maxlength="4" style="width: 100%; padding: 15px; background: #0A0A0A; border: 1px solid #2A2A2A; border-radius: 12px; color: #fff; text-align: center; font-size: 24px; letter-spacing: 10px; outline: none; margin-bottom: 10px;">
-    
-    <p id="verify-timer" style="font-size: 12px; color: #888; text-align: center; margin-bottom: 15px;"></p>
-    
-    <button type="button" id="verify-btn" class="btn btn--primary btn--full" style="background: #4CAF50; color: #fff; border: none; margin-bottom: 10px;">Подтвердить</button>
-    <button type="button" id="cancel-verify-btn" class="btn btn--full" style="background: transparent; color: #888; border: 1px solid #333;">Отмена</button>
-</div>
+                <!-- Блок подтверждения -->
+                <div id="verify-block">
+                    <p class="verify-title">Введите 4-значный код из письма</p>
+                    <input type="text" id="verify-code" class="verify-code-input" placeholder="0000" maxlength="4">
+                    
+                    <p id="verify-timer" style="font-size: 12px; color: #888; text-align: center; margin-bottom: 15px;"></p>
+                    
+                    <button type="button" id="verify-btn" class="btn btn--primary btn--full" style="background: #4CAF50; color: #fff; border: none; margin-bottom: 10px;">Подтвердить</button>
+                    <button type="button" id="cancel-verify-btn" class="btn btn--full" style="background: transparent; color: #888; border: 1px solid #333;">Отмена</button>
+                </div>
 
                 <div class="login-actions">
-                    <button type="submit" class="btn btn--primary btn--full" id="submit-register" disabled>Зарегистрироваться</button>
+                    <button type="submit" class="btn btn--primary btn--full" id="submit-register">Зарегистрироваться</button>
                 </div>
             </form>
 
@@ -168,41 +191,26 @@
         </div>
     </div>
 
-    <!-- Модалка для Telegram (оставляем для будущих уведомлений, но не в кнопках входа) -->
-    <div id="tg-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 99999; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
-        <div style="background: #151515; border: 1px solid #333; padding: 30px; border-radius: 24px; text-align: center; max-width: 380px; width: 90%;">
-            <h3 style="color: #fff; margin-bottom: 10px;">Вход через Telegram</h3>
-            <p style="color: #aaa; font-size: 14px; margin-bottom: 20px;">Выберите способ:</p>
-            <a id="tg-app-link" href="#" style="display: flex; align-items: center; justify-content: center; gap: 10px; background: #229ED9; color: #fff; padding: 16px; border-radius: 12px; text-decoration: none; font-weight: bold; margin-bottom: 12px;">Открыть в приложении</a>
-            <a id="tg-web-link" href="#" style="display: block; background: #333; color: #fff; padding: 16px; border-radius: 12px; text-decoration: none; font-weight: bold; margin-bottom: 15px;">Открыть в браузере</a>
-            <button id="close-tg" style="background: transparent; border: none; color: #888; cursor: pointer;">Отмена</button>
-        </div>
-    </div>
+    <script>
+        // ПЕРЕКЛЮЧЕНИЕ ВИДЕО (ИСПРАВЛЕНО)
+        document.addEventListener('DOMContentLoaded', () => {
+            const videos = document.querySelectorAll('.bg-video');
+            if (videos.length <= 1) return;
 
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const videos = document.querySelectorAll('.bg-video');
-        if (videos.length <= 1) return;
+            let currentIndex = 0;
+            videos[0].play().catch(() => {});
 
-        let currentIndex = 0;
-
-        // Запускаем первое видео
-        videos[0].play().catch(() => {});
-
-        setInterval(() => {
-            // Убираем активный класс у текущего
-            videos[currentIndex].classList.remove('active');
-            videos[currentIndex].pause(); // Останавливаем
-            
-            // Переходим к следующему
-            currentIndex = (currentIndex + 1) % videos.length;
-            
-            // Добавляем активный класс и запускаем
-            videos[currentIndex].classList.add('active');
-            videos[currentIndex].play().catch(() => {});
-        }, 10000); // Меняем каждые 10 секунд
-    });
-</script>   
+            setInterval(() => {
+                videos[currentIndex].classList.remove('active');
+                videos[currentIndex].pause();
+                
+                currentIndex = (currentIndex + 1) % videos.length;
+                
+                videos[currentIndex].classList.add('active');
+                videos[currentIndex].play().catch(() => {});
+            }, 10000); // Меняем каждые 10 секунд
+        });
+    </script>   
 
     <script type="module" src="js/auth.js"></script>
     <script src="js/burger.js"></script>
