@@ -20,9 +20,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderHeaderBtn(session);
 });
 
-// 2. Слушаем изменения сессии (вход/выход)
 supabase.auth.onAuthStateChange((event, session) => {
-    renderHeaderBtn(session);
+    if (event === 'SIGNED_OUT') {
+        // Если мы не на странице логина/регистрации — выкидываем на главную
+        if (!window.location.pathname.includes('login.html') && !window.location.pathname.includes('register.html')) {
+            window.location.href = 'index.html';
+        }
+    }
 });
 
 // 3. Сторож (если какой-то другой скрипт попытается перезаписать кнопку)

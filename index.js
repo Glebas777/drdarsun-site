@@ -372,6 +372,53 @@ app.post('/api/reset-password', async (req, res) => {
     }
 });
 
+app.post('/api/logout-others', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'No auth' });
+
+    try {
+        // Отзываем все сессии, КРОМЕ текущей (scope: others)
+        const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/logout?scope=others`, {
+            method: 'POST',
+            headers: {
+                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': authHeader, // Токен юзера (чтобы знать, какую сессию оставить)
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            const err = await response.text();
+            console.error('Logout Others Error:', err);
+            return res.status(500).json({ error: 'Failed to logout others' });
+        }
+        
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Logout Others Error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/logout-all', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'No auth' });
+
+    try {
+        await fetch(`${process.env.SUPABASE_URL}/auth/v1/logout?scope=global`, {
+            method: 'POST',
+            headers: {
+                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': authHeader,
+                'Content-Type': 'application/json'
+            }
+        });
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.all('*', async (req, res) => {
     try {
         const targetUrl = `${CF_WORKER}${req.originalUrl}`;

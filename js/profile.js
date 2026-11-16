@@ -293,23 +293,54 @@ async function init() {
         logoutOtherBtn.className = 'btn';
         logoutOtherBtn.style = 'border: 1px solid var(--border);';
         logoutOtherBtn.textContent = 'Завершить все сессии, кроме этой';
-        logoutOtherBtn.onclick = async () => {
-            const currentKey = localStorage.getItem('device_key');
-            await supabase.from('devices').delete().eq('user_id', session.user.id).neq('device_key', currentKey);
-            showToast('Все другие сессии завершены (устройства удалены из списка)');
-            loadDevices();
-        };
+logoutOtherBtn.onclick = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    // 1. Удаляем все устройства, кроме текущего, из БД
+    const currentKey = localStorage.getItem('device_key');
+    await supabase.from('devices').delete().eq('user_id', session.user.id).neq('device_key', currentKey);
+
+    // 2. Просим Layero отозвать все другие сессии
+    try {
+        await fetch('https://drdarsun-site-main.layero.app/api/logout-others', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
+        });
+    } catch (e) {
+        console.warn('Layero logout-others error:', e);
+    }
+
+    showToast('Все другие сессии завершены');
+    loadDevices();
+};
 
         const logoutAllBtn = document.createElement('button');
         logoutAllBtn.className = 'btn';
         logoutAllBtn.style = 'border: 1px solid #F44336; color: #F44336;';
         logoutAllBtn.textContent = 'Завершить все сессии (включая эту)';
-        logoutAllBtn.onclick = async () => {
-            if (!confirm('Вы уверены? Все устройства будут выкинуты.')) return;
-            await supabase.from('devices').delete().eq('user_id', session.user.id);
-            await supabase.auth.signOut();
-            window.location.href = 'index.html';
-        };
+logoutAllBtn.onclick = async () => {
+    if (!confirm('Вы уверены? Все устройства будут выкинуты.')) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    // 1. Удаляем все устройства
+    await supabase.from('devices').delete().eq('user_id', session.user.id);
+
+    // 2. Просим Layero отозвать ВСЕ сессии
+    try {
+        await fetch('https://drdarsun-site-main.layero.app/api/logout-all', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
+        });
+    } catch (e) {
+        console.warn('Layero logout-all error:', e);
+    }
+
+    // 3. Выходим сами
+    await supabase.auth.signOut();
+    window.location.href = 'index.html';
+};
 
         controls.appendChild(logoutOtherBtn);
         controls.appendChild(logoutAllBtn);

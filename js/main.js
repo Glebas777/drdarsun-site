@@ -26,6 +26,16 @@ async function updateHeaderAuth() {
 
 document.addEventListener('DOMContentLoaded', updateHeaderAuth);
 supabase.auth.onAuthStateChange(() => updateHeaderAuth());
+// --- ГЛОБАЛЬНЫЙ СЛУШАТЕЛЬ ВЫХОДА (КИК) ---
+supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT') {
+        // Не выкидываем, если мы уже на странице логина/регистрации
+        const path = window.location.pathname;
+        if (!path.includes('login.html') && !path.includes('register.html')) {
+            window.location.href = 'index.html';
+        }
+    }
+});
 
 // --- СМЕНА ТЕМЫ ---
 const themeToggle = document.getElementById('theme-toggle');
