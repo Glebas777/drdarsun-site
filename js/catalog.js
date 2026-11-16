@@ -177,3 +177,60 @@ async function loadProducts() {
 }
 
 loadProducts();
+
+// --- ЧАТ В КАТАЛОГЕ ---
+document.addEventListener('DOMContentLoaded', () => {
+    const botToggle = document.getElementById('catalog-bot-toggle');
+    const botModal = document.getElementById('catalog-bot-modal');
+    const botClose = document.getElementById('catalog-bot-close');
+    const chatInput = document.getElementById('catalog-chat-input');
+    const chatSend = document.getElementById('catalog-chat-send');
+    const chatMessages = document.getElementById('catalog-chat-messages');
+
+    if (!botToggle || !botModal) return;
+
+    // Открытие/закрытие
+    botToggle.addEventListener('click', () => {
+        botModal.style.display = botModal.style.display === 'flex' ? 'none' : 'flex';
+    });
+    botClose.addEventListener('click', () => {
+        botModal.style.display = 'none';
+    });
+
+    // Отправка сообщения
+    async function sendMessage() {
+        const text = chatInput.value.trim();
+        if (!text) return;
+
+        // Добавляем сообщение пользователя
+        chatMessages.innerHTML += `<div class="msg-wrapper user"><div class="msg">${text}</div></div>`;
+        chatInput.value = '';
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        // Индикатор
+        const typingId = 'typing-' + Date.now();
+        chatMessages.innerHTML += `<div class="msg-wrapper bot" id="${typingId}"><div class="msg"><i>Доктор печатает...</i></div></div>`;
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        try {
+            const res = await fetch('https://darsun-catalog-bot.turgleb7.workers.dev/api/catalog-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: text, history: [] })
+            });
+            const data = await res.json();
+
+            document.getElementById(typingId)?.remove();
+            chatMessages.innerHTML += `<div class="msg-wrapper bot"><div class="msg">${data.reply || 'Ошибка'}</div></div>`;
+        } catch (e) {
+            document.getElementById(typingId)?.remove();
+            chatMessages.innerHTML += `<div class="msg-wrapper bot"><div class="msg">Ошибка связи.</div></div>`;
+        }
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    chatSend.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
+});
