@@ -1,14 +1,22 @@
 const express = require('express');
 const cors = require('cors');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-const nodemailer = require('nodemailer');
+const { createClient } = require('@supabase/supabase-js'); // <--- ДОБАВЛЕНО
 
 const app = express();
 app.set('trust proxy', 1);
+
+// CORS: разрешаем домены и пустой Origin (для curl/мобилок)
 app.use(cors({
-    origin: ['https://drdarsun.ru', 'https://drdarsun-site-main.layero.app'],
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const allowed = ['https://drdarsun.ru', 'https://drdarsun-site-main.layero.app'];
+        if (allowed.includes(origin)) return callback(null, true);
+        return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true
 }));
+
 app.use(express.json());
 app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -29,6 +37,12 @@ app.use('/api/', limiter);
 const PORT = process.env.PORT || 3000;
 const CF_WORKER = 'https://supabase-proxy.turgleb7.workers.dev';
 const LAYERO_ORIGIN = 'https://drdarsun-site-main.layero.app';
+
+// --- SUPABASE ADMIN (для backup-codes и проверок) ---
+const supabaseAdmin = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 // --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ RETRY ---
 async function fetchWithRetry(url, options, retries = 3) {
@@ -91,58 +105,82 @@ app.post('/api/verify-code', (req, res) => {
     res.json({ success: true });
 });
 
-
-
-// --- ЯНДЕКС ---
-app.get('/auth/v1/callback/yandex', async (req, res) => {
+// --- ОБЩИЙ ОБРАБОТЧИК ДЛЯ ЯНДЕКС/GOOGLE ---
+async function handleOAuthCallback(req, res, provider) {
     const { code } = req.query;
     if (!code) return res.redirect('https://drdarsun.ru/login.html?error=no_code');
 
     try {
-        const tokenRes = await fetchWithRetry('https://oauth.yandex.ru/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                grant_type: 'authorization_code',
-                code: code,
-                client_id: process.env.YANDEX_CLIENT_ID,
-                client_secret: process.env.YANDEX_SECRET_ID
-            })
-        });
-        const tokenData = await tokenRes.json();
-        if (!tokenData.access_token) throw new Error('No Yandex token');
+        let tokenData, userData, email, name;
 
-        const userRes = await fetchWithRetry('https://login.yandex.ru/info?format=json', {
-            headers: { 'Authorization': `OAuth ${tokenData.access_token}` }
-        });
-        const userData = await userRes.json();
-        const email = userData.default_email;
-        const name = userData.real_name || userData.display_name;
+        if (provider === 'yandex') {
+            const tokenRes = await fetchWithRetry('https://oauth.yandex.ru/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    grant_type: 'authorization_code',
+                    code: code,
+                    client_id: process.env.YANDEX_CLIENT_ID,
+                    client_secret: process.env.YANDEX_SECRET_ID
+                })
+            });
+            tokenData = await tokenRes.json();
+            if (!tokenData.access_token) throw new Error('No Yandex token');
+
+            const userRes = await fetchWithRetry('https://login.yandex.ru/info?format=json', {
+                headers: { 'Authorization': `OAuth ${tokenData.access_token}` }
+            });
+            userData = await userRes.json();
+            email = userData.default_email;
+            name = userData.real_name || userData.display_name;
+
+        } else if (provider === 'google') {
+            const tokenRes = await fetchWithRetry('https://oauth2.googleapis.com/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    grant_type: 'authorization_code',
+                    code: code,
+                    client_id: '1059795226527-fgrb9i2ccikq0e6pkolpjj36t2a6i2i3.apps.googleusercontent.com',
+                    client_secret: process.env.GOOGLE_CLIENT_SECRET,
+                    redirect_uri: 'https://drdarsun-site-main.layero.app/auth/v1/callback/google'
+                })
+            });
+            tokenData = await tokenRes.json();
+            if (!tokenData.access_token) throw new Error('No Google token');
+
+            const userRes = await fetchWithRetry('https://www.googleapis.com/oauth2/v2/userinfo', {
+                headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
+            });
+            userData = await userRes.json();
+            email = userData.email;
+            name = userData.name;
+        }
+
         if (!email) throw new Error('No email');
 
-const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
-    method: 'POST',
-    headers: {
-        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-        'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-        type: 'magiclink',
-        email: email,
-        options: { redirect_to: 'https://drdarsun.ru/profile.html' }
-    })
-});
+        const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
+            method: 'POST',
+            headers: {
+                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                type: 'magiclink',
+                email: email,
+                options: { redirect_to: 'https://drdarsun.ru/profile.html' }
+            })
+        });
 
-const linkData = await linkRes.json();
+        const linkData = await linkRes.json();
 
-// Берем action_link и переписываем домен на Layero
-let actionLink = linkData.action_link;
-if (actionLink) {
-    actionLink = actionLink.replace('https://rrpcqrvkhmlrdqvffnax.supabase.co', 'https://drdarsun-site-main.layero.app');
-    return res.redirect(actionLink);
-}
-        
+        let actionLink = linkData.action_link;
+        if (actionLink) {
+            actionLink = actionLink.replace('https://rrpcqrvkhmlrdqvffnax.supabase.co', 'https://drdarsun-site-main.layero.app');
+            return res.redirect(actionLink);
+        }
+
         if (linkData.error || !linkData.hashed_token) {
             await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
                 method: 'POST',
@@ -171,101 +209,19 @@ if (actionLink) {
         }
         res.redirect(`https://drdarsun.ru/auth/confirm?token_hash=${linkData.hashed_token}&type=magiclink`);
     } catch (e) {
-        console.error('Yandex Auth Error:', e);
+        console.error(`${provider} Auth Error:`, e);
         res.redirect('https://drdarsun.ru/login.html?error=auth_fail');
     }
-});
-
-// --- GOOGLE ---
-app.get('/auth/v1/callback/google', async (req, res) => {
-    const { code } = req.query;
-    if (!code) return res.redirect('https://drdarsun.ru/login.html?error=no_code');
-
-    try {
-        const tokenRes = await fetchWithRetry('https://oauth2.googleapis.com/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                grant_type: 'authorization_code',
-                code: code,
-                client_id: '1059795226527-fgrb9i2ccikq0e6pkolpjj36t2a6i2i3.apps.googleusercontent.com',
-                client_secret: process.env.GOOGLE_CLIENT_SECRET,
-                redirect_uri: 'https://drdarsun-site-main.layero.app/auth/v1/callback/google'
-            })
-        });
-        const tokenData = await tokenRes.json();
-        if (!tokenData.access_token) throw new Error('No Google token');
-
-        const userRes = await fetchWithRetry('https://www.googleapis.com/oauth2/v2/userinfo', {
-            headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
-        });
-        const userData = await userRes.json();
-        const email = userData.email;
-        const name = userData.name;
-        if (!email) throw new Error('No email');
-
-const linkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
-    method: 'POST',
-    headers: {
-        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-        'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-        type: 'magiclink',
-        email: email,
-        options: { redirect_to: 'https://drdarsun.ru/profile.html' }
-    })
-});
-
-const linkData = await linkRes.json();
-
-// Берем action_link и переписываем домен на Layero
-let actionLink = linkData.action_link;
-if (actionLink) {
-    actionLink = actionLink.replace('https://rrpcqrvkhmlrdqvffnax.supabase.co', 'https://drdarsun-site-main.layero.app');
-    return res.redirect(actionLink);
 }
-        
-        if (linkData.error || !linkData.hashed_token) {
-            await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
-                method: 'POST',
-                headers: {
-                    'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-                    'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ email, email_confirm: true, user_metadata: { full_name: name } })
-            });
-            const retryLinkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
-                method: 'POST',
-                headers: {
-                    'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-                    'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    type: 'magiclink',
-                    email: email,
-                    options: { redirect_to: 'https://drdarsun.ru/profile.html' }
-                })
-            });
-            const retryData = await retryLinkRes.json();
-            return res.redirect(`https://drdarsun.ru/auth/confirm?token_hash=${retryData.hashed_token}&type=magiclink`);
-        }
-        res.redirect(`https://drdarsun.ru/auth/confirm?token_hash=${linkData.hashed_token}&type=magiclink`);
-    } catch (e) {
-        console.error('Google Auth Error:', e);
-        res.redirect('https://drdarsun.ru/login.html?error=auth_fail');
-    }
-});
+
+app.get('/auth/v1/callback/yandex', (req, res) => handleOAuthCallback(req, res, 'yandex'));
+app.get('/auth/v1/callback/google', (req, res) => handleOAuthCallback(req, res, 'google'));
 
 app.post('/api/verify-backup-code', async (req, res) => {
     const { code } = req.body;
     if (!code) return res.status(400).json({ success: false, message: 'Введите код' });
 
     try {
-        // 1. Ищем код в БД
         const { data: foundCode, error } = await supabaseAdmin
             .from('backup_codes')
             .select('*')
@@ -277,14 +233,11 @@ app.post('/api/verify-backup-code', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Неверный или использованный код' });
         }
 
-        // 2. Помечаем код использованным
         await supabaseAdmin.from('backup_codes').update({ is_used: true }).eq('id', foundCode.id);
 
-        // 3. Получаем юзера и генерируем для него сессию
         const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(foundCode.user_id);
         if (!user) return res.status(400).json({ success: false, message: 'Пользователь не найден' });
 
-        // 4. Генерируем Magic Link (или просто возвращаем токен)
         const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
             type: 'magiclink',
             email: user.email,
@@ -303,20 +256,26 @@ app.post('/api/gigachat', async (req, res) => {
         const { message, history, context } = req.body;
 
         // 1. Получаем список товаров (для контекста "catalog" и "help")
-        const productsRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/products?select=name,price,description`, {
-            headers: {
-                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-            }
-        });
-        const products = await productsRes.json();
-        const productList = products.map(p => `${p.name} (${p.price} ₽) — ${p.description}`).join('\n');
+        let productList = '';
+        try {
+            const productsRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/products?select=name,price,description`, {
+                headers: {
+                    'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                    'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+                }
+            });
+            const products = await productsRes.json();
+            productList = Array.isArray(products) 
+                ? products.map(p => `${p.name} (${p.price} ₽) — ${p.description}`).join('\n')
+                : '';
+        } catch (e) {
+            console.error('Products fetch error:', e);
+        }
 
         // 2. Выбираем промпт
         let systemPrompt = '';
 
         if (context === 'help') {
-            // ПРОМПТ ДЛЯ ГЛАВНОЙ (СПРАВОЧНИК)
             systemPrompt = `Ты — Доктор ДарСан, помощник на главной странице сайта. 
             Твоя задача — помогать пользователям с сайтом.
             
@@ -334,7 +293,6 @@ app.post('/api/gigachat', async (req, res) => {
             - Не выдумывай факты.`;
 
         } else if (context === 'catalog') {
-            // ПРОМПТ ДЛЯ КАТАЛОГА (ТОВАРОВЕД)
             systemPrompt = `Ты — Доктор ДарСан, эксперт по маслам.
             Твоя задача — советовать масла из каталога.
             
@@ -348,7 +306,6 @@ app.post('/api/gigachat', async (req, res) => {
             - Если не знаешь — скажи "Не знаю, спросите менеджера".`;
 
         } else {
-            // ПРОМПТ ПО УМОЛЧАНИЮ
             systemPrompt = `Ты — Доктор ДарСан, дружелюбный помощник. Отвечай кратко.`;
         }
 
@@ -375,6 +332,18 @@ app.post('/api/gigachat', async (req, res) => {
 app.post('/api/register', async (req, res) => {
     const { email, password, name } = req.body;
     try {
+        // Проверка занятости почты
+        const checkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
+            headers: {
+                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+            }
+        });
+        const checkData = await checkRes.json();
+        if (checkData.users && checkData.users.length > 0) {
+            return res.status(400).json({ success: false, message: 'Эта почта уже зарегистрирована. Войдите или восстановите пароль.' });
+        }
+
         const createRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
             method: 'POST',
             headers: {
@@ -438,12 +407,11 @@ app.post('/api/logout-others', async (req, res) => {
     if (!authHeader) return res.status(401).json({ error: 'No auth' });
 
     try {
-        // Отзываем все сессии, КРОМЕ текущей (scope: others)
         await fetch(`${process.env.SUPABASE_URL}/auth/v1/logout?scope=others`, {
             method: 'POST',
             headers: {
                 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-                'Authorization': authHeader, // Токен юзера (чтобы знать, какую сессию оставить)
+                'Authorization': authHeader,
                 'Content-Type': 'application/json'
             }
         });
@@ -479,7 +447,7 @@ app.post('/api/delete-account', async (req, res) => {
     try {
         const userRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
             headers: { 
-                'apikey': process.env.SUPABASE_ANON_KEY, // <--- ANON
+                'apikey': process.env.SUPABASE_ANON_KEY,
                 'Authorization': authHeader 
             }
         });
@@ -508,6 +476,19 @@ app.post('/api/change-email', async (req, res) => {
 
     try {
         const { newEmail } = req.body;
+
+        // Проверка занятости новой почты
+        const checkRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(newEmail)}`, {
+            headers: {
+                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+            }
+        });
+        const checkData = await checkRes.json();
+        if (checkData.users && checkData.users.length > 0) {
+            return res.status(400).json({ error: 'Эта почта уже занята другим аккаунтом.' });
+        }
+
         const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
             method: 'PUT',
             headers: {

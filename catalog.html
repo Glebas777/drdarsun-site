@@ -11,6 +11,8 @@
 
 <body>
 
+    
+
 
     <header class="header">
         <div class="container header__inner">
@@ -20,6 +22,12 @@
                 <a href="about.html">О нас</a>
                 <a href="delivery.html">Доставка</a>
             </nav>
+            <div class="header__actions">
+    <button class="theme-toggle" id="theme-toggle"></button>
+    <a href="cart.html" class="icon-btn">🛒</a>
+    <div id="auth-buttons"></div> <!-- Только тут! -->
+    <button class="burger" id="burger-btn">...</button>
+</div>
             <div class="header__actions" id="auth-buttons"></div>
             <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
         </div>
@@ -111,25 +119,27 @@
         </div>
     </footer>
 
-    <!-- Кнопка ИИ в каталоге -->
+<!-- Кнопка ИИ в каталоге -->
 <button id="catalog-bot-toggle" style="position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; border-radius: 50%; background: var(--accent-gold); color: #000; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 4px 20px rgba(212, 175, 55, 0.4); z-index: 9999;">🧠</button>
 
-<!-- Модалка ИИ в каталоге -->
-<div id="catalog-bot-modal" style="display: none; position: fixed; bottom: 100px; right: 30px; width: 350px; height: 500px; background: #151515; border: 1px solid #333; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); z-index: 9998; flex-direction: column; overflow: hidden;">
-    <div style="padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; background: rgba(212, 175, 55, 0.1);">
-        <h3 style="margin: 0; color: var(--accent-gold); font-size: 18px;">Доктор ДарСан</h3>
-        <button id="catalog-bot-close" style="background: transparent; border: none; color: #fff; font-size: 20px; cursor: pointer;">×</button>
+<!-- Модалка ИИ в каталоге (классы как на главной) -->
+<div class="bot-modal" id="catalog-bot-modal">
+    <div class="bot-header">
+        <h4>Доктор ДарСан</h4>
+        <button id="catalog-bot-close" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">×</button>
     </div>
-    <div id="catalog-chat-messages" style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
-        <div style="background: #222; padding: 10px 15px; border-radius: 12px; border-bottom-left-radius: 2px; font-size: 14px; max-width: 80%;">Здравствуйте! Я помогу выбрать масло. Спрашивайте!</div>
+    <div class="bot-messages" id="catalog-chat-messages">
+        <div class="msg-wrapper bot">
+            <div class="msg">Здравствуйте! Я помогу выбрать масло. Спрашивайте!</div>
+        </div>
     </div>
-    <div style="padding: 15px; border-top: 1px solid #333; display: flex; gap: 10px;">
-        <input type="text" id="catalog-chat-input" placeholder="Спросить..." style="flex: 1; background: #0A0A0A; border: 1px solid #333; border-radius: 20px; padding: 10px 15px; color: #fff; outline: none;">
-        <button id="catalog-chat-send" style="background: var(--accent-gold); border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; color: #000; font-weight: bold;">→</button>
+    <div style="padding:15px; display:flex; gap:8px; align-items:center; border-top: 1px solid var(--border);">
+        <input type="text" id="catalog-chat-input" placeholder="Спросить..." style="flex:1; padding:10px; border-radius:20px; border:1px solid var(--border); background:var(--bg-color); color:var(--text-main); outline: none;">
+        <button id="catalog-chat-send" style="background:var(--accent-green); border:none; color:#fff; border-radius:50%; width:40px; height:40px; cursor:pointer;">→</button>
     </div>
 </div>
 
-    <script src="js/main.js"></script>
+    <script type="module" src="js/main.js"></script>
     <script type="module" src="js/catalog.js"></script>
     <script src="js/burger.js"></script>
     <script type="module" src="js/auth-header.js"></script>

@@ -93,7 +93,7 @@ if (chatSend && chatInput) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     message: text, 
-                    history: history,
+                    history: [],
                     context: 'help'
                 })
             });

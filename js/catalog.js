@@ -32,7 +32,16 @@ if (sortSelect) {
 
 // 4. Чекбоксы категорий
 document.querySelectorAll('.filter-category').forEach(cb => {
-    cb.addEventListener('change', applyFilters);
+    cb.addEventListener('change', (e) => {
+        if (e.target.value === 'all' && e.target.checked) {
+            document.querySelectorAll('.filter-category').forEach(other => {
+                if (other.value !== 'all') other.checked = false;
+            });
+        } else if (e.target.value !== 'all' && e.target.checked) {
+            document.querySelector('input[value="all"]').checked = false;
+        }
+        applyFilters();
+    });
 });
 
 // 5. Применение фильтров
@@ -53,7 +62,7 @@ function applyFilters() {
     renderProducts();
 }
 
-// 6. Рендер товаров
+// 6. Рендер товаров (исправленный)
 function renderProducts() {
     if (!grid) return;
 
@@ -63,24 +72,44 @@ function renderProducts() {
     }
 
     grid.innerHTML = filteredProducts.map(p => `
-        <div class="product-card">
-            <div class="product-img" style="background-image: url('${p.image_url || 'assets/images/placeholder.png'}'); background-size: cover; background-position: center; height: 250px; position: relative;">
+        <div class="product-card" data-id="${p.id}">
+            <div class="product-card__img">
                 ${p.tag ? `<span class="product-tag">${p.tag}</span>` : ''}
+                <img src="${p.image_url || 'assets/images/logo.png'}" alt="${p.name}" style="max-height: 100%; max-width: 100%; object-fit: contain;">
                 <button class="add-to-cart-btn" data-id="${p.id}" data-name="${p.name}" data-price="${p.price}">В корзину</button>
             </div>
-            <div class="product-info">
+            <div class="product-card__info">
                 <h3>${p.name}</h3>
-                <p class="product-desc">${p.description || ''}</p>
-                <div class="product-bottom">
-                    <span class="product-price">${p.price} ₽</span>
-                    <span class="product-weight">${p.weight || ''}</span>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">${p.description || ''}</p>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
+                    <span class="product-card__price">${p.price} ₽</span>
+                    <span style="font-size: 13px; color: var(--text-muted);">${p.weight || ''}</span>
                 </div>
             </div>
         </div>
     `).join('');
+
+    // Обработчики для кнопок и карточек
+    document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            addToCart({
+                id: btn.dataset.id,
+                name: btn.dataset.name,
+                price: parseInt(btn.dataset.price)
+            });
+        });
+    });
+
+    document.querySelectorAll('.product-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.add-to-cart-btn')) return;
+            window.location.href = `product.html?id=${card.dataset.id}`;
+        });
+    });
 }
 
-// --- ИИ В КАТАЛОГЕ (Cloudflare Worker) ---
+// --- ИИ В КАТАЛОГЕ (Исправленная логика) ---
 const catBotToggle = document.getElementById('catalog-bot-toggle');
 const catBotModal = document.getElementById('catalog-bot-modal');
 const catBotClose = document.getElementById('catalog-bot-close');
@@ -90,19 +119,24 @@ const catChatSend = document.getElementById('catalog-chat-send');
 
 if (catBotToggle && catBotModal) {
     catBotToggle.addEventListener('click', () => {
-        catBotModal.style.display = catBotModal.style.display === 'flex' ? 'none' : 'flex';
+        catBotModal.classList.toggle('active');
     });
-    catBotClose.addEventListener('click', () => catBotModal.style.display = 'none');
+    catBotClose.addEventListener('click', () => catBotModal.classList.remove('active'));
 
     catChatSend.addEventListener('click', async () => {
         const text = catChatInput.value.trim();
         if (!text) return;
 
-        // Добавляем сообщение юзера
-        catChatMessages.innerHTML += `<div style="background: #D4AF37; color: #000; padding: 10px 15px; border-radius: 12px; border-bottom-right-radius: 2px; font-size: 14px; max-width: 80%; align-self: flex-end;">${text}</div>`;
+        // Сообщение пользователя (классы как на главной)
+        catChatMessages.innerHTML += `<div class="msg-wrapper user"><div class="msg">${text}</div></div>`;
         catChatInput.value = '';
+        catChatMessages.scrollTop = catChatMessages.scrollHeight;
 
-        // Стучимся в наш НОВЫЙ Worker (darsun-catalog-bot)
+        // Индикатор загрузки
+        const typingId = 'typing-' + Date.now();
+        catChatMessages.innerHTML += `<div class="msg-wrapper bot" id="${typingId}"><div class="msg"><i>Доктор печатает...</i></div></div>`;
+        catChatMessages.scrollTop = catChatMessages.scrollHeight;
+
         try {
             const res = await fetch('https://darsun-catalog-bot.turgleb7.workers.dev/api/catalog-chat', {
                 method: 'POST',
@@ -111,10 +145,15 @@ if (catBotToggle && catBotModal) {
             });
             const data = await res.json();
             
-            catChatMessages.innerHTML += `<div style="background: #222; padding: 10px 15px; border-radius: 12px; border-bottom-left-radius: 2px; font-size: 14px; max-width: 80%;">${data.reply || 'Ошибка'}</div>`;
+            document.getElementById(typingId)?.remove();
+            
+            // Ответ бота (классы как на главной)
+            catChatMessages.innerHTML += `<div class="msg-wrapper bot"><div class="msg">${data.reply || 'Ошибка'}</div></div>`;
             catChatMessages.scrollTop = catChatMessages.scrollHeight;
         } catch (e) {
-            catChatMessages.innerHTML += `<div style="background: #F44336; color: #fff; padding: 10px 15px; border-radius: 12px; border-bottom-left-radius: 2px; font-size: 14px; max-width: 80%;">Ошибка связи.</div>`;
+            document.getElementById(typingId)?.remove();
+            catChatMessages.innerHTML += `<div class="msg-wrapper bot"><div class="msg">Ошибка связи.</div></div>`;
+            catChatMessages.scrollTop = catChatMessages.scrollHeight;
         }
     });
 
