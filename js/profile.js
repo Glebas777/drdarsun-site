@@ -525,4 +525,49 @@ document.getElementById('qr-login-btn')?.addEventListener('click', async () => {
     });
 });
 
+// --- QR В БЕЗОПАСНОСТИ ---
+const showMyQrBtn = document.getElementById('show-my-qr-btn');
+const scanQrBtn = document.getElementById('scan-qr-btn');
+const myQrContainer = document.getElementById('my-qr-container');
+const qrScanResult = document.getElementById('qr-scan-result');
+
+showMyQrBtn?.addEventListener('click', async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const token = 'qr_' + Math.random().toString(36).substring(2, 15);
+    const url = `https://drdarsun.ru/qr-confirm?token=${token}`;
+
+    myQrContainer.style.display = 'block';
+    myQrContainer.innerHTML = '';
+
+    new QRCode(myQrContainer, {
+        text: url,
+        width: 200,
+        height: 200,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+    });
+});
+
+scanQrBtn?.addEventListener('click', async () => {
+    qrScanResult.textContent = 'Запрос доступа к камере...';
+
+    try {
+        const html5QrCode = new Html5Qrcode("qr-scan-result");
+        await html5QrCode.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: 250 },
+            (decodedText) => {
+                qrScanResult.innerHTML = `Отсканировано: <strong>${decodedText}</strong>`;
+                html5QrCode.stop();
+            },
+            () => {}
+        );
+    } catch (err) {
+        qrScanResult.textContent = 'Ошибка камеры: ' + err;
+    }
+});
+
 init();

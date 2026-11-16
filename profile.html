@@ -182,18 +182,15 @@
                     <p style="font-size: 13px; color: var(--text-muted); margin-top: 5px;">Вход по лицу или отпечатку пальца (WebAuthn).</p>
                 </div>
 
-                <div style="margin-top: 20px;">
-    <h4>QR-вход</h4>
-    <p style="font-size: 13px; color: var(--text-muted);">Вход на другом устройстве через QR-код (как в Telegram).</p>
-    <button class="btn" id="qr-login-btn" style="border: 1px solid var(--border);">Сгенерировать QR</button>
-<div id="qr-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 99999; align-items: center; justify-content: center;">
-    <div style="background: var(--bg-card); padding: 30px; border-radius: 20px; text-align: center; max-width: 400px;">
-        <h3 style="margin-bottom: 15px;">QR-код для входа</h3>
-        <div id="qrcode" style="display: flex; justify-content: center; margin-bottom: 15px;"></div>
-        <p style="font-size: 12px; color: var(--text-muted);">Отсканируйте камерой телефона</p>
-        <button class="btn" onclick="document.getElementById('qr-modal').style.display='none'" style="margin-top: 15px; border: 1px solid var(--border);">Закрыть</button>
+<div style="margin-top: 20px;">
+    <h4>QR-код</h4>
+    <p style="font-size: 13px; color: var(--text-muted);">Покажите QR для входа на другом устройстве или отсканируйте чужой.</p>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
+        <button class="btn btn--primary" id="show-my-qr-btn">Мой QR для входа</button>
+        <button class="btn" id="scan-qr-btn" style="border: 1px solid var(--border);">Сканировать QR</button>
     </div>
-</div>
+    <div id="my-qr-container" style="display: none; margin-top: 15px; text-align: center;"></div>
+    <div id="qr-scan-result" style="margin-top: 10px; font-size: 14px; color: var(--text-muted);"></div>
 </div>
             </div>
 
@@ -288,5 +285,6 @@
 <script type="module" src="js/auth-header.js"></script>
 <script src="js/preloader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </body>
 </html>
