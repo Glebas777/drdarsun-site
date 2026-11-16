@@ -221,7 +221,6 @@ async function init() {
 
         const deviceName = navigator.userAgent.split(' ').slice(0, 2).join(' ');
 
-        // Сохраняем/обновляем текущее устройство
         await supabase.from('devices').upsert({
             user_id: session.user.id,
             device_key: deviceKey,
@@ -229,91 +228,64 @@ async function init() {
             last_active: new Date().toISOString()
         }, { onConflict: 'device_key' });
 
-        // Загружаем список
         const { data: devices, error } = await supabase
             .from('devices')
             .select('*')
             .eq('user_id', session.user.id)
             .order('last_active', { ascending: false });
 
+        // Рендерим список
         if (error || !devices || devices.length === 0) {
             devicesList.innerHTML = '<div class="empty-state">Нет активных устройств.</div>';
-            return;
+        } else {
+            devicesList.innerHTML = devices.map(d => `
+                <div class="device-item" data-key="${d.device_key}" data-name="${d.device_name}" data-date="${d.last_active}" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.borderColor='#D4AF37'" onmouseout="this.style.borderColor='var(--border)'">
+                    <div>
+                        <p style="margin: 0; font-weight: 500; color: #fff;">${d.device_name}</p>
+                        <p style="margin: 0; font-size: 12px; color: var(--text-muted);">${new Date(d.last_active).toLocaleString('ru-RU')}</p>
+                    </div>
+                    ${d.device_key === deviceKey ? '<span style="color: #4CAF50; font-size: 12px; font-weight: 600;">Текущее</span>' : ''}
+                </div>
+            `).join('');
+
+            document.querySelectorAll('.device-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const key = item.dataset.key;
+                    const name = item.dataset.name;
+                    const date = item.dataset.date;
+
+                    document.getElementById('modal-device-name').textContent = name;
+                    document.getElementById('modal-device-date').textContent = new Date(date).toLocaleString('ru-RU');
+                    document.getElementById('device-modal').style.display = 'flex';
+
+                    document.getElementById('modal-copy-btn').onclick = () => {
+                        const text = `Устройство: ${name}\nДата входа: ${new Date(date).toLocaleString('ru-RU')}\nКлюч: ${key}`;
+                        navigator.clipboard.writeText(text).then(() => {
+                            showToast('Данные скопированы!');
+                            document.getElementById('device-modal').style.display = 'none';
+                        });
+                    };
+
+                    document.getElementById('modal-end-btn').onclick = async () => {
+                        await supabase.from('devices').delete().eq('device_key', key);
+                        showToast('Сессия завершена');
+                        document.getElementById('device-modal').style.display = 'none';
+                        if (key === deviceKey) {
+                            await supabase.auth.signOut();
+                            window.location.href = 'index.html';
+                        } else {
+                            loadDevices();
+                        }
+                    };
+
+                    document.getElementById('modal-close-btn').onclick = () => {
+                        document.getElementById('device-modal').style.display = 'none';
+                    };
+                });
+            });
         }
 
-        devicesList.innerHTML = devices.map(d => `
-            <div class="device-item" data-key="${d.device_key}" data-name="${d.device_name}" data-date="${d.last_active}" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.borderColor='#D4AF37'" onmouseout="this.style.borderColor='var(--border)'">
-                <div>
-                    <p style="margin: 0; font-weight: 500; color: #fff;">${d.device_name}</p>
-                    <p style="margin: 0; font-size: 12px; color: var(--text-muted);">${new Date(d.last_active).toLocaleString('ru-RU')}</p>
-                </div>
-                ${d.device_key === deviceKey ? '<span style="color: #4CAF50; font-size: 12px; font-weight: 600;">Текущее</span>' : ''}
-            </div>
-        `).join('');
-
-        // Обработчик клика по устройству
-        document.querySelectorAll('.device-item').forEach(item => {
-            item.addEventListener('click', () => {
-                const key = item.dataset.key;
-                const name = item.dataset.name;
-                const date = item.dataset.date;
-
-                document.getElementById('modal-device-name').textContent = name;
-                document.getElementById('modal-device-date').textContent = new Date(date).toLocaleString('ru-RU');
-                document.getElementById('device-modal').style.display = 'flex';
-
-                document.getElementById('modal-copy-btn').onclick = () => {
-                    const text = `Устройство: ${name}\nДата входа: ${new Date(date).toLocaleString('ru-RU')}\nКлюч: ${key}`;
-                    navigator.clipboard.writeText(text).then(() => {
-                        showToast('Данные скопированы!');
-                        document.getElementById('device-modal').style.display = 'none';
-                    });
-                };
-
-                document.getElementById('modal-end-btn').onclick = async () => {
-                    await supabase.from('devices').delete().eq('device_key', key);
-                    const { data: { session } } = await supabase.auth.getSession();
-if (key !== deviceKey) {
-    await fetch('https://drdarsun-site-main.layero.app/api/logout-others', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
-    });
-}
-                    showToast('Сессия завершена');
-                    document.getElementById('device-modal').style.display = 'none';
-                    if (key === deviceKey) {
-                        await supabase.auth.signOut();
-                        window.location.href = 'index.html';
-                    } else {
-                        loadDevices(); // обновляем список
-                    }
-                };
-
-                document.getElementById('modal-close-btn').onclick = () => {
-                    document.getElementById('device-modal').style.display = 'none';
-                };
-            });
-        });
-    }
-
-    // Кнопка "Обновить"
-    refreshDevicesBtn?.addEventListener('click', loadDevices);
-
-    // Авто-обновление при переходе на вкладку "Безопасность"
-    document.querySelectorAll('.profile-nav-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            if (btn.getAttribute('data-tab') === 'security') {
-                loadDevices();
-            }
-        });
-    });
-
-    // Первичная загрузка
-    await loadDevices();
-
-    // Кнопки "Завершить все" и "Завершить все, кроме этой"
-    const devicesContainer = document.getElementById('devices-list');
-    if (devicesContainer) {
+        // Добавляем кнопки ВНУТРИ функции, после рендера (они не пропадут)
         const controls = document.createElement('div');
         controls.style = 'display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px;';
 
@@ -324,7 +296,7 @@ if (key !== deviceKey) {
         logoutOtherBtn.onclick = async () => {
             const currentKey = localStorage.getItem('device_key');
             await supabase.from('devices').delete().eq('user_id', session.user.id).neq('device_key', currentKey);
-            showToast('Все другие сессии завершены');
+            showToast('Все другие сессии завершены (устройства удалены из списка)');
             loadDevices();
         };
 
@@ -341,8 +313,20 @@ if (key !== deviceKey) {
 
         controls.appendChild(logoutOtherBtn);
         controls.appendChild(logoutAllBtn);
-        devicesContainer.appendChild(controls);
+        devicesList.appendChild(controls);
     }
+
+    refreshDevicesBtn?.addEventListener('click', loadDevices);
+
+    document.querySelectorAll('.profile-nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (btn.getAttribute('data-tab') === 'security') {
+                loadDevices();
+            }
+        });
+    });
+
+    await loadDevices();
 
     // 8. 2FA
     const enable2faBtn = document.getElementById('enable-2fa-btn');
@@ -502,11 +486,11 @@ document.getElementById('qr-login-btn')?.addEventListener('click', async () => {
 
     // Рисуем QR (через API, чтобы не тащить библиотеку)
     const qrContainer = document.getElementById('qr-container');
+document.getElementById('qr-modal').style.display = 'flex';
 const canvas = document.getElementById('qr-canvas');
-QRCode.toCanvas(canvas, qrUrl, { width: 200, margin: 2, color: { dark: '#000', light: '#fff' } }, (error) => {
+QRCode.toCanvas(canvas, qrUrl, { width: 200, margin: 2 }, (error) => {
     if (error) console.error('QR Error:', error);
 });
-    document.getElementById('qr-modal').style.display = 'flex';
 });
 
 init();
