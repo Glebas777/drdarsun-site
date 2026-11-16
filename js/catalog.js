@@ -1,4 +1,5 @@
 import { supabase } from './supabase-client.js';
+import { addToCart } from './cart.js';
 
 const grid = document.getElementById('product-grid');
 const filtersSidebar = document.getElementById('filters-sidebar');
