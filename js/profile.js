@@ -170,7 +170,7 @@ async function init() {
         });
     });
 
-    // 7. УСТРОЙСТВА
+    // --- УСТРОЙСТВА ---
     const devicesList = document.getElementById('devices-list');
     if (devicesList) {
         let deviceKey = localStorage.getItem('device_key');
@@ -178,8 +178,10 @@ async function init() {
             deviceKey = 'dev_' + Math.random().toString(36).substring(2, 10);
             localStorage.setItem('device_key', deviceKey);
         }
+
         const deviceName = navigator.userAgent.split(' ').slice(0, 2).join(' ');
 
+        // Сохраняем/обновляем устройство
         await supabase.from('devices').upsert({
             user_id: session.user.id,
             device_key: deviceKey,
@@ -187,6 +189,7 @@ async function init() {
             last_active: new Date().toISOString()
         }, { onConflict: 'device_key' });
 
+        // Загружаем список
         const { data: devices, error } = await supabase
             .from('devices')
             .select('*')
@@ -197,25 +200,86 @@ async function init() {
             devicesList.innerHTML = '<div class="empty-state">Нет активных устройств.</div>';
         } else {
             devicesList.innerHTML = devices.map(d => `
-                <div class="device-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px;">
+                <div class="device-item" data-key="${d.device_key}" data-name="${d.device_name}" data-date="${d.last_active}" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.borderColor='#D4AF37'" onmouseout="this.style.borderColor='var(--border)'">
                     <div>
-                        <p style="margin: 0; font-weight: 500; color: #000000;">${d.device_name}</p>
+                        <p style="margin: 0; font-weight: 500; color: #fff;">${d.device_name}</p>
                         <p style="margin: 0; font-size: 12px; color: var(--text-muted);">${new Date(d.last_active).toLocaleString('ru-RU')}</p>
                     </div>
-                    ${d.device_key === deviceKey ? '<span style="color: #4CAF50; font-size: 12px;">Текущее</span>' : ''}
+                    ${d.device_key === deviceKey ? '<span style="color: #4CAF50; font-size: 12px; font-weight: 600;">Текущее</span>' : ''}
                 </div>
             `).join('');
+
+            // Обработчик клика по устройству
+            document.querySelectorAll('.device-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const key = item.dataset.key;
+                    const name = item.dataset.name;
+                    const date = item.dataset.date;
+
+                    document.getElementById('modal-device-name').textContent = name;
+                    document.getElementById('modal-device-date').textContent = new Date(date).toLocaleString('ru-RU');
+                    document.getElementById('device-modal').style.display = 'flex';
+
+                    // Копировать данные
+                    document.getElementById('modal-copy-btn').onclick = () => {
+                        const text = `Устройство: ${name}\nДата входа: ${new Date(date).toLocaleString('ru-RU')}\nКлюч: ${key}`;
+                        navigator.clipboard.writeText(text).then(() => {
+                            showToast('Данные скопированы!');
+                            document.getElementById('device-modal').style.display = 'none';
+                        });
+                    };
+
+                    // Завершить сессию
+                    document.getElementById('modal-end-btn').onclick = async () => {
+                        await supabase.from('devices').delete().eq('device_key', key);
+                        showToast('Сессия завершена (устройство удалено из списка)');
+                        document.getElementById('device-modal').style.display = 'none';
+                        // Если это текущее устройство — выкидываем
+                        if (key === deviceKey) {
+                            await supabase.auth.signOut();
+                            window.location.href = 'index.html';
+                        }
+                    };
+
+                    document.getElementById('modal-close-btn').onclick = () => {
+                        document.getElementById('device-modal').style.display = 'none';
+                    };
+                });
+            });
         }
 
+        // Кнопки под списком
+        const controls = document.createElement('div');
+        controls.style = 'display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px;';
+        
         const logoutAllBtn = document.createElement('button');
         logoutAllBtn.className = 'btn';
-        logoutAllBtn.style = 'margin-top: 10px; border: 1px solid var(--border);';
-        logoutAllBtn.textContent = 'Выйти на всех устройствах';
+        logoutAllBtn.style = 'border: 1px solid #F44336; color: #F44336;';
+        logoutAllBtn.textContent = 'Завершить все сессии (включая эту)';
         logoutAllBtn.onclick = async () => {
+            if (!confirm('Вы уверены? Все устройства будут выкинуты.')) return;
             await supabase.auth.signOut();
             window.location.href = 'index.html';
         };
-        devicesList.appendChild(logoutAllBtn);
+
+        const logoutOtherBtn = document.createElement('button');
+        logoutOtherBtn.className = 'btn';
+        logoutOtherBtn.style = 'border: 1px solid var(--border);';
+        logoutOtherBtn.textContent = 'Завершить все сессии, кроме этой';
+        logoutOtherBtn.onclick = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            await fetch('https://drdarsun-site-main.layero.app/api/logout-others', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session.access_token}` }
+            });
+            // Удаляем все устройства, кроме текущего
+            await supabase.from('devices').delete().eq('user_id', session.user.id).neq('device_key', deviceKey);
+            showToast('Все другие сессии завершены');
+        };
+
+        controls.appendChild(logoutOtherBtn);
+        controls.appendChild(logoutAllBtn);
+        devicesList.appendChild(controls);
     }
 
     // 8. 2FA
