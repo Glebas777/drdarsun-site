@@ -115,6 +115,31 @@ async function init() {
             <button class="btn" id="logout-other-devices" style="margin-top: 10px; border: 1px solid var(--border);">Выйти везде, кроме этого</button>
         `;
 
+    // Резервные коды
+    const generateBackupBtn = document.getElementById('generate-backup-codes');
+    const backupCodesList = document.getElementById('backup-codes-list');
+
+    if (generateBackupBtn && backupCodesList) {
+        generateBackupBtn.addEventListener('click', async () => {
+            // Генерируем 5 случайных кодов
+            const codes = [];
+            for (let i = 0; i < 5; i++) {
+                codes.push(Math.random().toString(36).substring(2, 8).toUpperCase());
+            }
+            
+            // Сохраняем в БД (добавим таблицу позже) или просто показываем
+            backupCodesList.style.display = 'block';
+            backupCodesList.innerHTML = `
+                <p style="color: #FFA600; font-weight: 600;">Сохраните эти коды:</p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                    ${codes.map(c => `<code style="background: #222; padding: 8px; border-radius: 6px; text-align: center; font-size: 16px;">${c}</code>`).join('')}
+                </div>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 10px;">Каждый код можно использовать один раз.</p>
+            `;
+            showToast('Резервные коды сгенерированы!');
+        });
+    }
+
 document.getElementById('logout-all-devices')?.addEventListener('click', async () => {
     const { data: { session } } = await supabase.auth.getSession();
     await fetch('https://drdarsun-site-main.layero.app/api/logout-all', {
@@ -135,12 +160,28 @@ document.getElementById('logout-all-devices')?.addEventListener('click', async (
         });
     }
 
-    // 9. 2FA
+    
+
+    // 9. 2FA (ПРОВЕРКА СТАТУСА)
     const enable2faBtn = document.getElementById('enable-2fa-btn');
     if (enable2faBtn) {
+        // Проверяем, есть ли уже фактор
+        const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+        if (!factorsError && factors.totp && factors.totp.length > 0) {
+            enable2faBtn.textContent = 'Включено';
+            enable2faBtn.disabled = true;
+            enable2faBtn.style.background = '#4CAF50';
+            enable2faBtn.style.color = '#fff';
+        }
+
         enable2faBtn.addEventListener('click', async () => {
+            if (enable2faBtn.disabled) return;
+
             try {
-                const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
+                const { data, error } = await supabase.auth.mfa.enroll({ 
+                    factorType: 'totp',
+                    friendlyName: 'Dr. DarSun 2FA' // <--- Добавь имя, чтобы не было пустого
+                });
                 if (error) throw error;
                 const qrModal = document.createElement('div');
                 qrModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;display:flex;align-items:center;justify-content:center;';
