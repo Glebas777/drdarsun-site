@@ -553,25 +553,56 @@ document.getElementById('logout-btn')?.addEventListener('click', async () => {
     window.location.href = 'index.html';
 });
 
-// Включить уведомления
-document.getElementById('enable-notify-btn')?.addEventListener('click', async () => {
+// --- УВЕДОМЛЕНИЯ ---
+const notifyEmail = document.getElementById('notify-email');
+const enableNotifyBtn = document.getElementById('enable-notify-btn');
+const disableNotifyBtn = document.getElementById('disable-notify');
+
+if (notifyEmail) {
+    notifyEmail.textContent = session.user.email;
+}
+
+enableNotifyBtn?.addEventListener('click', async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
+
+    enableNotifyBtn.disabled = true;
+    enableNotifyBtn.textContent = 'Отправка...';
 
     const { data, error } = await supabase.functions.invoke('send-notification', {
         body: {
             to: session.user.email,
             subject: 'Уведомления Dr. DarSun включены',
-            html: '<h2>Вы подписались на уведомления</h2><p>Теперь вы будете получать новости о заказах.</p>'
+            html: '<h2>Вы подписались на уведомления</h2><p>Теперь вы будете получать новости о заказах и акциях.</p>'
         }
     });
+
+    enableNotifyBtn.disabled = false;
+    enableNotifyBtn.textContent = 'Включить уведомления';
 
     if (error) {
         console.error('Function error:', error);
         showToast('Ошибка: ' + error.message, 'error');
     } else {
         showToast('Уведомления включены! Проверьте почту.');
+        // Сохраняем настройку в БД
+        await supabase.from('notification_settings').upsert({
+            user_id: session.user.id,
+            email_enabled: true
+        }, { onConflict: 'user_id' });
     }
+});
+
+disableNotifyBtn?.addEventListener('click', async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    await supabase.from('notification_settings').upsert({
+        user_id: session.user.id,
+        email_enabled: false
+    }, { onConflict: 'user_id' });
+
+    showToast('Уведомления отключены');
 });
 
 init();
