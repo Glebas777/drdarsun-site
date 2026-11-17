@@ -554,14 +554,16 @@ document.getElementById('logout-btn')?.addEventListener('click', async () => {
 });
 
 // --- УВЕДОМЛЕНИЯ ---
+// --- УВЕДОМЛЕНИЯ ---
 const notifyEmail = document.getElementById('notify-email');
 const enableNotifyBtn = document.getElementById('enable-notify-btn');
 const disableNotifyBtn = document.getElementById('disable-notify');
 
 if (notifyEmail) {
-    notifyEmail.textContent = session.user.email;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) notifyEmail.textContent = session.user.email;
+    });
 }
-
 enableNotifyBtn?.addEventListener('click', async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
