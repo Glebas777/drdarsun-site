@@ -5,233 +5,376 @@ const grid = document.getElementById('product-grid');
 const filtersSidebar = document.getElementById('filters-sidebar');
 const filtersMobileBtn = document.getElementById('filters-mobile-btn');
 const filtersClose = document.getElementById('filters-close');
+const filtersBackdrop = document.getElementById('filters-backdrop');
+const categoryFilters = document.getElementById('category-filters');
 const priceRange = document.getElementById('price-range');
 const priceValue = document.getElementById('price-value');
 const sortSelect = document.getElementById('sort-select');
+const searchInput = document.getElementById('catalog-search');
+const resultCount = document.getElementById('catalog-result-count');
 
 let allProducts = [];
 let filteredProducts = [];
 
-// 1. Открытие/закрытие фильтров на мобилке
-if (filtersMobileBtn && filtersSidebar) {
-    filtersMobileBtn.addEventListener('click', () => filtersSidebar.classList.add('active'));
-    filtersClose?.addEventListener('click', () => filtersSidebar.classList.remove('active'));
+function setFiltersOpen(open) {
+    filtersSidebar?.classList.toggle('active', open);
+    filtersBackdrop?.classList.toggle('active', open);
+    document.body.classList.toggle('filters-open', open);
+    filtersMobileBtn?.setAttribute('aria-expanded', String(open));
 }
 
-// 2. Ползунок цены
-if (priceRange) {
-    priceRange.addEventListener('input', () => {
-        priceValue.textContent = `${priceRange.value} ₽`;
-        applyFilters();
-    });
-}
-
-// 3. Сортировка
-if (sortSelect) {
-    sortSelect.addEventListener('change', applyFilters);
-}
-
-// 4. Чекбоксы категорий
-document.querySelectorAll('.filter-category').forEach(cb => {
-    cb.addEventListener('change', (e) => {
-        if (e.target.value === 'all' && e.target.checked) {
-            document.querySelectorAll('.filter-category').forEach(other => {
-                if (other.value !== 'all') other.checked = false;
-            });
-        } else if (e.target.value !== 'all' && e.target.checked) {
-            document.querySelector('input[value="all"]').checked = false;
-        }
-        applyFilters();
-    });
+filtersMobileBtn?.addEventListener('click', () => setFiltersOpen(true));
+filtersClose?.addEventListener('click', () => setFiltersOpen(false));
+filtersBackdrop?.addEventListener('click', () => setFiltersOpen(false));
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') setFiltersOpen(false);
 });
 
-// 5. Применение фильтров
-function applyFilters() {
-    const selectedCategories = Array.from(document.querySelectorAll('.filter-category:checked')).map(cb => cb.value);
-    const maxPrice = parseInt(priceRange?.value || 5000);
-    const sort = sortSelect?.value || 'default';
+function getSelectedCategories() {
+    return Array.from(document.querySelectorAll('.filter-category:checked')).map(input => input.value);
+}
 
-    filteredProducts = allProducts.filter(p => {
-        const matchesCategory = selectedCategories.includes('all') || selectedCategories.includes(p.category);
-        const matchesPrice = p.price <= maxPrice;
-        return matchesCategory && matchesPrice;
+function applyFilters() {
+    const selectedCategories = getSelectedCategories();
+    const maxPrice = Number(priceRange?.value ?? Number.MAX_SAFE_INTEGER);
+    const query = searchInput?.value.trim().toLocaleLowerCase('ru-RU') ?? '';
+    const sort = sortSelect?.value ?? 'default';
+
+    filteredProducts = allProducts.filter((product) => {
+        const category = String(product.category ?? '').trim();
+        const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(category);
+        const matchesPrice = Number(product.price) <= maxPrice;
+        const searchableText = `${product.name ?? ''} ${product.description ?? ''} ${product.category ?? ''}`
+            .toLocaleLowerCase('ru-RU');
+        return matchesCategory && matchesPrice && (!query || searchableText.includes(query));
     });
 
-    if (sort === 'price-asc') filteredProducts.sort((a, b) => a.price - b.price);
-    else if (sort === 'price-desc') filteredProducts.sort((a, b) => b.price - a.price);
-
+    if (sort === 'price-asc') filteredProducts.sort((a, b) => Number(a.price) - Number(b.price));
+    if (sort === 'price-desc') filteredProducts.sort((a, b) => Number(b.price) - Number(a.price));
     renderProducts();
 }
 
-// 6. Рендер товаров (исправленный)
+function createProductCard(product, index) {
+    const card = document.createElement('article');
+    card.className = 'product-card';
+    card.tabIndex = 0;
+    card.setAttribute('aria-label', `Открыть товар: ${product.name}`);
+    card.style.setProperty('--card-index', String(index));
+
+    const media = document.createElement('div');
+    media.className = 'product-card__img';
+    if (product.tag) {
+        const tag = document.createElement('span');
+        tag.className = 'product-tag';
+        tag.textContent = product.tag;
+        media.appendChild(tag);
+    }
+
+    if (product.image_url) {
+        const image = document.createElement('img');
+        image.src = product.image_url;
+        image.alt = product.name || 'Изображение товара';
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        image.addEventListener('error', () => image.remove(), { once: true });
+        media.appendChild(image);
+    } else {
+        media.classList.add('product-card__img--empty');
+        const visual = document.createElement('span');
+        visual.className = 'product-card__visual';
+        visual.setAttribute('aria-hidden', 'true');
+        visual.textContent = 'D';
+        media.appendChild(visual);
+    }
+
+    const info = document.createElement('div');
+    info.className = 'product-card__info';
+
+    const category = document.createElement('span');
+    category.className = 'product-card__category';
+    category.textContent = product.category || 'Dr. DarSun';
+
+    const title = document.createElement('h2');
+    title.textContent = product.name || 'Товар';
+
+    const description = document.createElement('p');
+    description.className = 'product-card__description';
+    description.textContent = product.description || '';
+
+    const footer = document.createElement('div');
+    footer.className = 'product-card__footer';
+
+    const price = document.createElement('strong');
+    const numericPrice = Number(product.price);
+    price.className = 'product-card__price';
+    price.textContent = Number.isFinite(numericPrice)
+        ? `${new Intl.NumberFormat('ru-RU').format(numericPrice)} ₽`
+        : 'Цена уточняется';
+
+    const addButton = document.createElement('button');
+    addButton.className = 'add-to-cart-btn';
+    addButton.type = 'button';
+    addButton.textContent = 'В корзину';
+    addButton.disabled = !Number.isFinite(numericPrice) || numericPrice < 0;
+    if (addButton.disabled) addButton.title = 'Цена товара не указана';
+    addButton.addEventListener('click', async (event) => {
+        event.stopPropagation();
+        await addToCart({
+            id: product.id,
+            name: product.name,
+            price: numericPrice,
+            image: product.image_url
+        });
+    });
+
+    footer.append(price, addButton);
+    info.append(category, title);
+    if (product.description) info.appendChild(description);
+    info.appendChild(footer);
+    card.append(media, info);
+
+    const openProduct = () => {
+        window.location.href = `product.html?id=${encodeURIComponent(product.id)}`;
+    };
+    card.addEventListener('click', openProduct);
+    card.addEventListener('keydown', (event) => {
+        if (event.target === card && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            openProduct();
+        }
+    });
+
+    return card;
+}
+
 function renderProducts() {
     if (!grid) return;
+    grid.replaceChildren();
+    grid.setAttribute('aria-busy', 'false');
 
-    if (filteredProducts.length === 0) {
-        grid.innerHTML = '<div class="empty-state" style="grid-column: 1/-1;">Ничего не найдено.</div>';
+    if (resultCount) {
+        resultCount.textContent = `${filteredProducts.length} ${getProductWord(filteredProducts.length)}`;
+    }
+
+    if (allProducts.length === 0) {
+        grid.setAttribute('aria-busy', 'false');
+        const empty = document.createElement('section');
+        empty.className = 'catalog-empty';
+        empty.innerHTML = `
+            <span class="catalog-empty__mark" aria-hidden="true">D</span>
+            <p class="eyebrow">МАГАЗИН DR. DARSUN</p>
+            <h2>Каталог пополняется</h2>
+            <p>Сейчас товаров нет. Когда они появятся в каталоге, здесь будет их полный ассортимент.</p>
+            <a class="btn btn--primary" href="about.html">Узнать о нас</a>
+        `;
+        grid.appendChild(empty);
         return;
     }
 
-    grid.innerHTML = filteredProducts.map(p => `
-        <div class="product-card" data-id="${p.id}">
-            <div class="product-card__img">
-                ${p.tag ? `<span class="product-tag">${p.tag}</span>` : ''}
-                <img src="${p.image_url || 'assets/images/logo.png'}" alt="${p.name}" style="max-height: 100%; max-width: 100%; object-fit: contain;">
-                <button class="add-to-cart-btn" data-id="${p.id}" data-name="${p.name}" data-price="${p.price}">В корзину</button>
-            </div>
-            <div class="product-card__info">
-                <h3>${p.name}</h3>
-                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">${p.description || ''}</p>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
-                    <span class="product-card__price">${p.price} ₽</span>
-                    <span style="font-size: 13px; color: var(--text-muted);">${p.weight || ''}</span>
-                </div>
-            </div>
-        </div>
-    `).join('');
-
-    // Обработчики для кнопок и карточек
-    document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            addToCart({
-                id: btn.dataset.id,
-                name: btn.dataset.name,
-                price: parseInt(btn.dataset.price)
-            });
-        });
-    });
-
-    document.querySelectorAll('.product-card').forEach(card => {
-        card.addEventListener('click', (e) => {
-            if (e.target.closest('.add-to-cart-btn')) return;
-            window.location.href = `product.html?id=${card.dataset.id}`;
-        });
-    });
-}
-
-// --- ИИ В КАТАЛОГЕ (Исправленная логика) ---
-const catBotToggle = document.getElementById('catalog-bot-toggle');
-const catBotModal = document.getElementById('catalog-bot-modal');
-const catBotClose = document.getElementById('catalog-bot-close');
-const catChatMessages = document.getElementById('catalog-chat-messages');
-const catChatInput = document.getElementById('catalog-chat-input');
-const catChatSend = document.getElementById('catalog-chat-send');
-
-if (catBotToggle && catBotModal) {
-    catBotToggle.addEventListener('click', () => {
-        catBotModal.classList.toggle('active');
-    });
-    catBotClose.addEventListener('click', () => catBotModal.classList.remove('active'));
-
-    catChatSend.addEventListener('click', async () => {
-        const text = catChatInput.value.trim();
-        if (!text) return;
-
-        // Сообщение пользователя (классы как на главной)
-        catChatMessages.innerHTML += `<div class="msg-wrapper user"><div class="msg">${text}</div></div>`;
-        catChatInput.value = '';
-        catChatMessages.scrollTop = catChatMessages.scrollHeight;
-
-        // Индикатор загрузки
-        const typingId = 'typing-' + Date.now();
-        catChatMessages.innerHTML += `<div class="msg-wrapper bot" id="${typingId}"><div class="msg"><i>Доктор печатает...</i></div></div>`;
-        catChatMessages.scrollTop = catChatMessages.scrollHeight;
-
-        try {
-            const res = await fetch('https://darsun-catalog-bot.turgleb7.workers.dev/api/catalog-chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text, history: [] })
-            });
-            const data = await res.json();
-            
-            document.getElementById(typingId)?.remove();
-            
-            // Ответ бота (классы как на главной)
-            catChatMessages.innerHTML += `<div class="msg-wrapper bot"><div class="msg">${data.reply || 'Ошибка'}</div></div>`;
-            catChatMessages.scrollTop = catChatMessages.scrollHeight;
-        } catch (e) {
-            document.getElementById(typingId)?.remove();
-            catChatMessages.innerHTML += `<div class="msg-wrapper bot"><div class="msg">Ошибка связи.</div></div>`;
-            catChatMessages.scrollTop = catChatMessages.scrollHeight;
-        }
-    });
-
-    catChatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') catChatSend.click();
-    });
-}
-
-// 7. Загрузка товаров из БД (или заглушка)
-async function loadProducts() {
-    // Если таблицы products еще нет, используем заглушку
-    const products = [
-        { id: '1', name: 'Сыродавленное масло', category: 'oil', price: 600, weight: '250 мл', description: 'Классическое. Пахнет семечкой.', tag: 'Хит', image_url: 'assets/images/oil1.jpg' },
-        { id: '2', name: 'Масло с чесноком', category: 'oil', price: 650, weight: '250 мл', description: 'Идеально к борщу.', tag: 'New', image_url: 'assets/images/oil2.jpg' },
-        { id: '3', name: 'Подарочный набор', category: 'gift', price: 1500, weight: '1 л', description: '3 вида масла + брецель.', tag: 'Сет', image_url: 'assets/images/gift1.jpg' },
-    ];
-
-    allProducts = products;
-    filteredProducts = [...allProducts];
-    renderProducts();
-}
-
-loadProducts();
-
-// --- ЧАТ В КАТАЛОГЕ ---
-document.addEventListener('DOMContentLoaded', () => {
-    const botToggle = document.getElementById('catalog-bot-toggle');
-    const botModal = document.getElementById('catalog-bot-modal');
-    const botClose = document.getElementById('catalog-bot-close');
-    const chatInput = document.getElementById('catalog-chat-input');
-    const chatSend = document.getElementById('catalog-chat-send');
-    const chatMessages = document.getElementById('catalog-chat-messages');
-
-    if (!botToggle || !botModal) return;
-
-    // Открытие/закрытие
-    botToggle.addEventListener('click', () => {
-        botModal.style.display = botModal.style.display === 'flex' ? 'none' : 'flex';
-    });
-    botClose.addEventListener('click', () => {
-        botModal.style.display = 'none';
-    });
-
-    // Отправка сообщения
-    async function sendMessage() {
-        const text = chatInput.value.trim();
-        if (!text) return;
-
-        // Добавляем сообщение пользователя
-        chatMessages.innerHTML += `<div class="msg-wrapper user"><div class="msg">${text}</div></div>`;
-        chatInput.value = '';
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-
-        // Индикатор
-        const typingId = 'typing-' + Date.now();
-        chatMessages.innerHTML += `<div class="msg-wrapper bot" id="${typingId}"><div class="msg"><i>Доктор печатает...</i></div></div>`;
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-
-        try {
-            const res = await fetch('https://darsun-catalog-bot.turgleb7.workers.dev/api/catalog-chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text, history: [] })
-            });
-            const data = await res.json();
-
-            document.getElementById(typingId)?.remove();
-            chatMessages.innerHTML += `<div class="msg-wrapper bot"><div class="msg">${data.reply || 'Ошибка'}</div></div>`;
-        } catch (e) {
-            document.getElementById(typingId)?.remove();
-            chatMessages.innerHTML += `<div class="msg-wrapper bot"><div class="msg">Ошибка связи.</div></div>`;
-        }
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+    if (filteredProducts.length === 0) {
+        grid.setAttribute('aria-busy', 'false');
+        const empty = document.createElement('section');
+        empty.className = 'catalog-no-results';
+        const title = document.createElement('h2');
+        title.textContent = 'Ничего не найдено';
+        const message = document.createElement('p');
+        message.textContent = 'Измените запрос или сбросьте фильтры, чтобы увидеть товары.';
+        const reset = document.createElement('button');
+        reset.className = 'btn btn--primary';
+        reset.type = 'button';
+        reset.textContent = 'Сбросить фильтры';
+        reset.addEventListener('click', resetFilters);
+        empty.append(title, message, reset);
+        grid.appendChild(empty);
+        return;
     }
 
-    chatSend.addEventListener('click', sendMessage);
-    chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendMessage();
+    const cards = filteredProducts.map(createProductCard);
+    grid.append(...cards);
+    grid.setAttribute('aria-busy', 'false');
+}
+
+function getProductWord(count) {
+    const mod10 = count % 10;
+    const mod100 = count % 100;
+    if (mod10 === 1 && mod100 !== 11) return 'товар';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'товара';
+    return 'товаров';
+}
+
+function resetFilters() {
+    if (searchInput) searchInput.value = '';
+    if (sortSelect) sortSelect.value = 'default';
+    document.querySelectorAll('.filter-category').forEach(input => {
+        input.checked = input.value === 'all';
     });
+    if (priceRange) priceRange.value = priceRange.max;
+    if (priceValue) priceValue.textContent = `${new Intl.NumberFormat('ru-RU').format(Number(priceRange?.value || 0))} ₽`;
+    applyFilters();
+}
+
+function renderCategories(products) {
+    if (!categoryFilters) return;
+    const categories = [...new Set(products.map(product => String(product.category ?? '').trim()).filter(Boolean))];
+    categoryFilters.replaceChildren();
+
+    const allLabel = document.createElement('label');
+    const allInput = document.createElement('input');
+    allInput.type = 'checkbox';
+    allInput.className = 'filter-category';
+    allInput.value = 'all';
+    allInput.checked = true;
+    allLabel.append(allInput, document.createTextNode('Все товары'));
+    categoryFilters.appendChild(allLabel);
+
+    categories.forEach((category) => {
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.className = 'filter-category';
+        input.value = category;
+        label.append(input, document.createTextNode(category));
+        categoryFilters.appendChild(label);
+    });
+
+    categoryFilters.addEventListener('change', (event) => {
+        const changedInput = event.target;
+        if (!(changedInput instanceof HTMLInputElement)) return;
+        const allInput = categoryFilters.querySelector('[value="all"]');
+        if (changedInput.value === 'all' && changedInput.checked) {
+            categoryFilters.querySelectorAll('.filter-category:not([value="all"])').forEach(input => {
+                input.checked = false;
+            });
+        } else if (changedInput.value !== 'all' && changedInput.checked) {
+            allInput.checked = false;
+        } else if (!categoryFilters.querySelector('.filter-category:checked')) {
+            allInput.checked = true;
+        }
+        applyFilters();
+    });
+}
+
+priceRange?.addEventListener('input', () => {
+    if (priceValue) {
+        priceValue.textContent = `${new Intl.NumberFormat('ru-RU').format(Number(priceRange.value))} ₽`;
+    }
+    applyFilters();
+});
+sortSelect?.addEventListener('change', applyFilters);
+searchInput?.addEventListener('input', applyFilters);
+
+async function loadProducts() {
+    if (!grid) return;
+    grid.setAttribute('aria-busy', 'true');
+    grid.innerHTML = '<div class="catalog-loading" aria-label="Загрузка каталога"><span></span><span></span><span></span></div>';
+
+    const { data, error } = await supabase.from('products').select('*');
+    if (error) {
+        grid.setAttribute('aria-busy', 'false');
+        if (resultCount) resultCount.textContent = 'Каталог недоступен';
+        grid.replaceChildren();
+        const errorState = document.createElement('section');
+        errorState.className = 'catalog-no-results';
+        const title = document.createElement('h2');
+        title.textContent = 'Не удалось загрузить каталог';
+        const message = document.createElement('p');
+        message.textContent = 'Проверьте соединение и попробуйте ещё раз.';
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'btn btn--primary';
+        retry.textContent = 'Попробовать снова';
+        retry.addEventListener('click', loadProducts);
+        errorState.append(title, message, retry);
+        grid.appendChild(errorState);
+        console.error('Catalog load error:', error);
+        return;
+    }
+
+    allProducts = (data || []).filter(product => product && product.id != null);
+    const maxPrice = Math.max(1000, ...allProducts.map(product => Number(product.price)).filter(Number.isFinite));
+    if (priceRange) {
+        priceRange.max = String(Math.ceil(maxPrice / 100) * 100);
+        priceRange.value = priceRange.max;
+    }
+    if (priceValue) {
+        priceValue.textContent = `${new Intl.NumberFormat('ru-RU').format(Number(priceRange?.value || 0))} ₽`;
+    }
+    renderCategories(allProducts);
+    applyFilters();
+}
+
+// Каталог подгружается только из базы данных; демо-товары не подставляются.
+loadProducts();
+
+// Чат каталога использует тот же серверный endpoint, что и чат на главной.
+const botToggle = document.getElementById('catalog-bot-toggle');
+const botModal = document.getElementById('catalog-bot-modal');
+const botClose = document.getElementById('catalog-bot-close');
+const chatMessages = document.getElementById('catalog-chat-messages');
+const chatInput = document.getElementById('catalog-chat-input');
+const chatSend = document.getElementById('catalog-chat-send');
+const chatHistory = [];
+let chatBusy = false;
+
+function appendChatMessage(text, sender) {
+    const wrapper = document.createElement('div');
+    wrapper.className = `msg-wrapper ${sender}`;
+    const message = document.createElement('div');
+    message.className = 'msg';
+    message.textContent = text;
+    wrapper.appendChild(message);
+    chatMessages.appendChild(wrapper);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return wrapper;
+}
+
+function setChatOpen(open) {
+    botModal?.classList.toggle('active', open);
+    botToggle?.setAttribute('aria-expanded', String(open));
+    if (open) chatInput?.focus();
+}
+
+botToggle?.addEventListener('click', () => setChatOpen(!botModal.classList.contains('active')));
+botClose?.addEventListener('click', () => setChatOpen(false));
+
+async function sendCatalogMessage() {
+    const text = chatInput?.value.trim();
+    if (!text || chatBusy || !chatMessages || !chatSend) return;
+
+    chatBusy = true;
+    chatSend.disabled = true;
+    chatInput.value = '';
+    appendChatMessage(text, 'user');
+    const typing = appendChatMessage('Доктор ДарСан печатает…', 'bot');
+
+    try {
+        const response = await fetch('https://drdarsun-site-main.layero.app/api/gigachat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text, history: chatHistory.slice(-6), context: 'catalog' })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Сервис временно недоступен.');
+        if (typeof data.reply !== 'string' || !data.reply.trim()) throw new Error('Не удалось получить ответ.');
+
+        typing.remove();
+        appendChatMessage(data.reply.trim(), 'bot');
+        chatHistory.push({ role: 'user', content: text }, { role: 'assistant', content: data.reply.trim() });
+        if (chatHistory.length > 12) chatHistory.splice(0, chatHistory.length - 12);
+    } catch (error) {
+        typing.remove();
+        appendChatMessage(error.message || 'Не удалось связаться с помощником. Попробуйте позже.', 'bot');
+    } finally {
+        chatBusy = false;
+        chatSend.disabled = false;
+        chatInput?.focus();
+    }
+}
+
+chatSend?.addEventListener('click', sendCatalogMessage);
+chatInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendCatalogMessage();
+    }
 });

@@ -1,15 +1,19 @@
 document.addEventListener('DOMContentLoaded', () => {
     const burgerBtn = document.getElementById('burger-btn');
     const mobileMenu = document.getElementById('mobile-menu');
-    const closeBtn = document.getElementById('mobile-close-btn');
-
     if (burgerBtn && mobileMenu) {
-        const toggle = () => {
-            burgerBtn.classList.toggle('active');
-            mobileMenu.classList.toggle('active');
-            document.body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
+        const setOpen = (open) => {
+            burgerBtn.classList.toggle('active', open);
+            mobileMenu.classList.toggle('active', open);
+            burgerBtn.setAttribute('aria-expanded', String(open));
+            document.body.classList.toggle('menu-open', open);
         };
-        burgerBtn.addEventListener('click', toggle);
-        closeBtn?.addEventListener('click', toggle);
+
+        burgerBtn.setAttribute('aria-expanded', 'false');
+        burgerBtn.addEventListener('click', () => setOpen(!mobileMenu.classList.contains('active')));
+        mobileMenu.querySelectorAll('a').forEach(link => link.addEventListener('click', () => setOpen(false)));
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') setOpen(false);
+        });
     }
 });

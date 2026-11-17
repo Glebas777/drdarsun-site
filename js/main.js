@@ -1,189 +1,66 @@
-import { supabase } from './supabase-client.js';
-
-// --- УНИВЕРСАЛЬНЫЙ ХЕДЕР ---
-async function updateHeaderAuth() {
-    const container = document.getElementById('auth-buttons');
-    if (!container) return;
-
-    container.innerHTML = `<span style="color: #888; font-size: 14px;">...</span>`;
-
-    try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-            const userName = session.user.user_metadata.full_name || 'Профиль';
-            container.innerHTML = `
-                <a href="cart.html" class="header__btn" style="text-decoration: none; margin-right: 10px;">Корзина</a>
-                <a href="profile.html" class="header__btn" style="text-decoration: none;">${userName.split(' ')[0]}</a>
-            `;
-        } else {
-            container.innerHTML = `<a href="login.html" class="header__btn" style="text-decoration: none;">Войти</a>`;
-        }
-    } catch (e) {
-        console.error('Header Auth Error:', e);
-        container.innerHTML = `<a href="login.html" class="header__btn" style="text-decoration: none;">Войти</a>`;
-    }
-}
-
-document.addEventListener('DOMContentLoaded', updateHeaderAuth);
-supabase.auth.onAuthStateChange(() => updateHeaderAuth());
-// --- ПРОВЕРКА: ЖИВ ЛИ КЛЮЧ УСТРОЙСТВА ---
-async function checkDeviceAlive() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return; // не залогинен — нечего проверять
-
-    const deviceKey = localStorage.getItem('device_key');
-    if (!deviceKey) return; // ключа нет — пропускаем (или можно выкинуть)
-
-    // Проверяем, есть ли наш ключ в таблице devices
-    const { data, error } = await supabase
-        .from('devices')
-        .select('device_key')
-        .eq('user_id', session.user.id)
-        .eq('device_key', deviceKey)
-        .maybeSingle();
-
-    // Если ошибка сети — не выкидываем (чтобы не было ложных срабатываний)
-    if (error) {
-        console.warn('Device check error:', error);
-        return;
-    }
-
-    // Если записи нет — значит, сессию завершили
-    if (!data) {
-        console.log('Сессия завершена (устройство удалено из БД). Выходим.');
-        await supabase.auth.signOut();
-        window.location.href = 'index.html';
-    }
-}
-
-// Вызываем при загрузке страницы
-document.addEventListener('DOMContentLoaded', checkDeviceAlive);
-// И при возврате на вкладку (если юзер переключился обратно)
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') checkDeviceAlive();
-});
-// --- ГЛОБАЛЬНЫЙ СЛУШАТЕЛЬ ВЫХОДА (КИК) ---
-supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_OUT') {
-        // Не выкидываем, если мы уже на странице логина/регистрации
-        const path = window.location.pathname;
-        if (!path.includes('login.html') && !path.includes('register.html')) {
-            window.location.href = 'index.html';
-        }
-    }
-});
-
-// --- СМЕНА ТЕМЫ ---
 const themeToggle = document.getElementById('theme-toggle');
 const heroVideo = document.getElementById('hero-video');
 
-const moonIcon = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
-const sunIcon = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
+const moonIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+const sunIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path></svg>';
 
 function updateTheme(isDark) {
     if (themeToggle) {
         themeToggle.innerHTML = isDark ? sunIcon : moonIcon;
-        themeToggle.style.color = isDark ? '#F5B51B' : '#1B5E20';
+        themeToggle.setAttribute('aria-label', isDark ? 'Включить светлую тему' : 'Включить тёмную тему');
+        themeToggle.setAttribute('aria-pressed', String(isDark));
     }
+
     if (heroVideo) {
-        heroVideo.src = isDark ? 'assets/videos/маслотёмное.mp4' : 'assets/videos/маслосветлое.mp4';
-        heroVideo.load();
-        heroVideo.play().catch(e => console.log('Автоплей заблокирован'));
-    }
-}
-
-const savedTheme = localStorage.getItem('theme');
-if (savedTheme === 'dark') {
-    document.body.classList.add('dark-theme');
-    updateTheme(true);
-} else {
-    updateTheme(false);
-}
-
-if (themeToggle) {
-    themeToggle.addEventListener('click', () => {
-        document.body.classList.toggle('dark-theme');
-        const isDark = document.body.classList.contains('dark-theme');
-        localStorage.setItem('theme', isDark ? 'dark' : 'light');
-        updateTheme(isDark);
-    });
-}
-
-// --- ЧАТ НА ГЛАВНОЙ ---
-const botToggle = document.getElementById('bot-toggle');
-const botModal = document.getElementById('bot-modal');
-const botClose = document.getElementById('bot-close');
-const chatMessages = document.getElementById('chat-messages');
-const chatInput = document.getElementById('chat-input');
-const chatSend = document.getElementById('chat-send');
-
-if (botToggle && botModal) {
-    botToggle.addEventListener('click', () => {
-        botModal.style.display = botModal.style.display === 'flex' ? 'none' : 'flex';
-    });
-}
-if (botClose) botClose.addEventListener('click', () => botModal.style.display = 'none');
-
-if (chatSend && chatInput) {
-    chatSend.addEventListener('click', async () => {
-        const text = chatInput.value.trim();
-        if (!text) return;
-        
-        chatMessages.innerHTML += `<div class="msg-wrapper user"><div class="msg">${text}</div></div>`;
-        chatInput.value = '';
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-
-        try {
-            const res = await fetch('https://drdarsun-site-main.layero.app/api/gigachat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    message: text, 
-                    history: [],
-                    context: 'help'
-                })
-            });
-            const data = await res.json();
-            chatMessages.innerHTML += `<div class="msg-wrapper bot"><div class="msg">${data.reply || 'Ошибка'}</div></div>`;
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        } catch (e) {
-            chatMessages.innerHTML += `<div class="msg-wrapper bot"><div class="msg">Ошибка связи</div></div>`;
+        const nextSource = isDark ? 'assets/videos/маслотёмное.mp4' : 'assets/videos/маслосветлое.mp4';
+        if (!heroVideo.currentSrc.endsWith(encodeURI(nextSource)) && !heroVideo.src.endsWith(nextSource)) {
+            heroVideo.src = nextSource;
+            heroVideo.load();
+            heroVideo.play().catch(() => {});
         }
-    });
-    chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') chatSend.click();
-    });
-}
-
-// --- ГОЛОСОВОЙ ВВОД ---
-const micBtn = document.getElementById('mic-btn');
-if (micBtn) {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'ru-RU';
-        recognition.interimResults = false;
-        recognition.maxAlternatives = 1;
-
-        micBtn.addEventListener('click', () => {
-            recognition.start();
-            micBtn.style.color = 'var(--accent-gold)';
-        });
-
-        recognition.onresult = (event) => {
-            const text = event.results[0][0].transcript;
-            if (chatInput) chatInput.value = text;
-            micBtn.style.color = '';
-        };
-
-        recognition.onerror = () => { micBtn.style.color = ''; };
-        recognition.onend = () => { micBtn.style.color = ''; };
-    } else {
-        micBtn.style.display = 'none';
     }
 }
 
-// --- ТОСТЫ ---
+let savedTheme = 'light';
+try {
+    savedTheme = localStorage.getItem('theme') || 'light';
+} catch (error) {
+    console.warn('Theme preference is unavailable:', error);
+}
+document.body.classList.toggle('dark-theme', savedTheme === 'dark');
+updateTheme(savedTheme === 'dark');
+
+themeToggle?.addEventListener('click', () => {
+    const isDark = !document.body.classList.contains('dark-theme');
+    document.body.classList.toggle('dark-theme', isDark);
+    try {
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    } catch (error) {
+        console.warn('Theme preference could not be saved:', error);
+    }
+    updateTheme(isDark);
+});
+
+const revealItems = document.querySelectorAll('.hero__content, .hero__image, .feature-card');
+
+if ('IntersectionObserver' in window && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const revealObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            entry.target.classList.add('is-visible');
+            observer.unobserve(entry.target);
+        });
+    }, { threshold: 0.12 });
+
+    revealItems.forEach((item, index) => {
+        item.classList.add('reveal-on-scroll');
+        item.style.setProperty('--reveal-index', String(index));
+        revealObserver.observe(item);
+    });
+} else {
+    revealItems.forEach(item => item.classList.add('is-visible'));
+}
+
 window.showToast = function(message, type = 'success') {
     let container = document.querySelector('.toast-container');
     if (!container) {
@@ -191,14 +68,15 @@ window.showToast = function(message, type = 'success') {
         container.className = 'toast-container';
         document.body.appendChild(container);
     }
+
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.textContent = message;
     container.appendChild(toast);
-    
-    setTimeout(() => toast.classList.add('show'), 10);
+    requestAnimationFrame(() => toast.classList.add('show'));
+
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 400);
-    }, 3000);
+    }, 3500);
 };
