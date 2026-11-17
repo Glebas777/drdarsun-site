@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="turnstile-site-key" content="0x4AAAAAAGFkyMNZ_z9wAXb8">
     <title>Dr. DarSun | Вход</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -49,6 +50,7 @@
                 <h2>С возвращением</h2>
                 <p>Войдите, чтобы управлять заказами</p>
             </div>
+            <p id="oauth-error" class="auth-inline-error" role="alert" hidden></p>
 
             <!-- ФОРМА ВХОДА -->
             <form id="login-form" class="auth-form">
@@ -60,14 +62,26 @@
                     <label>Пароль</label>
                     <input type="password" id="login-password" placeholder="••••••••" required>
                 </div>
+                <div id="captcha-login" class="auth-captcha" data-turnstile data-action="login" hidden></div>
                 <div class="login-actions">
                     <button type="submit" class="btn btn--primary btn--full">Войти</button>
                 </div>
 <div class="login-extra-links">
     <a href="#" id="forgot-password">Забыли пароль?</a>
-    <a href="#" id="backup-code-login">Вход по резервным кодам</a>
+    <a href="#" id="backup-code-login">Вход по резервному коду</a>
     <a href="#" id="qr-login-trigger">Вход по QR-коду</a>
 </div>
+            </form>
+
+            <form id="recovery-code-form" class="auth-form" style="display: none;">
+                <div class="input-group">
+                    <label for="recovery-code-input">Резервный код 2FA</label>
+                    <input type="text" id="recovery-code-input" autocomplete="one-time-code" required>
+                </div>
+                <div class="login-actions">
+                    <button type="submit" class="btn btn--primary btn--full">Подтвердить код и войти</button>
+                </div>
+                <a href="#" id="back-to-login-from-recovery" style="display: block; text-align: center; margin-top: 15px; color: #888;">Назад ко входу</a>
             </form>
 
             <!-- ФОРМА ВОССТАНОВЛЕНИЯ -->
@@ -76,6 +90,7 @@
                     <label>Email</label>
                     <input type="email" id="forgot-email" placeholder="your@email.com" required>
                 </div>
+                <div id="captcha-forgot" class="auth-captcha" data-turnstile data-action="password_reset" hidden></div>
                 <div class="login-actions">
                     <button type="submit" class="btn btn--primary btn--full">Отправить ссылку</button>
                 </div>
@@ -106,6 +121,8 @@
     <a href="#" id="back-to-login-from-otp" style="display: block; text-align: center; margin-top: 15px; color: #888;">Назад</a>
 </form>
 
+            <button type="button" class="passkey-login-btn" id="btn-passkey">Войти с Passkey · Face ID</button>
+
             <div class="auth-divider">
                 <span>или войти через</span>
             </div>
@@ -128,15 +145,21 @@
     </div>
 
     <!-- Модалка для QR-входа -->
-<div id="qr-login-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 99999; align-items: center; justify-content: center; flex-direction: column;">
-    <div style="background: #151515; border: 1px solid #333; padding: 30px; border-radius: 24px; text-align: center; max-width: 400px; width: 90%;">
-        <h3 style="color: #fff; margin-bottom: 15px;">Вход по QR-коду</h3>
-        <p style="color: #888; font-size: 14px; margin-bottom: 20px;">Отсканируйте код на телефоне в разделе «Безопасность»</p>
-        <div id="qr-login-container" style="display: flex; justify-content: center; margin-bottom: 20px;"></div>
-        <p id="qr-login-status" style="color: #888; font-size: 14px; line-height: 1.5; margin-bottom: 15px;" aria-live="polite"></p>
-        <button id="qr-login-scan" class="btn" style="border: 1px solid #333; color: #D4AF37; margin-bottom: 10px;">Сканировать QR этим устройством</button>
-        <button id="close-qr-login" class="btn" style="border: 1px solid #333; color: #888;">Закрыть</button>
-    </div>
+<div id="qr-login-modal" class="qr-login-modal" aria-hidden="true">
+    <section class="qr-login-dialog" role="dialog" aria-modal="true" aria-labelledby="qr-login-title">
+        <span class="qr-login-eyebrow">БЫСТРО И БЕЗОПАСНО</span>
+        <h3 id="qr-login-title">Вход по QR-коду</h3>
+        <p class="qr-login-description">Откройте Dr. DarSun на уже авторизованном телефоне и отсканируйте код в разделе «Безопасность».</p>
+        <div id="qr-login-container" class="qr-login-code"></div>
+        <div id="qr-login-countdown" class="qr-login-countdown" aria-label="Время действия QR-кода">
+            <span id="qr-login-time">02:00</span>
+            <div class="qr-login-progress"><span id="qr-login-progress"></span></div>
+        </div>
+        <p id="qr-login-status" class="qr-login-status" aria-live="polite"></p>
+        <button id="qr-login-renew" class="btn qr-login-scan" type="button" hidden>Создать новый QR-код</button>
+        <button id="qr-login-scan" class="btn qr-login-scan" type="button">Сканировать QR этим устройством</button>
+        <button id="close-qr-login" class="btn qr-login-close" type="button">Закрыть</button>
+    </section>
 </div>
 
     <script>

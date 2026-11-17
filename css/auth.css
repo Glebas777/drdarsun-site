@@ -19,6 +19,156 @@
     z-index: 0;
     background-color: #000;
 }
+
+.qr-login-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow-y: auto;
+    background: rgba(15, 19, 14, .78);
+    backdrop-filter: blur(14px);
+}
+
+.qr-login-dialog {
+    width: min(100%, 430px);
+    padding: clamp(24px, 6vw, 36px);
+    border: 1px solid color-mix(in srgb, var(--accent-gold) 32%, var(--border));
+    border-radius: 26px;
+    background: var(--bg-card);
+    color: var(--text-main);
+    text-align: center;
+    box-shadow: 0 28px 80px rgba(0, 0, 0, .35);
+    animation: qr-dialog-in .22s ease-out;
+}
+
+.qr-login-eyebrow {
+    color: var(--accent-green);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: .18em;
+}
+
+.qr-login-dialog h3 {
+    margin: 10px 0;
+    font-size: 24px;
+}
+
+.qr-login-description {
+    margin: 0 0 20px;
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.qr-login-code {
+    display: grid;
+    min-height: 240px;
+    place-items: center;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: #fff;
+}
+
+.qr-login-code img,
+.qr-login-code canvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.qr-login-status {
+    min-height: 46px;
+    margin: 14px 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.qr-login-scan,
+.qr-login-close {
+    width: 100%;
+    margin-top: 8px;
+}
+
+.qr-login-dialog [hidden] { display: none !important; }
+
+.qr-login-scan {
+    border-color: var(--border);
+    color: var(--accent-green);
+}
+
+.qr-login-close {
+    border-color: var(--border);
+    color: var(--text-muted);
+}
+
+@keyframes qr-dialog-in {
+    from { opacity: 0; transform: translateY(8px) scale(.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .qr-login-dialog { animation: none; }
+}
+
+@media (max-width: 480px) {
+    .qr-login-modal { align-items: flex-start; }
+    .qr-login-dialog { margin-block: auto; }
+}
+
+.qr-login-countdown {
+    display: grid;
+    grid-template-columns: 58px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    margin: 14px 0 2px;
+    color: var(--accent-green);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.qr-login-progress {
+    height: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--border);
+}
+
+.qr-login-progress span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--accent-green);
+    transition: width 1s linear;
+}
+
+.passkey-login-btn {
+    width: 100%;
+    min-height: 48px;
+    margin-top: 20px;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-card);
+    color: var(--text-main);
+    font-size: 14px;
+    font-weight: 650;
+    cursor: pointer;
+    transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.passkey-login-btn:hover:not(:disabled) {
+    border-color: var(--accent-gold);
+    box-shadow: var(--shadow-soft);
+    transform: translateY(-1px);
+}
 .bg-video {
     position: absolute;
     opacity: 0;
@@ -100,6 +250,7 @@ body.dark-theme .auth-box {
 .auth-header { text-align: center; margin-bottom: 30px; }
 .auth-header h2 { font-size: 28px; margin-bottom: 5px; }
 .auth-header p { color: var(--text-muted); font-size: 14px; }
+.auth-inline-error { margin: -12px 0 18px; padding: 12px 14px; border: 1px solid color-mix(in srgb, #b74b42 40%, var(--border)); border-radius: 12px; background: color-mix(in srgb, #b74b42 8%, var(--bg-card)); color: #a53d34; font-size: 13px; line-height: 1.5; }
 
 .input-group { margin-bottom: 20px; }
 .input-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 8px; color: var(--text-muted); }
@@ -109,6 +260,9 @@ body.dark-theme .auth-box {
     font-family: var(--font-main); font-size: 15px; outline: none; transition: border-color 0.2s;
 }
 .input-group input:focus { border-color: var(--accent-green); }
+.auth-captcha { display: flex; justify-content: center; margin: 0 0 16px; }
+.auth-captcha[hidden] { display: none; }
+.auth-captcha[data-error="true"]::after { color: #a53d34; content: "Не удалось загрузить CAPTCHA. Обновите страницу."; font-size: 13px; }
 
 /* Кнопка Войти + Меню */
 .login-actions {

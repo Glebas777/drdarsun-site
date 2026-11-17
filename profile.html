@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Dr. DarSun | Личный кабинет</title>
     <link rel="stylesheet" href="css/base.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -28,6 +28,7 @@
         .toast.show { transform: translateX(0); }
         @media (max-width: 768px) { .profile-layout { flex-direction: column; padding: 100px 20px 40px; } .profile-sidebar { width: 100%; } .profile-nav-btn { display: inline-block; width: auto; margin-right: 5px; } }
     </style>
+    <link rel="stylesheet" href="css/profile.css">
 </head>
 <body>
 <div id="preloader">
@@ -48,6 +49,7 @@
     <div class="container header__inner">
         <a href="index.html" class="logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
         <nav class="nav">
+            <a href="index.html">Главная</a>
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
             <a href="delivery.html">Доставка</a>
@@ -65,7 +67,6 @@
         <a href="catalog.html">Каталог</a>
         <a href="about.html">О нас</a>
         <a href="delivery.html">Доставка</a>
-        <a href="profile.html">Профиль</a>
     </div>
 </header>
 
@@ -75,6 +76,7 @@
             <h3 style="margin-bottom: 20px;">Мой кабинет</h3>
             <button class="profile-nav-btn active" data-tab="info">Личные данные</button>
             <button class="profile-nav-btn" data-tab="orders">История заказов</button>
+            <button class="profile-nav-btn" data-tab="favorites">Избранное</button>
             <button class="profile-nav-btn" data-tab="wallet">Кошелек</button>
             <button class="profile-nav-btn" data-tab="security">Безопасность</button>
             <button class="profile-nav-btn" data-tab="settings">Настройки</button>
@@ -133,6 +135,14 @@
                 <div id="orders-list">Загрузка...</div>
             </div>
 
+            <div class="profile-tab" id="tab-favorites">
+                <h2 class="tab-title">Избранное</h2>
+                <p class="security-help">Сохранённые товары — всегда под рукой. Добавляйте их в корзину или убирайте из списка.</p>
+                <div class="favorites-grid" id="favorites-list" aria-live="polite">
+                    <p class="empty-state">Загрузка избранного...</p>
+                </div>
+            </div>
+
             <!-- Вкладка: Кошелек -->
             <div class="profile-tab" id="tab-wallet">
                 <h2 class="tab-title">Кошелек</h2>
@@ -158,6 +168,7 @@
         <h4 style="margin: 0;">Активные сессии</h4>
         <button id="refresh-devices-btn" class="btn" style="padding: 5px 10px; font-size: 12px; border: 1px solid var(--border);">Обновить</button>
     </div>
+    <p class="session-help">Сессии проверяются автоматически. Завершённое устройство выйдет из аккаунта в течение нескольких секунд.</p>
     <div id="devices-list">Загрузка...</div>
 </div>
 
@@ -175,11 +186,47 @@
     <div id="2fa-status" style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">Проверка...</div>
 </div>
 
+    <section class="recovery-codes-card" aria-labelledby="recovery-codes-title">
+        <h4 id="recovery-codes-title">Резервные коды</h4>
+        <p class="security-help">Коды создаются один раз для 2FA и хранятся зашифрованными. Первые два символа видны всегда; полный список открывается только после кода из письма на ваш адрес.</p>
+        <div id="recovery-codes-status" class="security-help" aria-live="polite">Проверка резервных кодов...</div>
+        <div class="recovery-codes-card__actions">
+            <button class="btn btn--primary" id="recovery-codes-create" type="button" hidden>Создать резервные коды</button>
+            <button class="btn" id="recovery-codes-save-retry" type="button" hidden>Повторить сохранение</button>
+            <button class="btn" id="recovery-codes-request" type="button" hidden>Получить код по почте</button>
+        </div>
+        <form id="recovery-codes-email-form" class="recovery-codes-card__form" hidden>
+            <label for="recovery-codes-email-code">Код из письма</label>
+            <input id="recovery-codes-email-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required>
+            <button class="btn btn--primary" type="submit">Подтвердить и открыть список</button>
+        </form>
+        <button class="btn" id="recovery-codes-visibility" type="button" hidden>Показать коды</button>
+        <ol id="recovery-codes-list" class="recovery-codes-card__list" aria-live="polite"></ol>
+    </section>
+
+                    <section class="telegram-link-card" aria-labelledby="telegram-link-title">
+                    <h4 id="telegram-link-title">Подключение Telegram</h4>
+                    <p class="security-help">Свяжите аккаунт через клиентского бота или отдельного бота привязки. Нажмите на ссылку — откроется нужный Telegram-бот.</p>
+                    <div id="telegram-public-bots" class="telegram-link-card__actions" aria-label="Telegram-боты"></div>
+                    <div id="telegram-link-status" class="security-help" aria-live="polite">Проверка подключения...</div>
+                    <div class="telegram-link-card__actions">
+                        <button class="btn btn--primary" id="telegram-link-start" type="button">Создать код привязки</button>
+                        <button class="btn" id="telegram-link-remove" type="button" hidden>Отключить Telegram</button>
+                    </div>
+                    <div class="telegram-link-code" id="telegram-link-code" hidden>
+                        <p class="security-help">Код действует 10 минут. Откройте бота привязки или клиентского бота по кнопке ниже. Код отправится автоматически; вручную можно ввести <code>/link КОД</code>.</p>
+                        <strong id="telegram-link-code-value"></strong>
+                        <div id="telegram-link-code-actions" class="telegram-link-card__actions"></div>
+                        <button class="btn" id="telegram-link-copy" type="button">Скопировать код</button>
+                    </div>
+                </section>
 
                 <div style="margin-bottom: 20px;">
                     <h4>Face ID / Отпечаток (Passkey)</h4>
-                    <button class="btn btn--primary" id="enable-passkey-btn">Включить Passkey</button>
-                    <p style="font-size: 13px; color: var(--text-muted); margin-top: 5px;">Вход по лицу или отпечатку пальца (WebAuthn).</p>
+                    <p class="security-help">Входите с помощью Face ID, отпечатка пальца или PIN-кода устройства. Доступность зависит от браузера и устройства.</p>
+                    <button class="btn btn--primary" id="enable-passkey-btn" type="button">Добавить Passkey</button>
+                    <div id="passkeys-status" class="security-help" aria-live="polite"></div>
+                    <div id="passkeys-list" class="passkeys-list"></div>
                 </div>
 
 <div style="margin-top: 20px;">
@@ -202,14 +249,21 @@
                 <h2 class="tab-title">Настройки</h2>
                 
                 <form class="settings-form" id="settings-form">
-                    <label>Новое имя</label>
-                    <input type="text" id="settings-name" placeholder="Ваше имя">
+                    <label for="settings-name">Имя в профиле</label>
+                    <input type="text" id="settings-name" placeholder="Ваше имя" maxlength="80" required>
                     <button type="submit" class="btn btn--primary">Сохранить имя</button>
                 </form>
 
+                <form class="settings-form" id="email-form">
+                    <label for="settings-email">Адрес почты</label>
+                    <input type="email" id="settings-email" placeholder="name@example.com" autocomplete="email" required>
+                    <p class="security-help">Для подтверждения нового адреса мы отправим письмо на вашу почту.</p>
+                    <button type="submit" class="btn btn--primary">Изменить почту</button>
+                </form>
+
                 <form class="settings-form" id="password-form">
-                    <label>Новый пароль</label>
-                    <input type="password" id="new-password" placeholder="Минимум 6 символов">
+                    <label for="new-password">Новый пароль</label>
+                    <input type="password" id="new-password" placeholder="Минимум 6 символов" minlength="6" autocomplete="new-password" required>
                     <div id="password-hints" style="font-size: 12px; color: #888; margin-top: 5px; display: flex; flex-direction: column; gap: 4px;">
                         <div id="hint-length" style="display: flex; align-items: center; gap: 5px;">❌ Минимум 6 символов</div>
                         <div id="hint-upper" style="display: flex; align-items: center; gap: 5px;">❌ Заглавная буква</div>
@@ -271,15 +325,14 @@
 
 <!-- Модалка для устройства -->
 <div id="device-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 99999; align-items: center; justify-content: center;">
-    <div style="background: #151515; border: 1px solid #333; padding: 30px; border-radius: 24px; max-width: 400px; width: 90%; text-align: center;">
-        <h3 style="color: #fff; margin-bottom: 10px;">Устройство</h3>
-        <p id="modal-device-name" style="color: #D4AF37; font-size: 18px; font-weight: 600; margin-bottom: 5px;"></p>
-        <p id="modal-device-date" style="color: #888; font-size: 14px; margin-bottom: 20px;"></p>
+    <div class="device-dialog">
+        <h3>Устройство</h3>
+        <p id="modal-device-name" class="device-dialog__name"></p>
+        <p id="modal-device-date" class="device-dialog__date"></p>
         
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-            <button id="modal-copy-btn" class="btn" style="background: #333; color: #fff; border: none;">Скопировать данные</button>
-            <button id="modal-end-btn" class="btn" style="background: #F44336; color: #fff; border: none;">Завершить сессию</button>
-            <button id="modal-close-btn" class="btn" style="background: transparent; border: 1px solid #333; color: #888;">Закрыть</button>
+        <div class="device-dialog__actions">
+            <button id="modal-end-btn" class="btn session-control-btn--danger">Завершить сессию</button>
+            <button id="modal-close-btn" class="btn session-control-btn">Назад</button>
         </div>
     </div>
 </div>
