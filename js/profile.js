@@ -1,4 +1,5 @@
 import { supabase } from './supabase-client.js';
+import { approveQrLogin, getQrLoginId, startQrScanner } from './qr-login.js';
 
 // Функция для тостов
 window.showToast = function(message, type = 'success') {
@@ -513,67 +514,41 @@ document.getElementById('password-form')?.addEventListener('submit', async (e) =
     });
 }
 
-document.getElementById('qr-login-btn')?.addEventListener('click', async () => {
-    document.getElementById('qr-modal').style.display = 'flex';
-
-    const qrToken = 'qr_' + Math.random().toString(36).substring(2, 15);
-    const qrUrl = `https://drdarsun.ru/qr-confirm?token=${qrToken}`;
-
-    const qrContainer = document.getElementById('qrcode');
-    qrContainer.innerHTML = '';
-
-    new QRCode(qrContainer, {
-        text: qrUrl,
-        width: 200,
-        height: 200,
-        colorDark: "#000000",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.H
-    });
-});
-
 // --- QR В БЕЗОПАСНОСТИ ---
-const showMyQrBtn = document.getElementById('show-my-qr-btn');
 const scanQrBtn = document.getElementById('scan-qr-btn');
-const myQrContainer = document.getElementById('my-qr-container');
 const qrScanResult = document.getElementById('qr-scan-result');
-
-showMyQrBtn?.addEventListener('click', async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
-    const token = 'qr_' + Math.random().toString(36).substring(2, 15);
-    const url = `https://drdarsun.ru/qr-confirm?token=${token}`;
-
-    myQrContainer.style.display = 'block';
-    myQrContainer.innerHTML = '';
-
-    new QRCode(myQrContainer, {
-        text: url,
-        width: 200,
-        height: 200,
-        colorDark: "#000000",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.H
-    });
-});
+let stopProfileQrScanner;
 
 scanQrBtn?.addEventListener('click', async () => {
-    qrScanResult.textContent = 'Запрос доступа к камере...';
+    if (stopProfileQrScanner) {
+        await stopProfileQrScanner();
+        stopProfileQrScanner = null;
+        scanQrBtn.textContent = 'Сканировать QR и подтвердить вход';
+        qrScanResult.textContent = 'Сканирование остановлено.';
+        return;
+    }
 
+    scanQrBtn.disabled = true;
+    qrScanResult.textContent = 'Запрос доступа к камере...';
     try {
-        const html5QrCode = new Html5Qrcode("qr-scan-result");
-        await html5QrCode.start(
-            { facingMode: "environment" },
-            { fps: 10, qrbox: 250 },
-            (decodedText) => {
-                qrScanResult.innerHTML = `Отсканировано: <strong>${decodedText}</strong>`;
-                html5QrCode.stop();
-            },
-            () => {}
-        );
+        stopProfileQrScanner = await startQrScanner('qr-scan-result', async (decodedText) => {
+            stopProfileQrScanner = null;
+            scanQrBtn.textContent = 'Сканировать QR и подтвердить вход';
+            qrScanResult.textContent = 'Проверяем запрос на вход...';
+            const id = getQrLoginId(decodedText);
+            await approveQrLogin(id);
+            qrScanResult.textContent = 'Вход подтверждён. Вернитесь к устройству, на котором показан QR-код.';
+        }, (error) => {
+            stopProfileQrScanner = null;
+            scanQrBtn.textContent = 'Сканировать QR и подтвердить вход';
+            qrScanResult.textContent = error.message || 'Не удалось подтвердить QR-код.';
+        });
+        scanQrBtn.textContent = 'Остановить сканирование';
     } catch (err) {
-        qrScanResult.textContent = 'Ошибка камеры: ' + err;
+        qrScanResult.textContent = `Ошибка камеры: ${err.message || err}`;
+        scanQrBtn.textContent = 'Сканировать QR и подтвердить вход';
+    } finally {
+        scanQrBtn.disabled = false;
     }
 });
 

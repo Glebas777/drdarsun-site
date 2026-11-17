@@ -131,8 +131,10 @@
 <div id="qr-login-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 99999; align-items: center; justify-content: center; flex-direction: column;">
     <div style="background: #151515; border: 1px solid #333; padding: 30px; border-radius: 24px; text-align: center; max-width: 400px; width: 90%;">
         <h3 style="color: #fff; margin-bottom: 15px;">Вход по QR-коду</h3>
-        <p style="color: #888; font-size: 14px; margin-bottom: 20px;">Отсканируйте код камерой телефона (или приложением Telegram)</p>
+        <p style="color: #888; font-size: 14px; margin-bottom: 20px;">Отсканируйте код на телефоне в разделе «Безопасность»</p>
         <div id="qr-login-container" style="display: flex; justify-content: center; margin-bottom: 20px;"></div>
+        <p id="qr-login-status" style="color: #888; font-size: 14px; line-height: 1.5; margin-bottom: 15px;" aria-live="polite"></p>
+        <button id="qr-login-scan" class="btn" style="border: 1px solid #333; color: #D4AF37; margin-bottom: 10px;">Сканировать QR этим устройством</button>
         <button id="close-qr-login" class="btn" style="border: 1px solid #333; color: #888;">Закрыть</button>
     </div>
 </div>

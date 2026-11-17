@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const crypto = require('crypto');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 const nodemailer = require('nodemailer');
 
@@ -29,6 +30,148 @@ app.use('/api/', limiter);
 const PORT = process.env.PORT || 3000;
 const CF_WORKER = 'https://supabase-proxy.turgleb7.workers.dev';
 const LAYERO_ORIGIN = 'https://drdarsun-site-main.layero.app';
+const qrLoginRequests = new Map();
+const QR_LOGIN_TTL_MS = 2 * 60 * 1000;
+
+function clearExpiredQrLoginRequests() {
+    const now = Date.now();
+    for (const [id, request] of qrLoginRequests) {
+        if (request.expiresAt <= now) qrLoginRequests.delete(id);
+    }
+}
+
+function getQrLoginRequest(id) {
+    if (!/^[a-f0-9]{64}$/.test(id || '')) return null;
+    const request = qrLoginRequests.get(id);
+    if (!request || request.expiresAt <= Date.now()) {
+        qrLoginRequests.delete(id);
+        return null;
+    }
+    return request;
+}
+
+function hasValidPollToken(req, request) {
+    const token = req.get('X-QR-Poll-Token') || '';
+    if (!/^[a-f0-9]{64}$/.test(token)) return false;
+    const suppliedHash = crypto.createHash('sha256').update(token).digest();
+    const storedHash = Buffer.from(request.pollTokenHash, 'hex');
+    return suppliedHash.length === storedHash.length && crypto.timingSafeEqual(suppliedHash, storedHash);
+}
+
+async function getQrApprover(req, res) {
+    const authHeader = req.get('Authorization') || '';
+    if (!authHeader.startsWith('Bearer ')) {
+        res.status(401).json({ error: 'Войдите в аккаунт на телефоне, чтобы подтвердить вход.' });
+        return null;
+    }
+
+    try {
+        const userResponse = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+            headers: {
+                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': authHeader
+            }
+        });
+        if (!userResponse.ok) {
+            res.status(401).json({ error: 'Сессия на телефоне истекла. Войдите снова.' });
+            return null;
+        }
+
+        const user = await userResponse.json();
+        if (!user.id || !user.email) {
+            res.status(401).json({ error: 'Не удалось подтвердить аккаунт на телефоне.' });
+            return null;
+        }
+
+        const claims = JSON.parse(Buffer.from(authHeader.slice(7).split('.')[1], 'base64url').toString());
+        const hasVerifiedTotp = (user.factors || []).some(
+            factor => factor.factor_type === 'totp' && factor.status === 'verified'
+        );
+        if (hasVerifiedTotp && claims.aal !== 'aal2') {
+            res.status(403).json({ error: 'Подтвердите 2FA на телефоне и повторите сканирование.' });
+            return null;
+        }
+
+        return user;
+    } catch (error) {
+        console.error('QR login approver validation error:', error);
+        res.status(500).json({ error: 'Не удалось проверить сессию телефона.' });
+        return null;
+    }
+}
+
+app.post('/api/qr-login', (req, res) => {
+    clearExpiredQrLoginRequests();
+    const id = crypto.randomBytes(32).toString('hex');
+    const pollToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = Date.now() + QR_LOGIN_TTL_MS;
+    qrLoginRequests.set(id, {
+        pollTokenHash: crypto.createHash('sha256').update(pollToken).digest('hex'),
+        expiresAt,
+        status: 'pending'
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(201).json({ id, pollSecret: pollToken, expiresAt });
+});
+
+app.get('/api/qr-login/:id', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const request = getQrLoginRequest(req.params.id);
+    if (!request) return res.json({ status: 'expired' });
+    if (!hasValidPollToken(req, request)) return res.status(403).json({ error: 'Нет доступа к этому QR-запросу.' });
+    if (request.status !== 'approved') return res.json({ status: request.status });
+
+    qrLoginRequests.delete(req.params.id);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ status: 'approved', email: request.email, emailOtp: request.emailOtp });
+});
+
+app.delete('/api/qr-login/:id', (req, res) => {
+    const request = getQrLoginRequest(req.params.id);
+    if (!request) return res.json({ success: true });
+    if (!hasValidPollToken(req, request)) return res.status(403).json({ error: 'Нет доступа к этому QR-запросу.' });
+    qrLoginRequests.delete(req.params.id);
+    res.json({ success: true });
+});
+
+app.post('/api/qr-login/:id/approve', async (req, res) => {
+    const request = getQrLoginRequest(req.params.id);
+    if (!request) return res.status(410).json({ error: 'QR-код истёк. Создайте новый на устройстве входа.' });
+    if (request.status !== 'pending') return res.status(409).json({ error: 'Этот QR-код уже подтверждён или обрабатывается.' });
+
+    const user = await getQrApprover(req, res);
+    if (!user) return;
+    if (request.status !== 'pending' || request.expiresAt <= Date.now()) {
+        return res.status(410).json({ error: 'QR-код уже подтверждён или истёк. Создайте новый.' });
+    }
+    request.status = 'approving';
+
+    try {
+        const linkResponse = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
+            method: 'POST',
+            headers: {
+                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ type: 'magiclink', email: user.email })
+        });
+        const linkData = await linkResponse.json();
+        if (!linkResponse.ok || !linkData.email_otp) {
+            throw new Error(linkData.msg || linkData.message || 'Не удалось подготовить безопасный вход.');
+        }
+
+        request.email = user.email;
+        request.emailOtp = linkData.email_otp;
+        request.status = 'approved';
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({ success: true });
+    } catch (error) {
+        qrLoginRequests.delete(req.params.id);
+        console.error('QR login approval error:', error);
+        res.status(502).json({ error: 'Не удалось подготовить вход. Создайте новый QR-код.' });
+    }
+});
 
 const resendApiKey = process.env.RESEND_API_KEY;
 

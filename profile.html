@@ -184,13 +184,11 @@
 
 <div style="margin-top: 20px;">
     <h4>QR-код</h4>
-    <p style="font-size: 13px; color: var(--text-muted);">Покажите QR для входа на другом устройстве или отсканируйте чужой.</p>
+    <p style="font-size: 13px; color: var(--text-muted);">Чтобы безопасно войти на другом устройстве, откройте там QR-вход и отсканируйте код здесь. Подтверждение возможно только после входа в аккаунт.</p>
     <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
-        <button class="btn btn--primary" id="show-my-qr-btn">Мой QR для входа</button>
-        <button class="btn" id="scan-qr-btn" style="border: 1px solid var(--border);">Сканировать QR</button>
+        <button class="btn btn--primary" id="scan-qr-btn">Сканировать QR и подтвердить вход</button>
     </div>
-    <div id="my-qr-container" style="display: none; margin-top: 15px; text-align: center;"></div>
-    <div id="qr-scan-result" style="margin-top: 10px; font-size: 14px; color: var(--text-muted);"></div>
+    <div id="qr-scan-result" style="margin-top: 10px; font-size: 14px; color: var(--text-muted);" aria-live="polite"></div>
 </div>
 <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border);">
     <button id="logout-btn" class="btn" style="border: 1px solid #F44336; color: #F44336; width: 100%;">

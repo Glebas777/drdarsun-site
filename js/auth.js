@@ -1,4 +1,13 @@
 import { supabase } from './supabase-client.js';
+import {
+    cancelQrLoginRequest,
+    approveQrLogin,
+    completeQrLogin,
+    createQrLoginRequest,
+    getQrLoginId,
+    startQrScanner,
+    waitForQrLoginApproval
+} from './qr-login.js';
 
 let isEmailVerified = false;
 
@@ -151,35 +160,99 @@ document.getElementById('mfa-form')?.addEventListener('submit', async (e) => {
     else window.location.href = 'profile.html';
 });
 
-// ==========================================
-// ВХОД ПО QR-КОДУ (из модалки на логине)
-// ==========================================
-document.getElementById('qr-login-trigger')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    document.getElementById('qr-login-modal').style.display = 'flex';
+// QR-вход: запрос создаётся на этом устройстве и подтверждается уже вошедшим телефоном.
+const qrModal = document.getElementById('qr-login-modal');
+const qrContainer = document.getElementById('qr-login-container');
+const qrStatus = document.getElementById('qr-login-status');
+const qrScanButton = document.getElementById('qr-login-scan');
+let activeQrRequest;
+let qrPollController;
+let stopLoginScanner;
 
-    const container = document.getElementById('qr-login-container');
-    container.innerHTML = '<div id="qr-reader" style="width:100%; max-width:300px;"></div>';
+async function closeQrLogin() {
+    qrPollController?.abort();
+    qrPollController = null;
+    if (stopLoginScanner) {
+        await stopLoginScanner().catch(() => {});
+        stopLoginScanner = null;
+    }
+    if (qrScanButton) qrScanButton.disabled = false;
+    if (activeQrRequest) {
+        await cancelQrLoginRequest(activeQrRequest).catch(error => console.error('QR cancel error:', error));
+        activeQrRequest = null;
+    }
+    if (qrModal) qrModal.style.display = 'none';
+}
 
-    const html5QrCode = new Html5Qrcode("qr-reader");
-    html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        (decodedText) => {
-            html5QrCode.stop();
-            document.getElementById('qr-login-modal').style.display = 'none';
-            // Здесь обработка отсканированного QR — пока просто показываем
-            alert('Отсканировано: ' + decodedText);
-        },
-        () => {}
-    ).catch(err => {
-        container.innerHTML = '<p style="color: #F44336;">Ошибка камеры: ' + err + '</p>';
-    });
+document.getElementById('qr-login-trigger')?.addEventListener('click', async (event) => {
+    event.preventDefault();
+    qrModal.style.display = 'flex';
+    qrContainer.innerHTML = '<p style="color:#aaa">Создаём защищённый QR-код...</p>';
+    qrStatus.textContent = '';
+
+    try {
+        activeQrRequest = await createQrLoginRequest();
+        qrContainer.innerHTML = '';
+        if (!window.QRCode) throw new Error('Генератор QR-кодов не загрузился. Обновите страницу.');
+        new QRCode(qrContainer, {
+            text: activeQrRequest.qrText,
+            width: 220,
+            height: 220,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.H
+        });
+        qrStatus.textContent = 'Откройте Dr. DarSun на телефоне, войдите в аккаунт и отсканируйте этот код в разделе «Безопасность». Код действует 2 минуты.';
+
+        qrPollController = new AbortController();
+        const approval = await waitForQrLoginApproval(activeQrRequest, qrPollController.signal);
+        if (!approval) return;
+        qrPollController = null;
+        qrStatus.textContent = 'Вход подтверждён. Выполняем вход...';
+        await completeQrLogin(approval);
+        activeQrRequest = null;
+        await check2FAAndRedirect();
+    } catch (error) {
+        if (error.name !== 'AbortError') {
+            qrStatus.textContent = error.message || 'Не удалось выполнить вход по QR-коду.';
+            qrStatus.style.color = '#F44336';
+        }
+    }
 });
 
-document.getElementById('close-qr-login')?.addEventListener('click', () => {
-    document.getElementById('qr-login-modal').style.display = 'none';
+document.getElementById('qr-login-scan')?.addEventListener('click', async () => {
+    qrScanButton.disabled = true;
+    qrPollController?.abort();
+    qrPollController = null;
+    if (activeQrRequest) {
+        await cancelQrLoginRequest(activeQrRequest).catch(error => console.error('QR cancel error:', error));
+        activeQrRequest = null;
+    }
+    qrContainer.innerHTML = '<div id="qr-login-reader" style="width:100%; max-width:300px; margin:auto;"></div>';
+    qrStatus.style.color = '#aaa';
+    qrStatus.textContent = 'Наведите камеру на QR-код. Для подтверждения нужно быть уже вошедшим в аккаунт.';
+    try {
+        stopLoginScanner = await startQrScanner('qr-login-reader', async (decodedText) => {
+            const id = getQrLoginId(decodedText);
+            await approveQrLogin(id);
+            qrStatus.textContent = 'Вход подтверждён на этом устройстве.';
+            qrStatus.style.color = '#4CAF50';
+            qrScanButton.disabled = false;
+            stopLoginScanner = null;
+        }, (error) => {
+            qrStatus.textContent = error.message || 'Не удалось подтвердить QR-код.';
+            qrStatus.style.color = '#F44336';
+            qrScanButton.disabled = false;
+            stopLoginScanner = null;
+        });
+    } catch (error) {
+        qrStatus.textContent = `Ошибка камеры: ${error.message || error}`;
+        qrStatus.style.color = '#F44336';
+        qrScanButton.disabled = false;
+    }
 });
+
+document.getElementById('close-qr-login')?.addEventListener('click', closeQrLogin);
 
 // Универсальная проверка 2FA после любого входа
 async function check2FAAndRedirect() {
