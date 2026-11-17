@@ -442,17 +442,58 @@ if (toggle2fa) {
         }
     });
 
-    document.getElementById('password-form')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const newPassword = document.getElementById('new-password').value;
-        if (newPassword.length < 6) return showToast('Пароль слишком короткий', 'error');
-        const { error } = await supabase.auth.updateUser({ password: newPassword });
-        if (error) showToast('Ошибка: ' + error.message, 'error');
-        else {
-            showToast('Пароль изменен!');
-            document.getElementById('password-form').reset();
-        }
-    });
+document.getElementById('password-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const newPassword = document.getElementById('new-password').value;
+    if (newPassword.length < 6) return showToast('Пароль слишком короткий', 'error');
+
+    // 1. Проверяем, нужен ли AAL2
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+    if (aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+        // Показываем модалку для ввода 2FA-кода
+        document.getElementById('mfa-confirm-modal').style.display = 'flex';
+
+        // Обработчик подтверждения
+        document.getElementById('mfa-confirm-submit').onclick = async () => {
+            const code = document.getElementById('mfa-confirm-code').value;
+            if (code.length !== 6) return alert('Введите 6 цифр');
+
+            const { data: factors } = await supabase.auth.mfa.listFactors();
+            const totpFactor = factors?.totp?.[0];
+            if (!totpFactor) return alert('Фактор не найден');
+
+            const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
+                factorId: totpFactor.id,
+                code: code
+            });
+
+            if (verifyError) return alert('Неверный код: ' + verifyError.message);
+
+            // Сессия теперь AAL2 — меняем пароль
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) showToast('Ошибка: ' + error.message, 'error');
+            else {
+                showToast('Пароль изменён!');
+                document.getElementById('password-form').reset();
+                document.getElementById('mfa-confirm-modal').style.display = 'none';
+            }
+        };
+
+        document.getElementById('mfa-confirm-cancel').onclick = () => {
+            document.getElementById('mfa-confirm-modal').style.display = 'none';
+        };
+        return;
+    }
+
+    // Если 2FA нет или сессия уже AAL2 — меняем сразу
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) showToast('Ошибка: ' + error.message, 'error');
+    else {
+        showToast('Пароль изменён!');
+        document.getElementById('password-form').reset();
+    }
+});
 
     // 11. УДАЛЕНИЕ
     document.getElementById('delete-account-btn')?.addEventListener('click', async () => {

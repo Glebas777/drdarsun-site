@@ -285,6 +285,15 @@
         </div>
     </div>
 </div>
+<div id="mfa-confirm-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 99999; align-items: center; justify-content: center;">
+    <div style="background: var(--bg-card); padding: 30px; border-radius: 20px; text-align: center; max-width: 400px;">
+        <h3>Подтвердите 2FA</h3>
+        <p style="color: var(--text-muted); margin: 10px 0;">Введите код из приложения для смены пароля</p>
+        <input type="text" id="mfa-confirm-code" placeholder="000000" maxlength="6" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-color); color: var(--text-main); text-align: center; font-size: 20px; margin-bottom: 15px;">
+        <button id="mfa-confirm-submit" class="btn btn--primary" style="width: 100%; margin-bottom: 10px;">Подтвердить</button>
+        <button id="mfa-confirm-cancel" class="btn" style="width: 100%; border: 1px solid var(--border);">Отмена</button>
+    </div>
+</div>
 
 <script type="module" src="js/profile.js"></script>
 <script src="js/burger.js"></script>
