@@ -82,36 +82,7 @@ document.getElementById('back-to-login-from-otp')?.addEventListener('click', (e)
     document.getElementById('login-form').style.display = 'block';
 });
 
-// ==========================================
-// 5. ВХОД ПО РЕЗЕРВНОМУ КОДУ (2FA)
-// ==========================================
-document.getElementById('backup-code-login')?.addEventListener('click', async (e) => {
-    e.preventDefault();
-    const code = prompt('Введите резервный код:');
-    if (!code) return;
 
-    // Проверяем код через Layero (он умеет искать в таблице backup_codes)
-    try {
-        const res = await fetch('https://drdarsun-site-main.layero.app/api/verify-backup-code', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: code.toUpperCase() })
-        });
-        const data = await res.json();
-
-        if (data.success && data.access_token) {
-            await supabase.auth.setSession({
-                access_token: data.access_token,
-                refresh_token: data.refresh_token
-            });
-            window.location.href = 'profile.html';
-        } else {
-            alert('Неверный или использованный код');
-        }
-    } catch (e) {
-        alert('Ошибка соединения');
-    }
-});
 
 // ==========================================
 // 6. ЗАБЫЛИ ПАРОЛЬ (только Supabase)
@@ -208,37 +179,6 @@ document.getElementById('qr-login-trigger')?.addEventListener('click', (e) => {
 
 document.getElementById('close-qr-login')?.addEventListener('click', () => {
     document.getElementById('qr-login-modal').style.display = 'none';
-});
-
-// ==========================================
-// ВХОД ПО РЕЗЕРВНЫМ КОДАМ (их 6)
-// ==========================================
-document.getElementById('backup-code-login')?.addEventListener('click', async (e) => {
-    e.preventDefault();
-
-    const code = prompt('Введите один из 6 резервных кодов:');
-    if (!code) return;
-
-    try {
-        const res = await fetch('https://drdarsun-site-main.layero.app/api/verify-backup-code', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: code.toUpperCase() })
-        });
-        const data = await res.json();
-
-        if (data.success && data.access_token) {
-            await supabase.auth.setSession({
-                access_token: data.access_token,
-                refresh_token: data.refresh_token
-            });
-            window.location.href = 'profile.html';
-        } else {
-            alert('Неверный или использованный код');
-        }
-    } catch (e) {
-        alert('Ошибка соединения');
-    }
 });
 
 // Универсальная проверка 2FA после любого входа

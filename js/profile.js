@@ -363,7 +363,6 @@ const toggle2fa = document.getElementById('2fa-toggle');
 const status2fa = document.getElementById('2fa-status');
 
 if (toggle2fa) {
-    // Проверяем, включена ли 2FA
     const { data: factors } = await supabase.auth.mfa.listFactors();
     const has2fa = factors?.totp?.length > 0;
     toggle2fa.checked = has2fa;
@@ -371,11 +370,10 @@ if (toggle2fa) {
 
     toggle2fa.addEventListener('change', async () => {
         if (toggle2fa.checked) {
-            // Включаем — показываем QR
+            // Включаем
             const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Dr. DarSun 2FA' });
             if (error) { toggle2fa.checked = false; return showToast('Ошибка: ' + error.message, 'error'); }
 
-            // Показываем модалку с QR (можно использовать существующую логику)
             const qrModal = document.createElement('div');
             qrModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;display:flex;align-items:center;justify-content:center;';
             qrModal.innerHTML = `
@@ -405,74 +403,32 @@ if (toggle2fa) {
                 showToast('2FA активирована!');
             };
         } else {
-            // Отключаем
+            // Отключаем — ОДИН вызов unenroll
             if (!confirm('Отключить 2FA? Аккаунт станет менее защищённым.')) {
                 toggle2fa.checked = true;
                 return;
             }
+
             const { data: factors } = await supabase.auth.mfa.listFactors();
             const totpFactor = factors?.totp?.[0];
-            if (totpFactor) {
-                await supabase.auth.mfa.unenroll({ factorId: totpFactor.id });
+            if (!totpFactor) {
+                toggle2fa.checked = false;
                 status2fa.textContent = 'Отключена';
-                showToast('2FA отключена');
+                return;
+            }
+
+            const { error } = await supabase.auth.mfa.unenroll({ factorId: totpFactor.id });
+            if (error) {
+                showToast('Ошибка отключения: ' + error.message, 'error');
+                toggle2fa.checked = true;
+            } else {
+                status2fa.textContent = 'Отключена';
+                showToast('2FA полностью удалена');
             }
         }
     });
 }
 
-    // 9. РЕЗЕРВНЫЕ КОДЫ
-    const generateBackupBtn = document.getElementById('generate-backup-codes');
-    const backupCodesList = document.getElementById('backup-codes-list');
-
-    if (generateBackupBtn && backupCodesList) {
-        const { data: existingCodes } = await supabase.from('backup_codes').select('code, is_used').eq('user_id', session.user.id);
-
-        if (existingCodes && existingCodes.length > 0) {
-            generateBackupBtn.style.display = 'none';
-            backupCodesList.style.display = 'block';
-            backupCodesList.innerHTML = `
-                <p style="color: #D4AF37; font-weight: 600; margin-bottom: 10px;">Ваши резервные коды:</p>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    ${existingCodes.map(c => `<code style="background: #0A0A0A; padding: 10px; border-radius: 8px; text-align: center; font-size: 16px; border: 1px solid #333; color: ${c.is_used ? '#555' : '#fff'}; text-decoration: ${c.is_used ? 'line-through' : 'none'};">${c.code.charAt(0)}***${c.code.slice(-2)}</code>`).join('')}
-                </div>
-            `;
-        } else {
-            generateBackupBtn.addEventListener('click', async () => {
-                const codes = [];
-                for (let i = 0; i < 6; i++) codes.push(Math.random().toString(36).substring(2, 8).toUpperCase());
-
-                const { error } = await supabase.from('backup_codes').insert(codes.map(c => ({ user_id: session.user.id, code: c })));
-
-                if (error) return showToast('Ошибка: ' + error.message, 'error');
-
-                backupCodesList.style.display = 'block';
-                backupCodesList.innerHTML = `
-                    <p style="color: #D4AF37; font-weight: 600; margin-bottom: 10px;">Сохраните эти коды:</p>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        ${codes.map((c, i) => `<code style="background: #0A0A0A; padding: 10px; border-radius: 8px; text-align: center; font-size: 16px; border: 1px solid #333; color: #fff;">${i+1}. ${c}</code>`).join('')}
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-top: 15px;">
-                        <button id="copy-backup" class="btn" style="background: #333; color: #fff; border: none; flex: 1;">Скопировать</button>
-                        <button id="download-backup" class="btn" style="background: #333; color: #fff; border: none; flex: 1;">Скачать .txt</button>
-                    </div>
-                `;
-                showToast('Коды сгенерированы!');
-
-                document.getElementById('copy-backup').onclick = () => {
-                    navigator.clipboard.writeText(codes.map((c, i) => `${i+1}. ${c}`).join('\n')).then(() => showToast('Скопировано!'));
-                };
-
-                document.getElementById('download-backup').onclick = () => {
-                    const blob = new Blob([codes.map((c, i) => `${i+1}. ${c}`).join('\n')], { type: 'text/plain' });
-                    const a = document.createElement('a');
-                    a.href = URL.createObjectURL(blob);
-                    a.download = 'dr_darsun_backup_codes.txt';
-                    a.click();
-                };
-            });
-        }
-    }
 
     // 10. НАСТРОЙКИ
     document.getElementById('settings-form')?.addEventListener('submit', async (e) => {
@@ -595,6 +551,27 @@ document.getElementById('logout-btn')?.addEventListener('click', async () => {
 
     // Перенаправляем на главную
     window.location.href = 'index.html';
+});
+
+// Включить уведомления
+document.getElementById('enable-notify-btn')?.addEventListener('click', async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const { data, error } = await supabase.functions.invoke('send-notification', {
+        body: {
+            to: session.user.email,
+            subject: 'Уведомления Dr. DarSun включены',
+            html: '<h2>Вы подписались на уведомления</h2><p>Теперь вы будете получать новости о заказах.</p>'
+        }
+    });
+
+    if (error) {
+        console.error('Function error:', error);
+        showToast('Ошибка: ' + error.message, 'error');
+    } else {
+        showToast('Уведомления включены! Проверьте почту.');
+    }
 });
 
 init();

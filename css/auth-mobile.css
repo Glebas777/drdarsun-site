@@ -107,3 +107,13 @@
         object-fit: cover;
     }
 }
+
+@media (max-width: 768px) {
+    .auth-container { padding: 10px; margin-top: 10px; }
+    .auth-box { padding: 20px 15px; border-radius: 16px; }
+    .input-group input { font-size: 16px; padding: 12px; }
+    .btn { padding: 14px; font-size: 16px; }
+    .social-btn { padding: 12px; font-size: 14px; }
+    .login-extra-links { gap: 10px; }
+    .login-extra-links a { font-size: 14px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; }
+}
