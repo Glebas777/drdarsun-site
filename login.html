@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="turnstile-site-key" content="0x4AAAAAAGFkyMNZ_z9wAXb8">
     <title>Dr. DarSun | Вход</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -49,6 +50,7 @@
                 <h2>С возвращением</h2>
                 <p>Войдите, чтобы управлять заказами</p>
             </div>
+            <p id="oauth-error" class="auth-inline-error" role="alert" hidden></p>
 
             <!-- ФОРМА ВХОДА -->
             <form id="login-form" class="auth-form">
@@ -60,14 +62,26 @@
                     <label>Пароль</label>
                     <input type="password" id="login-password" placeholder="••••••••" required>
                 </div>
+                <div id="captcha-login" class="auth-captcha" data-turnstile data-action="login" hidden></div>
                 <div class="login-actions">
                     <button type="submit" class="btn btn--primary btn--full">Войти</button>
                 </div>
 <div class="login-extra-links">
     <a href="#" id="forgot-password">Забыли пароль?</a>
-    <a href="#" id="backup-code-login">Вход по резервным кодам</a>
+    <a href="#" id="backup-code-login">Вход по резервному коду</a>
     <a href="#" id="qr-login-trigger">Вход по QR-коду</a>
 </div>
+            </form>
+
+            <form id="recovery-code-form" class="auth-form" style="display: none;">
+                <div class="input-group">
+                    <label for="recovery-code-input">Резервный код 2FA</label>
+                    <input type="text" id="recovery-code-input" autocomplete="one-time-code" required>
+                </div>
+                <div class="login-actions">
+                    <button type="submit" class="btn btn--primary btn--full">Подтвердить код и войти</button>
+                </div>
+                <a href="#" id="back-to-login-from-recovery" style="display: block; text-align: center; margin-top: 15px; color: #888;">Назад ко входу</a>
             </form>
 
             <!-- ФОРМА ВОССТАНОВЛЕНИЯ -->
@@ -76,6 +90,7 @@
                     <label>Email</label>
                     <input type="email" id="forgot-email" placeholder="your@email.com" required>
                 </div>
+                <div id="captcha-forgot" class="auth-captcha" data-turnstile data-action="password_reset" hidden></div>
                 <div class="login-actions">
                     <button type="submit" class="btn btn--primary btn--full">Отправить ссылку</button>
                 </div>

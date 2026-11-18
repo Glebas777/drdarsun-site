@@ -898,6 +898,8 @@ function startTelegramBots(options = {}) {
                 }
                 botUsernames.set(role, me.username);
                 console.log(`Telegram ${role} bot authenticated as @${me.username}.`);
+                await bot.telegram('deleteWebhook', { drop_pending_updates: false });
+                console.log(`Telegram ${role} webhook cleared; long polling is active.`);
                 try {
                     await bot.telegram('setMyCommands', {
                         commands: role === 'panel'

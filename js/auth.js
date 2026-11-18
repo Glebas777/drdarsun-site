@@ -10,16 +10,164 @@ import {
 } from './qr-login.js';
 
 let isEmailVerified = false;
+const captchaSiteKey = document.querySelector('meta[name="turnstile-site-key"]')?.content.trim() || '';
+const captchaStates = new Map();
+let turnstileLoadPromise;
+
+function loadTurnstile() {
+    if (window.turnstile) return Promise.resolve(window.turnstile);
+    if (turnstileLoadPromise) return turnstileLoadPromise;
+
+    turnstileLoadPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+        script.async = true;
+        script.defer = true;
+        script.onload = () => window.turnstile
+            ? resolve(window.turnstile)
+            : reject(new Error('Turnstile загрузился без API.'));
+        script.onerror = () => reject(new Error('Не удалось загрузить проверку CAPTCHA.'));
+        document.head.appendChild(script);
+    });
+    return turnstileLoadPromise;
+}
+
+function setupCaptcha() {
+    if (!captchaSiteKey) return;
+    document.querySelectorAll('[data-turnstile]').forEach(async (element) => {
+        const state = { token: null, widgetId: null, waiters: [] };
+        captchaStates.set(element.id, state);
+        element.hidden = false;
+        try {
+            const turnstile = await loadTurnstile();
+            state.widgetId = turnstile.render(element, {
+                sitekey: captchaSiteKey,
+                action: element.dataset.action,
+                callback: token => {
+                    state.token = token;
+                    state.waiters.splice(0).forEach(resolve => resolve(token));
+                },
+                'expired-callback': () => { state.token = null; },
+                'error-callback': () => {
+                    state.token = null;
+                    state.waiters.splice(0).forEach(resolve => resolve(null));
+                }
+            });
+        } catch (error) {
+            console.error('CAPTCHA initialization failed:', error);
+            element.dataset.error = 'true';
+        }
+    });
+}
+
+function getCaptchaToken(elementId) {
+    if (!captchaSiteKey) return Promise.resolve(undefined);
+    const state = captchaStates.get(elementId);
+    if (!state?.widgetId) {
+        return Promise.reject(new Error('Проверка CAPTCHA пока не готова. Обновите страницу.'));
+    }
+    if (state.token) return Promise.resolve(state.token);
+    return new Promise(resolve => state.waiters.push(resolve));
+}
+
+function resetCaptcha(elementId) {
+    const state = captchaStates.get(elementId);
+    if (!state) return;
+    state.token = null;
+    if (state.widgetId && window.turnstile) window.turnstile.reset(state.widgetId);
+}
+
+function createOAuthState(provider) {
+    try {
+        const bytes = crypto.getRandomValues(new Uint8Array(32));
+        const value = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+        sessionStorage.setItem(`oauth_state_${provider}`, JSON.stringify({
+            value,
+            expiresAt: Date.now() + 10 * 60 * 1000
+        }));
+        return value;
+    } catch (error) {
+        console.error('OAuth state could not be stored:', error);
+        alert('Не удалось безопасно начать вход. Разрешите хранилище сайта и попробуйте снова.');
+        return null;
+    }
+}
+
+const oauthError = document.getElementById('oauth-error');
+const oauthErrorMessages = {
+    yandex_auth_failed: 'Не удалось войти через Яндекс. Проверьте, что у Яндекс-аккаунта есть подтверждённая основная почта, и попробуйте ещё раз.',
+    google_auth_failed: 'Не удалось войти через Google. Попробуйте ещё раз или используйте вход по email и паролю.',
+    no_code: 'Провайдер не вернул код авторизации. Начните вход ещё раз.',
+    oauth_state_invalid: 'Попытка входа устарела или не подтверждена. Начните вход заново.'
+};
+const oauthErrorCode = new URLSearchParams(window.location.search).get('error');
+if (oauthError && oauthErrorMessages[oauthErrorCode]) {
+    oauthError.textContent = oauthErrorMessages[oauthErrorCode];
+    oauthError.hidden = false;
+}
+
+setupCaptcha();
+
+function getPostLoginRedirect() {
+    const requested = new URLSearchParams(window.location.search).get('redirect');
+    if (!requested) return 'profile.html';
+
+    try {
+        const target = new URL(requested, window.location.origin);
+        const allowedPaths = new Set([
+            '/index.html',
+            '/catalog.html',
+            '/about.html',
+            '/delivery.html',
+            '/cart.html',
+            '/product.html'
+        ]);
+        if (target.origin !== window.location.origin || !allowedPaths.has(target.pathname)) {
+            return 'profile.html';
+        }
+        return `${target.pathname.slice(1)}${target.search}${target.hash}`;
+    } catch (error) {
+        console.warn('Post-login redirect was invalid:', error);
+        return 'profile.html';
+    }
+}
+
+function markDeviceRegistrationPending(userId) {
+    try {
+        localStorage.setItem('pending_device_registration', userId);
+    } catch (error) {
+        console.warn('Pending device registration could not be saved:', error);
+    }
+}
 
 // ==========================================
 // 1. ВХОД ЧЕРЕЗ ЯНДЕКС И GOOGLE (оставляем как было)
 // ==========================================
 document.getElementById('btn-yandex')?.addEventListener('click', () => {
-    window.location.href = 'https://oauth.yandex.ru/authorize?response_type=code&client_id=b39d2bf86d0c448691056b68cd242e12&redirect_uri=https://drdarsun-site-main.layero.app/auth/v1/callback/yandex';
+    const state = createOAuthState('yandex');
+    if (!state) return;
+    const authorizeUrl = new URL('https://oauth.yandex.ru/authorize');
+    authorizeUrl.search = new URLSearchParams({
+        response_type: 'code',
+        client_id: 'b39d2bf86d0c448691056b68cd242e12',
+        redirect_uri: 'https://drdarsun-site-main.layero.app/auth/v1/callback/yandex',
+        state
+    });
+    window.location.href = authorizeUrl.href;
 });
 
 document.getElementById('btn-google')?.addEventListener('click', () => {
-    window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?client_id=1059795226527-fgrb9i2ccikq0e6pkolpjj36t2a6i2i3.apps.googleusercontent.com&redirect_uri=https://drdarsun-site-main.layero.app/auth/v1/callback/google&response_type=code&scope=email profile';
+    const state = createOAuthState('google');
+    if (!state) return;
+    const authorizeUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    authorizeUrl.search = new URLSearchParams({
+        client_id: '1059795226527-fgrb9i2ccikq0e6pkolpjj36t2a6i2i3.apps.googleusercontent.com',
+        redirect_uri: 'https://drdarsun-site-main.layero.app/auth/v1/callback/google',
+        response_type: 'code',
+        scope: 'email profile',
+        state
+    });
+    window.location.href = authorizeUrl.href;
 });
 
 // ==========================================
@@ -30,12 +178,18 @@ document.getElementById('register-form')?.addEventListener('submit', async (e) =
     const name = document.getElementById('reg-name').value;
     const email = document.getElementById('reg-email').value;
     const password = document.getElementById('reg-password').value;
+    const captchaToken = await getCaptchaToken('captcha-register').catch(error => {
+        alert(error.message);
+        return null;
+    });
+    if (captchaSiteKey && !captchaToken) return;
 
     const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: name } }
+        options: { data: { full_name: name }, captchaToken }
     });
+    resetCaptcha('captcha-register');
 
     if (error) return alert('Ошибка: ' + error.message);
 
@@ -44,7 +198,8 @@ document.getElementById('register-form')?.addEventListener('submit', async (e) =
     // Если у тебя в Supabase включено подтверждение почты — код придёт.
     // Если нет — пользователь сразу залогинен.
     if (data.session) {
-        window.location.href = 'profile.html';
+        markDeviceRegistrationPending(data.session.user.id);
+        window.location.href = getPostLoginRedirect();
     } else {
         // Показываем форму для ввода кода (если она есть)
         const verifyBlock = document.getElementById('verify-block');
@@ -59,8 +214,18 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
+    const captchaToken = await getCaptchaToken('captcha-login').catch(error => {
+        alert(error.message);
+        return null;
+    });
+    if (captchaSiteKey && !captchaToken) return;
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+        options: { captchaToken }
+    });
+    resetCaptcha('captcha-login');
     if (error) {
         if (error.message.includes('Invalid login credentials')) {
             // ... OTP логика (оставь как есть)
@@ -113,6 +278,53 @@ document.getElementById('back-to-login-from-otp')?.addEventListener('click', (e)
     document.getElementById('login-form').style.display = 'block';
 });
 
+document.getElementById('backup-code-login')?.addEventListener('click', event => {
+    event.preventDefault();
+    document.getElementById('login-form').style.display = 'none';
+    document.getElementById('recovery-code-form').style.display = 'block';
+    document.getElementById('recovery-code-input').focus();
+});
+
+document.getElementById('back-to-login-from-recovery')?.addEventListener('click', event => {
+    event.preventDefault();
+    document.getElementById('recovery-code-form').style.display = 'none';
+    document.getElementById('login-form').style.display = 'block';
+});
+
+document.getElementById('recovery-code-form')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const submitButton = form.querySelector('button[type="submit"]');
+    const code = document.getElementById('recovery-code-input').value.trim();
+    if (!code) return alert('Введите резервный код.');
+
+    submitButton.disabled = true;
+    try {
+        const { data, error } = await supabase.auth.mfa.recoveryCodes.verify({ code });
+        if (error) throw error;
+        if (!data?.user) throw new Error('Вход по резервному коду не создал сессию.');
+
+        const response = await fetch('https://drdarsun-site-main.layero.app/api/recovery-codes/consume', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${data.access_token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ code })
+        });
+        if (!response.ok) {
+            const result = await response.json().catch(() => ({}));
+            console.error('Recovery code vault sync failed:', result.error || response.status);
+        }
+        markDeviceRegistrationPending(data.user.id);
+        await check2FAAndRedirect();
+    } catch (error) {
+        alert('Не удалось войти по резервному коду: ' + (error.message || 'проверьте код и попробуйте ещё раз.'));
+    } finally {
+        submitButton.disabled = false;
+    }
+});
+
 
 
 // ==========================================
@@ -127,9 +339,16 @@ forgotForm.addEventListener('submit', async (e) => {
     if (cooldown) return alert('Подождите    немного');
 
     const email = document.getElementById('forgot-email').value;
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://drdarsun.ru/reset.html'
+    const captchaToken = await getCaptchaToken('captcha-forgot').catch(error => {
+        alert(error.message);
+        return null;
     });
+    if (captchaSiteKey && !captchaToken) return;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://drdarsun.ru/reset.html',
+        captchaToken
+    });
+    resetCaptcha('captcha-forgot');
 
     if (error) {
         if (error.message.includes('For security purposes')) {
@@ -179,7 +398,7 @@ document.getElementById('mfa-form')?.addEventListener('submit', async (e) => {
     });
 
     if (verifyError) alert('Неверный код: ' + verifyError.message);
-    else window.location.href = 'profile.html';
+    else window.location.href = getPostLoginRedirect();
 });
 
 // QR-вход: запрос создаётся на этом устройстве и подтверждается уже вошедшим телефоном.
@@ -360,6 +579,13 @@ document.addEventListener('keydown', (event) => {
 
 // Универсальная проверка 2FA после любого входа
 async function check2FAAndRedirect() {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+        console.error('Login session lookup failed:', sessionError);
+    } else if (sessionData.session) {
+        markDeviceRegistrationPending(sessionData.session.user.id);
+    }
+
     const { data: mfaData, error: mfaError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
 
     if (!mfaError && mfaData.nextLevel === 'aal2' && mfaData.currentLevel !== 'aal2') {
@@ -371,6 +597,6 @@ async function check2FAAndRedirect() {
     }
 
     // 2FA не нужна — пускаем
-    window.location.href = 'profile.html';
+    window.location.href = getPostLoginRedirect();
     return false;
 }

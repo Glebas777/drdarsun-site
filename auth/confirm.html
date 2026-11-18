@@ -2,13 +2,16 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="referrer" content="no-referrer">
     <title>Вход...</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js"></script>
 </head>
 <body style="background: #0A0A0A; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
-    <div style="text-align: center;">
+    <div style="width: min(100% - 32px, 480px); text-align: center;">
         <h2 id="title">Проверяем токен...</h2>
         <p id="status">Пожалуйста, подождите.</p>
+        <a href="https://drdarsun.ru/login.html" style="color: #e0bd72;">Вернуться ко входу</a>
     </div>
 
     <script>
@@ -27,20 +30,49 @@
             const params = new URLSearchParams(window.location.search);
             const token_hash = params.get('token_hash');
             const type = params.get('type');
+            const provider = params.get('provider');
+            const state = params.get('state');
+            window.history.replaceState({}, document.title, window.location.pathname);
 
-            if (!token_hash) {
-                document.getElementById('status').textContent = 'Ошибка: токен не найден.';
+            let storedState;
+            try {
+                if (provider === 'google' || provider === 'yandex') {
+                    storedState = JSON.parse(sessionStorage.getItem(`oauth_state_${provider}`) || 'null');
+                    sessionStorage.removeItem(`oauth_state_${provider}`);
+                }
+            } catch (storageError) {
+                console.warn('OAuth state could not be checked:', storageError);
+            }
+
+            const stateMatches = typeof state === 'string' &&
+                /^[a-f0-9]{64}$/i.test(state) &&
+                storedState?.value === state &&
+                Number.isFinite(storedState?.expiresAt) &&
+                storedState.expiresAt > Date.now();
+            if (!stateMatches) {
+                document.getElementById('status').textContent = 'Попытка входа устарела или не подтверждена. Начните вход заново.';
                 return;
             }
 
-            const { error } = await supabaseClient.auth.verifyOtp({
+            if (!token_hash || type !== 'magiclink') {
+                document.getElementById('status').textContent = 'Ссылка входа неполная или истекла. Вернитесь на страницу входа и запросите новую.';
+                return;
+            }
+
+            const { data, error } = await supabaseClient.auth.verifyOtp({
                 token_hash: token_hash,
-                type: 'magiclink'
+                type
             });
 
-            if (error) {
-                document.getElementById('status').textContent = 'Ошибка: ' + error.message;
+            if (error || !data?.session) {
+                document.getElementById('status').textContent = error?.message || 'Supabase не создал сессию. Запросите новую ссылку входа.';
                 return;
+            }
+
+            try {
+                localStorage.setItem('pending_device_registration', data.session.user.id);
+            } catch (storageError) {
+                console.warn('Pending device registration could not be saved:', storageError);
             }
 
             document.getElementById('status').textContent = 'Успех! Перенаправление...';
