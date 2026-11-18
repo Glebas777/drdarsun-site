@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "start:telegram-worker": "node telegram-worker.js"
+    "test:telegram-webhook": "node --test workers/telegram-webhook/test/*.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",

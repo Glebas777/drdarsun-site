@@ -235,6 +235,52 @@ function createBotClient(config, env, request) {
     return { token, telegram, callApi, send, answerCallback, editCallbackMessage, apiBase };
 }
 
+function getBotDefinition(role) {
+    return BOT_DEFINITIONS.find(definition => definition.role === role);
+}
+
+function createBotForRole(role, env, request) {
+    const definition = getBotDefinition(role);
+    const token = definition && typeof env[definition.tokenEnv] === 'string'
+        ? env[definition.tokenEnv].trim()
+        : '';
+    if (!definition || !token) throw new Error(`Telegram ${role} bot is not configured.`);
+
+    for (const candidate of BOT_DEFINITIONS) {
+        const username = candidate.usernameEnv ? env[candidate.usernameEnv] : '';
+        if (typeof username === 'string' && /^[A-Za-z0-9_]{5,32}$/.test(username.trim())) {
+            botUsernames.set(candidate.role, username.trim());
+        }
+    }
+
+    return createBotClient({ ...definition, tokenEnv: '__NORMALIZED_TOKEN' }, {
+        ...env,
+        __NORMALIZED_TOKEN: token
+    }, request);
+}
+
+async function processTelegramUpdate(role, update, options = {}) {
+    const env = options.env || process.env;
+    const request = options.fetch || fetch;
+    const config = { role };
+    const bot = createBotForRole(role, env, request);
+    if (!isPrivateUpdate(update)) return { ignored: true };
+
+    const chatId = updateChatId(update);
+    if (!chatId || !ownerAllowed(role, chatId, env)) return { ignored: true };
+    try {
+        if (update.callback_query) {
+            await handleCallback(config, bot, update.callback_query, chatId);
+        } else if (update.message) {
+            await handleMessage(config, bot, update.message);
+        }
+    } catch (error) {
+        console.error(`Telegram ${role} update failed:`, safeError(error, bot.token));
+        await bot.send(chatId, userFacingError(error));
+    }
+    return { processed: true };
+}
+
 async function showCatalog(bot, chatId) {
     const { products = [] } = await bot.callApi('/client/catalog', chatId);
     const lines = products.slice(0, 30).map(product =>
@@ -1058,11 +1104,7 @@ function startTelegramBots(options = {}) {
                         const chatId = updateChatId(update);
                         if (!ownerAllowed(role, chatId, env)) continue;
                         try {
-                            if (update.callback_query) {
-                                await handleCallback({ role }, bot, update.callback_query, chatId);
-                            } else if (update.message) {
-                                await handleMessage({ role }, bot, update.message);
-                            }
+                            await processTelegramUpdate(role, update, { env, fetch: request });
                         } catch (error) {
                             console.error(`Telegram ${role} update failed:`, safeError(error, bot.token));
                             const userMessage = userFacingError(error);
@@ -1092,4 +1134,10 @@ function startTelegramBots(options = {}) {
     };
 }
 
-module.exports = { startTelegramBots, getPublicBotLinks };
+module.exports = {
+    startTelegramBots,
+    getPublicBotLinks,
+    processTelegramUpdate,
+    getBotState: (role, chatId) => getState(role, chatId),
+    setBotState: (role, chatId, state) => setState(role, chatId, state)
+};

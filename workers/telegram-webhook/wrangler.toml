@@ -1,0 +1,6 @@
+name = "drdarsun-telegram-webhook"
+main = "src/index.mjs"
+compatibility_date = "2026-11-18"
+
+[vars]
+LAYER0_API_BASE_URL = "https://drdarsun-site-main.layero.app"

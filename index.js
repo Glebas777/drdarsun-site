@@ -4,11 +4,18 @@ const crypto = require('crypto');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 const nodemailer = require('nodemailer');
 const createTelegramIntegrationRouter = require('./telegram-integration');
-const { startTelegramBots, getPublicBotLinks } = require('./telegram-bots');
+const {
+    startTelegramBots,
+    getPublicBotLinks,
+    processTelegramUpdate,
+    getBotState,
+    setBotState
+} = require('./telegram-bots');
 const createReviewsApi = require('./reviews-api');
 const createRecoveryCodesRouter = require('./recovery-codes-api');
 const createOAuthCallbacksRouter = require('./oauth-callbacks');
 const createTelegramAuthRouter = require('./telegram-auth-api');
+const createTelegramWebhookApi = require('./telegram-webhook-api');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -29,6 +36,7 @@ const rateLimit = require('express-rate-limit');
 const limiter = rateLimit({
     windowMs: 60 * 1000,
     max: 30,
+    skip: req => req.path.startsWith('/telegram/webhook/'),
     message: { error: 'Слишком много запросов, попробуйте позже.' }
 });
 app.use('/api/', limiter);
@@ -66,7 +74,9 @@ app.get('/api/site-status', async (req, res) => {
 });
 
 app.use(async (req, res, next) => {
-    if (req.path === '/' || req.path === '/api/site-status' || req.path === '/api/telegram/admin/maintenance') return next();
+    if (req.path === '/' || req.path === '/api/site-status' ||
+        req.path === '/api/telegram/admin/maintenance' ||
+        req.path.startsWith('/api/telegram/webhook/')) return next();
     try {
         if (!(await getSiteMaintenanceStatus())) return next();
         res.setHeader('Cache-Control', 'no-store');
@@ -89,6 +99,11 @@ app.use('/api/telegram-auth', rateLimit({
     message: { error: 'Слишком много попыток. Попробуйте позже.' }
 }), createTelegramAuthRouter());
 app.use('/api/telegram', createTelegramIntegrationRouter());
+app.use('/api/telegram/webhook', createTelegramWebhookApi({
+    processTelegramUpdate,
+    getBotState,
+    setBotState
+}));
 app.use('/api/reviews', createReviewsApi());
 app.use('/api/recovery-codes', createRecoveryCodesRouter({
     sendEmail: (...args) => sendEmail(...args)

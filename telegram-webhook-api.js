@@ -1,0 +1,114 @@
+const express = require('express');
+const crypto = require('crypto');
+
+const BOT_ROLES = new Set(['client', 'admin', 'panel', 'auth', 'support']);
+
+function createTelegramWebhookApi(options = {}) {
+    const router = express.Router();
+    const env = options.env || process.env;
+    const request = options.fetch || fetch;
+    const processUpdate = options.processTelegramUpdate;
+    const getBotState = options.getBotState;
+    const setBotState = options.setBotState;
+
+    async function databaseRequest(path, init = {}) {
+        const supabaseUrl = env.SUPABASE_URL?.replace(/\/$/, '');
+        const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
+        if (!supabaseUrl || !serviceRoleKey) throw new Error('Telegram webhook database configuration is missing.');
+        const response = await request(`${supabaseUrl}/rest/v1/${path}`, {
+            ...init,
+            headers: {
+                apikey: serviceRoleKey,
+                Authorization: `Bearer ${serviceRoleKey}`,
+                'Content-Type': 'application/json',
+                ...(init.headers || {})
+            },
+            signal: AbortSignal.timeout(10000)
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok) {
+            console.error('Telegram webhook database request failed:', response.status);
+            throw new Error('Telegram webhook database request failed.');
+        }
+        return result;
+    }
+
+    function secretMatches(suppliedSecret) {
+        const sharedSecret = env.TELEGRAM_WORKER_SHARED_SECRET || '';
+        if (!sharedSecret) return false;
+        return crypto.timingSafeEqual(
+            crypto.createHash('sha256').update(suppliedSecret).digest(),
+            crypto.createHash('sha256').update(sharedSecret).digest()
+        );
+    }
+
+    router.post('/:role', async (req, res) => {
+        const role = req.params.role;
+        const update = req.body;
+        const updateId = Number(update?.update_id);
+        if (!secretMatches(req.get('X-Telegram-Worker-Secret') || '')) {
+            return res.status(401).json({ error: 'Unauthorized webhook sender.' });
+        }
+        if (!BOT_ROLES.has(role) || !Number.isSafeInteger(updateId) || updateId < 0) {
+            return res.status(400).json({ error: 'Invalid Telegram update.' });
+        }
+        if (typeof processUpdate !== 'function' ||
+            typeof getBotState !== 'function' ||
+            typeof setBotState !== 'function') {
+            console.error('Telegram webhook API is missing its update processor.');
+            return res.status(503).json({ error: 'Telegram update processor is unavailable.' });
+        }
+
+        try {
+            const claimed = await databaseRequest('rpc/claim_telegram_webhook_update', {
+                method: 'POST',
+                body: JSON.stringify({ p_bot_role: role, p_update_id: updateId })
+            });
+            if (claimed === 'completed') return res.status(200).json({ ok: true, duplicate: true });
+            if (claimed !== 'claimed') {
+                res.setHeader('Retry-After', '2');
+                return res.status(503).json({ error: 'Telegram update is still being processed.' });
+            }
+
+            const message = update.message || update.callback_query?.message;
+            const chatId = message?.chat?.id === undefined ? '' : String(message.chat.id);
+            if (chatId && message?.chat?.type === 'private') {
+                const stateKey = `bot_role=eq.${encodeURIComponent(role)}&telegram_chat_id=eq.${encodeURIComponent(chatId)}&select=state&limit=1`;
+                const [storedState] = await databaseRequest(`telegram_bot_states?${stateKey}`);
+                setBotState(role, chatId, storedState?.state || {});
+            }
+
+            await processUpdate(role, update, { env, fetch: request });
+
+            if (chatId && message?.chat?.type === 'private') {
+                await databaseRequest('telegram_bot_states?on_conflict=bot_role,telegram_chat_id', {
+                    method: 'POST',
+                    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+                    body: JSON.stringify({
+                        bot_role: role,
+                        telegram_chat_id: chatId,
+                        state: getBotState(role, chatId),
+                        updated_at: new Date().toISOString()
+                    })
+                });
+            }
+            const completed = await databaseRequest('rpc/complete_telegram_webhook_update', {
+                method: 'POST',
+                body: JSON.stringify({ p_bot_role: role, p_update_id: updateId })
+            });
+            if (completed !== true) throw new Error('Telegram webhook update was not marked complete.');
+            return res.status(200).json({ ok: true });
+        } catch (error) {
+            console.error('Telegram webhook update failed:', error);
+            await databaseRequest('rpc/retry_telegram_webhook_update', {
+                method: 'POST',
+                body: JSON.stringify({ p_bot_role: role, p_update_id: updateId })
+            }).catch(retryError => console.error('Telegram webhook retry state update failed:', retryError));
+            return res.status(503).json({ error: 'Telegram update could not be processed.' });
+        }
+    });
+
+    return router;
+}
+
+module.exports = createTelegramWebhookApi;
