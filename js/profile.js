@@ -263,6 +263,18 @@ async function init() {
             telegramLinkStatus.textContent = 'Не удалось проверить подключение Telegram.';
             console.error('Telegram link status check failed:', error);
         }
+        let telegramStatusRefresh;
+        const refreshVisibleTelegramStatus = () => {
+            if (document.visibilityState !== 'visible') return;
+            refreshTelegramLink().catch(error => {
+                telegramLinkStatus.textContent = 'Не удалось проверить подключение Telegram.';
+                console.error('Telegram link refresh failed:', error);
+            });
+        };
+        document.addEventListener('visibilitychange', refreshVisibleTelegramStatus);
+        window.addEventListener('focus', refreshVisibleTelegramStatus);
+        telegramStatusRefresh = window.setInterval(refreshVisibleTelegramStatus, 10000);
+        window.addEventListener('pagehide', () => window.clearInterval(telegramStatusRefresh), { once: true });
     }
 
     // 2. АВАТАРКА
@@ -1319,51 +1331,80 @@ const enableNotifyBtn = document.getElementById('enable-notify-btn');
 const disableNotifyBtn = document.getElementById('disable-notify');
 
 if (notifyEmail) {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) notifyEmail.textContent = session.user.email;
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+        if (error) throw error;
+        if (!session) return;
+        notifyEmail.textContent = session.user.email;
+        const { data, error: settingsError } = await supabase
+            .from('notification_settings')
+            .select('email_enabled')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+        if (settingsError) throw settingsError;
+        if (data?.email_enabled) {
+            enableNotifyBtn.textContent = 'Уведомления включены';
+            disableNotifyBtn.disabled = false;
+        }
+    }).catch(error => {
+        console.error('Email notification preference lookup failed:', error);
+        showToast('Не удалось загрузить настройку email-уведомлений.', 'error');
     });
 }
 enableNotifyBtn?.addEventListener('click', async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
     enableNotifyBtn.disabled = true;
-    enableNotifyBtn.textContent = 'Отправка...';
-
-    const { data, error } = await supabase.functions.invoke('send-notification', {
-        body: {
-            to: session.user.email,
-            subject: 'Уведомления Dr. DarSun включены',
-            html: '<h2>Вы подписались на уведомления</h2><p>Теперь вы будете получать новости о заказах и акциях.</p>'
-        }
-    });
-
-    enableNotifyBtn.disabled = false;
-    enableNotifyBtn.textContent = 'Включить уведомления';
-
-    if (error) {
-        console.error('Function error:', error);
-        showToast('Ошибка: ' + error.message, 'error');
-    } else {
-        showToast('Уведомления включены! Проверьте почту.');
-        // Сохраняем настройку в БД
-        await supabase.from('notification_settings').upsert({
+    try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!session) throw new Error('Войдите в аккаунт и попробуйте снова.');
+        const { error: saveError } = await supabase.from('notification_settings').upsert({
             user_id: session.user.id,
             email_enabled: true
         }, { onConflict: 'user_id' });
+        if (saveError) throw saveError;
+
+        const { error: sendError } = await supabase.functions.invoke('send-notification', {
+            body: {
+                to: session.user.email,
+                subject: 'Уведомления Dr. DarSun включены',
+                html: '<h2>Вы подписались на уведомления</h2><p>Вы можете отключить их в настройках профиля.</p>'
+            }
+        });
+        if (sendError) {
+            await supabase.from('notification_settings').upsert({
+                user_id: session.user.id,
+                email_enabled: false
+            }, { onConflict: 'user_id' });
+            throw sendError;
+        }
+        enableNotifyBtn.textContent = 'Уведомления включены';
+        showToast('Уведомления включены! Проверьте почту.');
+    } catch (error) {
+        console.error('Email notifications could not be enabled:', error);
+        showToast('Не удалось включить уведомления: ' + error.message, 'error');
+    } finally {
+        enableNotifyBtn.disabled = false;
     }
 });
 
 disableNotifyBtn?.addEventListener('click', async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
-    await supabase.from('notification_settings').upsert({
-        user_id: session.user.id,
-        email_enabled: false
-    }, { onConflict: 'user_id' });
-
-    showToast('Уведомления отключены');
+    disableNotifyBtn.disabled = true;
+    try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!session) throw new Error('Войдите в аккаунт и попробуйте снова.');
+        const { error } = await supabase.from('notification_settings').upsert({
+            user_id: session.user.id,
+            email_enabled: false
+        }, { onConflict: 'user_id' });
+        if (error) throw error;
+        enableNotifyBtn.textContent = 'Включить уведомления';
+        showToast('Email-уведомления отключены.');
+    } catch (error) {
+        console.error('Email notifications could not be disabled:', error);
+        showToast('Не удалось отключить уведомления: ' + error.message, 'error');
+    } finally {
+        disableNotifyBtn.disabled = false;
+    }
 });
 
 init();

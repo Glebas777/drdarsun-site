@@ -16,65 +16,15 @@ const REVIEWS_API = 'https://drdarsun-site-main.layero.app/api/reviews';
 let currentSession = null;
 let ownReview = null;
 let moderationRequest = false;
-let pageFlip = null;
-
-function updateBookControls() {
-    if (!pageFlip) return;
-    const index = pageFlip.getCurrentPageIndex();
-    const count = pageFlip.getPageCount();
-    const prev = document.getElementById('review-book-prev');
-    const next = document.getElementById('review-book-next');
-    const status = document.getElementById('review-book-page-status');
-
-    prev.disabled = index <= 0;
-    next.disabled = index >= count - 1;
-    status.textContent = index === 0
-        ? 'Обложка'
-        : index === count - 1
-            ? 'Конец книги'
-            : `Страница ${index} из ${count - 2}`;
-    openBookButton.setAttribute('aria-expanded', String(index > 0 && index < count - 1));
-}
-
 function initializeBook() {
-    const PageFlip = window.St?.PageFlip;
-    if (!PageFlip || !reviewBook) {
-        reviewBook.classList.add('review-book--fallback');
-        return;
-    }
-
-    pageFlip = new PageFlip(reviewBook, {
-        width: 440,
-        height: 610,
-        size: 'stretch',
-        minWidth: 280,
-        maxWidth: 520,
-        minHeight: 420,
-        maxHeight: 680,
-        drawShadow: true,
-        flippingTime: 900,
-        usePortrait: true,
-        startPage: 0,
-        startZIndex: 10,
-        autoSize: true,
-        maxShadowOpacity: 0.36,
-        showCover: true,
-        mobileScrollSupport: false,
-        swipeDistance: 28,
-        clickEventForward: true,
-        useMouseEvents: true
+    if (!reviewBook) return;
+    reviewBook.classList.add('review-book--fallback');
+    openBookButton?.addEventListener('click', () => {
+        document.getElementById('review-form-title')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (reviewForm && !reviewForm.hidden) {
+            reviewForm.elements.namedItem('review-text')?.focus({ preventScroll: true });
+        }
     });
-    pageFlip.loadFromHTML(reviewBook.querySelectorAll('.review-book__page'));
-    pageFlip.on('flip', updateBookControls);
-    pageFlip.on('init', updateBookControls);
-
-    openBookButton?.addEventListener('click', () => pageFlip.flipNext());
-    document.getElementById('review-book-prev')?.addEventListener('click', () => pageFlip.flipPrev());
-    document.getElementById('review-book-next')?.addEventListener('click', () => pageFlip.flipNext());
-    reviewBook.addEventListener('pointerdown', event => {
-        if (event.target.closest('button, input, select, textarea, a, label')) event.stopPropagation();
-    }, true);
-    updateBookControls();
 }
 
 function createReviewCard(review, { moderation = false } = {}) {

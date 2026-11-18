@@ -340,7 +340,6 @@ body.dark-theme .auth-box {
 .social-btn:hover { background: var(--border); }
 .social-btn svg { width: 20px; height: 20px; }
 .social-btn.yandex svg { fill: #FC3F1D; }
-.social-btn.google svg { fill: #4285F4; }
 .social-btn.telegram svg { fill: #229ED9; }
 
 /* Подвал формы */

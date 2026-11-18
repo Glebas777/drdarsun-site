@@ -1,5 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 const BOT_TOKEN_ENV = {
@@ -32,6 +33,7 @@ function createTelegramIntegrationRouter(options = {}) {
     const router = express.Router();
     const env = options.env || process.env;
     const request = options.fetch || fetch;
+    const createTransport = options.createTransport || nodemailer.createTransport;
     const supabaseUrl = env.SUPABASE_URL?.replace(/\/$/, '');
     const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
     const anonKey = env.SUPABASE_ANON_KEY;
@@ -93,6 +95,125 @@ function createTelegramIntegrationRouter(options = {}) {
         }
         next();
     }
+
+    async function getAdminUsersByEmail(emailQuery) {
+        if (!supabaseUrl || !serviceRoleKey) throw new Error('Email delivery is not configured.');
+        const users = [];
+        for (let page = 1; page <= 100; page++) {
+            const query = new URLSearchParams({
+                page: String(page),
+                per_page: '100',
+                ...(emailQuery ? { filter: emailQuery } : {})
+            });
+            const response = await request(`${supabaseUrl}/auth/v1/admin/users?${query}`, {
+                headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` },
+                signal: AbortSignal.timeout(10000)
+            });
+            const result = await response.json().catch(() => null);
+            if (!response.ok || !Array.isArray(result?.users)) {
+                console.error('Admin email recipient lookup failed:', response.status);
+                throw new Error('Не удалось получить список аккаунтов.');
+            }
+            users.push(...result.users);
+            if (result.users.length < 100) return users;
+        }
+        if (emailQuery) return users;
+        throw new Error('Превышен лимит получателей для одной рассылки. Разделите аудиторию.');
+    }
+
+    router.post('/admin/email/send', authenticateBot, allowRoles('admin'), requireOwnerChat, withErrors('Telegram admin email send failed', async (req, res) => {
+        const target = typeof req.body?.target === 'string' ? req.body.target.trim().toLowerCase() : '';
+        const subject = typeof req.body?.subject === 'string' ? req.body.subject.trim() : '';
+        const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+        if (!subject || subject.length > 150 || !text || text.length > 4000) {
+            return res.status(400).json({ error: 'Тема — до 150, текст — от 1 до 4000 символов.' });
+        }
+        if (!/^(all|[^\s@]+@[^\s@]+\.[^\s@]+)$/.test(target)) {
+            return res.status(400).json({ error: 'Укажите точный email аккаунта или all.' });
+        }
+        if (!env.MAIL_SEND_USER || !env.MAIL_SEND_PASS) {
+            return res.status(503).json({ error: 'Почта не настроена: задайте MAIL_SEND_USER и MAIL_SEND_PASS.' });
+        }
+
+        const transport = createTransport({
+            host: 'smtp.yandex.ru',
+            port: 465,
+            secure: true,
+            auth: { user: env.MAIL_SEND_USER, pass: env.MAIL_SEND_PASS },
+            connectionTimeout: 10000,
+            greetingTimeout: 10000,
+            socketTimeout: 20000
+        });
+        let recipients;
+        if (target === 'all') {
+            const subscribedIds = new Set();
+            for (let offset = 0; ; offset += 1000) {
+                const subscribed = await databaseRequest(`notification_settings?select=user_id&email_enabled=eq.true&limit=1000&offset=${offset}`);
+                for (const record of subscribed || []) subscribedIds.add(record.user_id);
+                if (!subscribed || subscribed.length < 1000) break;
+            }
+            const users = await getAdminUsersByEmail('');
+            recipients = users
+                .filter(user => subscribedIds.has(user.id) && user.email && user.email_confirmed_at)
+                .map(user => user.email);
+        } else {
+            const users = await getAdminUsersByEmail(target);
+            const matches = users.filter(user => user.email?.toLowerCase() === target && user.email_confirmed_at);
+            if (matches.length !== 1) return res.status(404).json({ error: 'Подтверждённый аккаунт с таким email не найден.' });
+            recipients = [matches[0].email];
+        }
+        recipients = [...new Set(recipients)];
+        if (!recipients.length) return res.status(200).json({ sent: 0, failed: 0, message: 'Нет подтверждённых подписчиков.' });
+
+        let sent = 0;
+        let failed = 0;
+        const html = `<div style="font-family:Arial,sans-serif;line-height:1.6"><p>${text.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]).replace(/\n/g, '<br>')}</p><hr><small>Письмо отправлено Dr. DarSun. Настройки email-уведомлений доступны в профиле.</small></div>`;
+        for (let offset = 0; offset < recipients.length; offset += 10) {
+            const batch = recipients.slice(offset, offset + 10);
+            const outcomes = await Promise.allSettled(batch.map(to => transport.sendMail({
+                from: env.MAIL_SEND_USER,
+                to,
+                subject,
+                text,
+                html
+            })));
+            sent += outcomes.filter(outcome => outcome.status === 'fulfilled').length;
+            failed += outcomes.filter(outcome => outcome.status === 'rejected').length;
+        }
+        if (failed) console.error('Admin email broadcast had delivery failures:', { sent, failed });
+        res.json({ sent, failed });
+    }));
+
+    router.get('/admin/maintenance', authenticateBot, allowRoles('admin'), requireOwnerChat, withErrors('Telegram maintenance status lookup failed', async (req, res) => {
+        const [setting] = await databaseRequest('site_runtime_settings?select=value&setting_key=eq.site_maintenance&limit=1');
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({ enabled: setting?.value?.enabled === true });
+    }));
+
+    router.post('/admin/maintenance', authenticateBot, allowRoles('admin'), requireOwnerChat, withErrors('Telegram maintenance update failed', async (req, res) => {
+        const configuredPassword = env.SITE_MAINTENANCE_PASSWORD;
+        const suppliedPassword = typeof req.body?.password === 'string' ? req.body.password : '';
+        if (!configuredPassword || configuredPassword.length < 16) {
+            return res.status(503).json({ error: 'Техперерыв не настроен: задайте SITE_MAINTENANCE_PASSWORD (минимум 16 символов).' });
+        }
+        if (typeof req.body?.enabled !== 'boolean') {
+            return res.status(400).json({ error: 'Укажите новое состояние техперерыва.' });
+        }
+        if (!suppliedPassword || !safeEqual(suppliedPassword, configuredPassword)) {
+            return res.status(403).json({ error: 'Неверный пароль подтверждения.' });
+        }
+        const settings = await databaseRequest('site_runtime_settings?on_conflict=setting_key', {
+            method: 'POST',
+            headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+            body: JSON.stringify({
+                setting_key: 'site_maintenance',
+                value: { enabled: req.body.enabled },
+                updated_at: new Date().toISOString()
+            })
+        });
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({ enabled: settings?.[0]?.value?.enabled === true });
+    }));
 
     async function authenticateSiteUser(req, res, next) {
         const authorization = req.get('Authorization') || '';

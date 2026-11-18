@@ -9,8 +9,7 @@
 .reviews-section__heading h2 { margin: 8px 0 0; font-size: clamp(30px, 5vw, 46px); }
 .reviews-section__note { padding-bottom: 5px; color: var(--text-muted); font-size: 13px; }
 .review-book-shell { width: min(100%, 1040px); margin-inline: auto; }
-.review-book { position: relative; width: 100%; height: 660px; margin-inline: auto; filter: drop-shadow(0 28px 42px rgba(48, 37, 22, .18)); }
-.review-book .stf__parent { margin-inline: auto; }
+.review-book { position: relative; width: 100%; margin-inline: auto; }
 .review-book__page { position: relative; display: flex; min-width: 0; flex-direction: column; overflow: hidden; padding: clamp(24px, 4vw, 48px); border: 1px solid #E8DDBB; background: repeating-linear-gradient(0deg, transparent 0 31px, rgba(89, 84, 66, .065) 32px), #FAF7E6; color: #18371C; box-shadow: inset 12px 0 22px rgba(63, 47, 28, .08); }
 .review-book__page--intro { justify-content: center; }
 .review-book__page-number { display: block; color: #817a68; font-size: 9px; font-weight: 700; letter-spacing: .16em; }
@@ -20,7 +19,7 @@
 .review-book__illustration { width: min(56%, 200px); max-height: 185px; align-self: center; object-fit: contain; }
 .review-book__page-number--bottom { position: absolute; right: 24px; bottom: 20px; left: 24px; text-align: center; }
 .review-book__page--form, .review-book__page--entries { align-content: start; gap: 20px; }
-.review-book__page--entries { overflow-y: auto; }
+.review-book__page--entries { overflow: visible; }
 .review-form-card { display: grid; gap: 10px; }
 .review-form-card h3, .review-moderation h3, .review-book__section-title { margin: 0; font-size: 29px; }
 .review-form-card__hint { margin: 0; color: #777568; font-size: 12px; line-height: 1.55; }
@@ -60,12 +59,11 @@
 .review-book__page--closing { align-items: center; justify-content: center; text-align: center; }
 .review-book__page--closing img { width: min(56%, 210px); max-height: 210px; object-fit: contain; }
 .review-book__page--closing h3 { margin: 24px 0 12px; }
-.review-book-controls { display: flex; width: fit-content; align-items: center; justify-content: center; gap: 18px; margin: 18px auto 0; padding: 7px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text-muted); font-size: 12px; }
-.review-book-controls__button { display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid var(--border); border-radius: 50%; background: var(--bg-color); color: var(--text-main); font-size: 20px; cursor: pointer; transition: background .2s ease, transform .2s ease; }
-.review-book-controls__button:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--accent-gold); background: color-mix(in srgb, var(--accent-gold) 18%, var(--bg-card)); }
-.review-book-controls__button:disabled { opacity: .4; cursor: not-allowed; }
-.review-book--fallback { display: grid; height: auto; gap: 12px; }
-.review-book--fallback .review-book__page { min-height: 420px; }
+.review-book--fallback { display: grid; height: auto; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); align-items: stretch; gap: 18px; filter: drop-shadow(0 14px 24px rgba(48, 37, 22, .1)); }
+.review-book--fallback .review-book__page { min-height: 360px; border-radius: 18px; }
+.review-book--fallback .review-book__cover-page, .review-book--fallback .review-book__back-cover { min-height: 360px; }
+.review-book--fallback .review-book__page-number--bottom { position: static; margin-top: auto; padding-top: 20px; }
+.review-book--fallback .review-book__page--entries { align-content: start; }
 .tiktok-banner { position: relative; display: flex; min-height: 230px; align-items: center; justify-content: space-between; gap: 28px; overflow: hidden; margin-top: clamp(56px, 8vw, 96px); padding: clamp(28px, 5vw, 54px); border: 1px solid color-mix(in srgb, var(--accent-gold) 45%, var(--border)); border-radius: 28px; background: radial-gradient(ellipse at 12% 100%, color-mix(in srgb, var(--accent-green) 14%, transparent), transparent 38%), linear-gradient(120deg, var(--bg-card), color-mix(in srgb, var(--accent-gold) 17%, var(--bg-card))); }
 .tiktok-banner__art { position: absolute; right: 31%; bottom: -34px; width: 200px; height: 200px; object-fit: contain; opacity: .82; pointer-events: none; }
 .tiktok-banner__copy { position: relative; z-index: 1; max-width: 520px; }
@@ -74,20 +72,31 @@
 .tiktok-banner__copy p:last-child { margin: 0; color: var(--text-muted); }
 .tiktok-banner__link { position: relative; z-index: 1; flex: 0 0 auto; gap: 9px; background: var(--accent-green); }
 .tiktok-banner__link img { width: 24px; height: 24px; object-fit: contain; }
+.telegram-info { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 220px); align-items: center; gap: 36px; margin: 0 0 clamp(56px, 9vw, 100px); padding: clamp(26px, 5vw, 52px); border: 1px solid var(--border); border-radius: 28px; background: radial-gradient(ellipse at 100% 0, color-mix(in srgb, var(--accent-green) 14%, transparent), transparent 50%), var(--bg-card); }
+.telegram-info h2 { max-width: 700px; margin: 10px 0 16px; font-size: clamp(27px, 4vw, 42px); }
+.telegram-info__copy > p:not(.eyebrow) { max-width: 760px; color: var(--text-muted); line-height: 1.75; }
+.telegram-info__art { display: grid; place-items: center; }
+.telegram-info__art img { width: min(100%, 190px); max-height: 220px; object-fit: contain; }
+.telegram-info__links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.telegram-info__links a { padding: 10px 15px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-color); color: var(--text-main); font-size: 13px; font-weight: 600; }
+.telegram-info__links span { width: 100%; color: var(--text-muted); font-size: 12px; }
 @keyframes cover-prompt { 0%, 100% { opacity: .6; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-4px); } }
 @keyframes review-page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 700px) {
     .reviews-section__heading { align-items: start; flex-direction: column; gap: 8px; }
-    .review-book { height: min(74dvh, 620px); min-height: 500px; filter: drop-shadow(0 18px 28px rgba(48, 37, 22, .15)); }
-    .review-book__page { padding: 26px 22px; }
+    .review-book--fallback { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    .review-book__page { min-height: 0 !important; padding: 26px 22px; }
+    .review-book--fallback .review-book__cover-page { min-height: 360px !important; padding: 0; }
+    .review-book--fallback .review-book__back-cover { display: none; }
     .review-book__cover-page, .review-book__back-cover { padding: 0; }
     .review-book__cover::before { inset: 12px; }
     .review-book__cover::after { inset: 18px; }
     .review-book__cover-prompt { bottom: 30px; }
-    .review-book-controls { margin-top: 14px; }
     .tiktok-banner { min-height: 0; align-items: flex-start; flex-direction: column; gap: 20px; margin-top: 56px; padding: 26px 22px; }
     .tiktok-banner__art { right: -15px; bottom: 20px; width: 130px; height: 130px; opacity: .23; }
     .tiktok-banner__link { width: 100%; }
+    .telegram-info { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    .telegram-info__art { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
     .review-book__cover-prompt, .review-entry { animation: none; }

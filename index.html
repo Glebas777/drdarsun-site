@@ -35,6 +35,7 @@
                 <a href="catalog.html">Каталог</a>
                 <a href="about.html">О нас</a>
                 <a href="delivery.html">Доставка</a>
+                <a href="index.html#news">Новости</a>
             </nav>
     <div class="header__actions">
         <button class="theme-toggle" id="theme-toggle"></button>
@@ -49,6 +50,7 @@
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
             <a href="delivery.html">Доставка</a>
+            <a href="index.html#news">Новости</a>
         </div>
     </header>
 
@@ -72,10 +74,36 @@
 
         <section class="features">
             <div class="container features__grid">
-                <div class="feature-card"><img src="assets/images/check.png" class="feature__icon" alt=""><div class="feature__text"><h3>100% натурально</h3><p>Без добавок</p></div></div>
-                <div class="feature-card"><img src="assets/images/energy.png" class="feature__icon" alt=""><div class="feature__text"><h3>Холодный отжим</h3><p>Бережный способ производства</p></div></div>
-                <div class="feature-card"><img src="assets/images/lock.png" class="feature__icon" alt=""><div class="feature__text"><h3>Контроль качества</h3><p>Внимание к каждой детали</p></div></div>
+                <div class="feature-card"><span class="feature__icon"><img class="theme-asset-light" src="assets/images/check.png" alt=""><img class="theme-asset-dark" src="assets/images/check_dark.png" alt=""></span><div class="feature__text"><h3>100% натурально</h3><p>Без добавок</p></div></div>
+                <div class="feature-card"><span class="feature__icon"><img class="theme-asset-light" src="assets/images/energy.png" alt=""><img class="theme-asset-dark" src="assets/images/energy_dark.png" alt=""></span><div class="feature__text"><h3>Холодный отжим</h3><p>Бережный способ производства</p></div></div>
+                <div class="feature-card"><span class="feature__icon"><img class="theme-asset-light" src="assets/images/lock.png" alt=""><img class="theme-asset-dark" src="assets/images/lock_dark.png" alt=""></span><div class="feature__text"><h3>Контроль качества</h3><p>Внимание к каждой детали</p></div></div>
             </div>
+        </section>
+
+        <section class="news-section container" id="news" aria-labelledby="news-title">
+            <div class="news-section__heading">
+                <div>
+                    <p class="eyebrow">НОВОСТИ DR. DARSUN</p>
+                    <h2 id="news-title">Хорошие новости — мы уже близко</h2>
+                </div>
+                <img src="assets/images/hello.png" alt="" aria-hidden="true">
+            </div>
+            <article class="news-card">
+                <time datetime="2026-11-18T03:51:00+03:00">18 ноября 2026 · 03:51</time>
+                <h3>Готовим сайт к покупкам</h3>
+                <p>Основные разделы уже на месте: каталог, профиль, безопасный вход, отзывы и поддержка. Мы проверяем и шлифуем путь заказа, чтобы скоро покупки на сайте стали доступны и понятны каждому.</p>
+                <p>А дальше — больше полезных функций, новых возможностей и заботы о вашем удобстве. Спасибо, что вы с нами на этом этапе.</p>
+                <div class="news-card__telegram">
+                    <strong>Наши Telegram-боты для покупателей</strong>
+                    <ul id="news-telegram-bots">
+                        <li>Клиентский бот — каталог, заказы и привязка аккаунта.</li>
+                        <li>Бот-помощник — ответы на вопросы и связь с поддержкой.</li>
+                        <li>Бот привязки — безопасное подключение Telegram к профилю.</li>
+                    </ul>
+                    <p id="news-telegram-note" class="social-disclaimer">Если список ссылок временно не загрузился, откройте «О нас» позже.</p>
+                </div>
+                <a class="btn btn--primary" href="about.html#telegram-info">Возможности Telegram-ботов</a>
+            </article>
         </section>
 
         <footer class="footer">
@@ -97,10 +125,11 @@
                     <h4>Контакты</h4>
                     <a href="mailto:info@drdarsun.ru">info@drdarsun.ru</a>
                     <div class="socials">
-                        <a href="https://vk.ru/drdarsun" target="_blank" class="social-link" style="color: var(--text-main); font-size: 14px;">ВК</a>
-                        <a href="https://t.me/drdarsun" target="_blank" class="social-link" style="color: var(--text-main); font-size: 14px;">Telegram</a>
-                        <a href="https://www.instagram.com/drdarsun/" target="_blank" class="social-link" style="color: var(--text-main); font-size: 14px;">Instagram</a>
+                        <a href="https://vk.ru/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="ВКонтакте"><img class="theme-asset-light" src="assets/images/vk.png" alt="ВКонтакте"><img class="theme-asset-dark" src="assets/images/vk_dark.png" alt=""></a>
+                        <a href="https://t.me/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="Telegram"><img class="theme-asset-light" src="assets/images/telegram.png" alt="Telegram"><img class="theme-asset-dark" src="assets/images/telegram_dark.png" alt=""></a>
+                        <a href="https://www.instagram.com/drdarsun/" target="_blank" rel="noopener noreferrer" class="social-link">Instagram*</a>
                     </div>
+                    <p class="social-disclaimer">* Instagram — продукт Meta, организации, деятельность которой запрещена на территории РФ. Аккаунт ведётся с соблюдением требований законодательства РФ.</p>
                 </div>
             </div>
             <div class="footer__bottom">
@@ -131,8 +160,10 @@
 
 <script type="module" src="js/main.js"></script>
 <script type="module" src="js/chat.js"></script>
+<script type="module" src="js/public-telegram-bots.js"></script>
 <script src="js/burger.js"></script>
         <script type="module" src="js/auth-header.js"></script>
             <script src="js/preloader.js"></script>
+    <script src="js/site-status.js"></script>
     </body>
     </html>

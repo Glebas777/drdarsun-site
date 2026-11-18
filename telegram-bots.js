@@ -1,11 +1,11 @@
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 const BOT_DEFINITIONS = [
-    { role: 'client', tokenEnv: 'CLIENT_BOT_TOKEN' },
-    { role: 'admin', tokenEnv: 'ADMIN_BOT_TOKEN' },
-    { role: 'panel', tokenEnv: 'PANEL_BOT_TOKEN' },
-    { role: 'auth', tokenEnv: 'CODE_BOT_TOKEN' },
-    { role: 'support', tokenEnv: 'HELP_BOT_TOKEN' }
+    { role: 'client', tokenEnv: 'CLIENT_BOT_TOKEN', usernameEnv: 'CLIENT_BOT_USERNAME' },
+    { role: 'admin', tokenEnv: 'ADMIN_BOT_TOKEN', usernameEnv: 'ADMIN_BOT_USERNAME' },
+    { role: 'panel', tokenEnv: 'PANEL_BOT_TOKEN', usernameEnv: 'PANEL_BOT_USERNAME' },
+    { role: 'auth', tokenEnv: 'CODE_BOT_TOKEN', usernameEnv: 'AUTH_BOT_USERNAME' },
+    { role: 'support', tokenEnv: 'HELP_BOT_TOKEN', usernameEnv: 'SUPPORT_BOT_USERNAME' }
 ];
 const TOPICS = ['Заказ', 'Доставка', 'Оплата', 'Товар', 'Аккаунт', 'Другое'];
 const ORDER_STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
@@ -71,7 +71,8 @@ function menuKeyboard(role) {
         return {
             keyboard: [
                 [{ text: '🆘 Обращения' }, { text: '✍️ Отзывы' }],
-                [{ text: '📦 Заказы' }]
+                [{ text: '📦 Заказы' }, { text: '🛠 Техперерыв' }],
+                [{ text: '✉️ Email-рассылка' }]
             ],
             resize_keyboard: true
         };
@@ -92,14 +93,18 @@ function inline(rows) {
     return { inline_keyboard: rows };
 }
 
-function publicBotLinks() {
+function publicBotLinks(env = process.env) {
     return [
         ['client', 'Клиентский бот'],
         ['support', 'Бот-помощник'],
         ['auth', 'Бот привязки аккаунта']
     ].flatMap(([role, label]) => {
-        const username = botUsernames.get(role);
-        return username ? [{ role, label, username, url: `https://t.me/${username}` }] : [];
+        const definition = BOT_DEFINITIONS.find(bot => bot.role === role);
+        const configuredUsername = definition?.usernameEnv ? env[definition.usernameEnv] : '';
+        const username = botUsernames.get(role) || (typeof configuredUsername === 'string' ? configuredUsername.trim() : '');
+        return /^[A-Za-z0-9_]{5,32}$/.test(username)
+            ? [{ role, label, username, url: `https://t.me/${username}` }]
+            : [];
     });
 }
 
@@ -116,8 +121,8 @@ function botLinksMessage() {
     return `Боты Dr. DarSun:\n\n${bots.map(bot => `${bot.label}: @${bot.username}\n${bot.url}`).join('\n\n')}`;
 }
 
-function getPublicBotLinks() {
-    return publicBotLinks().map(({ role, label, username, url }) => ({ role, label, username, url }));
+function getPublicBotLinks(env = process.env) {
+    return publicBotLinks(env).map(({ role, label, username, url }) => ({ role, label, username, url }));
 }
 
 function safeText(value, maxLength = 1000) {
@@ -538,6 +543,43 @@ async function handleCallback(config, bot, callback, chatId) {
         return;
     }
     if (config.role === 'admin') {
+        if (data === 'adm:email') {
+            setState('admin', chatId, { flow: 'email-recipient' });
+            await bot.send(chatId, 'Укажите точный email подтверждённого аккаунта или отправьте `all`, чтобы написать пользователям, которые сами включили email-уведомления. Для отмены: /cancel.');
+            return;
+        }
+        if (data === 'adm:email:cancel') {
+            setState('admin', chatId, {});
+            await bot.send(chatId, 'Рассылка отменена.', { reply_markup: menuKeyboard('admin') });
+            return;
+        }
+        if (data === 'adm:email:send') {
+            const state = getState('admin', chatId);
+            if (state.flow !== 'email-confirm') return;
+            const result = await bot.callApi('/admin/email/send', chatId, {
+                method: 'POST',
+                body: JSON.stringify({ target: state.target, subject: state.subject, text: state.text })
+            });
+            setState('admin', chatId, {});
+            await bot.send(chatId, `Рассылка завершена.\nОтправлено: ${result.sent}\nОшибок доставки: ${result.failed}`, { reply_markup: menuKeyboard('admin') });
+            return;
+        }
+        if (data === 'adm:maintenance') {
+            const { enabled } = await bot.callApi('/admin/maintenance', chatId);
+            await bot.send(chatId, `Состояние сайта: ${enabled ? 'техперерыв включён' : 'сайт работает'}.\nВыберите действие:`, {
+                reply_markup: inline([
+                    [{ text: '⏸ Включить техперерыв', callback_data: 'adm:maint:on' }],
+                    [{ text: '▶️ Возобновить сайт', callback_data: 'adm:maint:off' }]
+                ])
+            });
+            return;
+        }
+        if (data === 'adm:maint:on' || data === 'adm:maint:off') {
+            const enabled = data.endsWith(':on');
+            setState('admin', chatId, { flow: 'maintenance-password', enabled });
+            await bot.send(chatId, `${enabled ? 'Поставить весь сайт на технический перерыв' : 'Снять технический перерыв и снова открыть сайт'}?\n\nДля подтверждения отправьте пароль SITE_MAINTENANCE_PASSWORD. Не пересылайте его и не отправляйте в групповой чат. Для отмены: /cancel.`);
+            return;
+        }
         if (data === 'adm:reviews') return listAdminReviews(bot, chatId);
         if (data === 'adm:tickets') return listAdminTickets(bot, chatId);
         const [, action, id] = data.split(':');
@@ -766,6 +808,70 @@ async function handleMessage(config, bot, message) {
     }
 
     if (config.role === 'admin') {
+        const adminState = getState('admin', chatId);
+        if (adminState.flow === 'maintenance-password') {
+            if (text === '/cancel') {
+                setState('admin', chatId, {});
+                await bot.send(chatId, 'Изменение состояния сайта отменено.');
+                return;
+            }
+            if (message.message_id) {
+                await bot.telegram('deleteMessage', {
+                    chat_id: chatId,
+                    message_id: message.message_id
+                }).catch(() => {});
+            }
+            try {
+                const result = await bot.callApi('/admin/maintenance', chatId, {
+                    method: 'POST',
+                    body: JSON.stringify({ enabled: adminState.enabled, password: text })
+                });
+                setState('admin', chatId, {});
+                await bot.send(chatId, result.enabled
+                    ? 'Технический перерыв включён. Страницы сайта будут показывать уведомление.'
+                    : 'Технический перерыв снят. Сайт снова открыт.');
+            } catch (error) {
+                setState('admin', chatId, {});
+                await bot.send(chatId, error.message || 'Не удалось изменить состояние сайта. Проверьте пароль и настройки.');
+            }
+            return;
+        }
+        if (adminState.flow === 'email-recipient' || adminState.flow === 'email-subject' || adminState.flow === 'email-text') {
+            if (text === '/cancel') {
+                setState('admin', chatId, {});
+                await bot.send(chatId, 'Рассылка отменена.', { reply_markup: menuKeyboard('admin') });
+                return;
+            }
+            if (adminState.flow === 'email-recipient') {
+                const target = text.toLowerCase();
+                if (target !== 'all' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target)) {
+                    await bot.send(chatId, 'Введите корректный точный email аккаунта или `all`.');
+                    return;
+                }
+                setState('admin', chatId, { flow: 'email-subject', target });
+                await bot.send(chatId, 'Введите тему письма (до 150 символов).');
+                return;
+            }
+            if (adminState.flow === 'email-subject') {
+                if (!text || text.length > 150) {
+                    await bot.send(chatId, 'Тема должна быть от 1 до 150 символов.');
+                    return;
+                }
+                setState('admin', chatId, { ...adminState, flow: 'email-text', subject: text });
+                await bot.send(chatId, 'Введите текст письма (до 4000 символов).');
+                return;
+            }
+            if (!text || text.length > 4000) {
+                await bot.send(chatId, 'Текст должен быть от 1 до 4000 символов.');
+                return;
+            }
+            const nextState = { ...adminState, flow: 'email-confirm', text };
+            setState('admin', chatId, nextState);
+            await bot.send(chatId, `Проверьте письмо:\n\nКому: ${nextState.target === 'all' ? 'подписчикам email-уведомлений' : safeText(nextState.target, 160)}\nТема: ${safeText(nextState.subject, 150)}\n\n${safeText(nextState.text, 2500)}`, {
+                reply_markup: inline([[{ text: '✅ Подтвердить отправку', callback_data: 'adm:email:send' }, { text: 'Отмена', callback_data: 'adm:email:cancel' }]])
+            });
+            return;
+        }
         if (text.startsWith('/start')) {
             await bot.send(chatId, 'Админ-панель Dr. DarSun. Доступ разрешён только владельцу.', { reply_markup: menuKeyboard('admin') });
         } else if (text === '🆘 Обращения' || text === '/tickets') {
@@ -775,8 +881,19 @@ async function handleMessage(config, bot, message) {
         } else if (text === '📦 Заказы' || text === '/orders') {
             const { orders = [] } = await bot.callApi('/admin/orders', chatId);
             await bot.send(chatId, formatOrders(orders), { reply_markup: menuKeyboard('admin') });
+        } else if (text === '🛠 Техперерыв' || text === '/maintenance') {
+            const { enabled } = await bot.callApi('/admin/maintenance', chatId);
+            await bot.send(chatId, `Состояние сайта: ${enabled ? 'техперерыв включён' : 'сайт работает'}.\nВыберите действие:`, {
+                reply_markup: inline([
+                    [{ text: '⏸ Включить техперерыв', callback_data: 'adm:maint:on' }],
+                    [{ text: '▶️ Возобновить сайт', callback_data: 'adm:maint:off' }]
+                ])
+            });
+        } else if (text === '✉️ Email-рассылка' || text === '/email') {
+            setState('admin', chatId, { flow: 'email-recipient' });
+            await bot.send(chatId, 'Укажите точный email подтверждённого аккаунта или отправьте `all`, чтобы написать пользователям, которые сами включили email-уведомления. Для отмены: /cancel.');
         } else if (text === '/help') {
-            await bot.send(chatId, 'Используйте кнопки для обращений, модерации отзывов и заказов.');
+            await bot.send(chatId, 'Используйте кнопки для обращений, модерации, заказов, техперерыва и email-рассылки. Массовое письмо отправляется только пользователям с включёнными уведомлениями.');
         } else if (getState('admin', chatId).flow === 'ticket-reply') {
             const state = getState('admin', chatId);
             if (text === '/cancel') {
@@ -905,7 +1022,7 @@ function startTelegramBots(options = {}) {
                         commands: role === 'panel'
                             ? [{ command: 'start', description: 'Открыть меню' }, { command: 'orders', description: 'Заказы' }, { command: 'neworder', description: 'Создать заказ' }, { command: 'products', description: 'Товары' }, { command: 'newproduct', description: 'Создать товар' }]
                             : role === 'admin'
-                                ? [{ command: 'start', description: 'Открыть админ-меню' }, { command: 'tickets', description: 'Обращения' }, { command: 'reviews', description: 'Отзывы на модерации' }, { command: 'orders', description: 'Заказы' }]
+                                ? [{ command: 'start', description: 'Открыть админ-меню' }, { command: 'tickets', description: 'Обращения' }, { command: 'reviews', description: 'Отзывы на модерации' }, { command: 'orders', description: 'Заказы' }, { command: 'maintenance', description: 'Техперерыв сайта' }, { command: 'email', description: 'Написать аккаунту или подписчикам' }]
                                 : role === 'support'
                                     ? [{ command: 'start', description: 'Начать общение' }, { command: 'ticket', description: 'Моё обращение' }, { command: 'operator', description: 'Позвать оператора' }, { command: 'bots', description: 'Ссылки на ботов' }, { command: 'help', description: 'Помощь' }]
                                     : [{ command: 'start', description: 'Открыть меню' }, { command: 'link', description: 'Привязать аккаунт: /link КОД' }, { command: 'help', description: 'Помощь' }]

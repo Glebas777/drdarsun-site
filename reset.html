@@ -7,71 +7,70 @@
     <link rel="stylesheet" href="css/base.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.js"></script>
 </head>
-<body style="display: flex; align-items: center; justify-content: center; height: 100vh; background: #0A0A0A; margin: 0;">
-    <div style="background: #151515; border: 1px solid #2A2A2A; padding: 40px; border-radius: 24px; max-width: 400px; width: 90%; text-align: center;">
-        <h2 style="color: #fff; margin-bottom: 20px;">Новый пароль</h2>
-        <p style="color: #aaa; margin-bottom: 20px; font-size: 14px;">Введите новый пароль для входа.</p>
+<body style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg-color); margin: 0;">
+    <div style="background: var(--bg-card); border: 1px solid var(--border); padding: 40px; border-radius: 24px; max-width: 400px; width: 90%; text-align: center;">
+        <h2 style="color: var(--text-main); margin-bottom: 20px;">Новый пароль</h2>
+        <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 14px;">Введите новый пароль для входа.</p>
         
         <form id="reset-form" style="display: flex; flex-direction: column; gap: 15px;">
-            <input type="password" id="reset-password" placeholder="Минимум 6 символов" required style="padding: 12px; border-radius: 8px; border: 1px solid #2A2A2A; background: #0A0A0A; color: #fff; outline: none;">
+            <input type="password" id="reset-password" placeholder="Минимум 8 символов" minlength="8" autocomplete="new-password" required style="padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-color); color: var(--text-main); outline: none;">
             <button type="submit" id="reset-btn" style="padding: 12px; border-radius: 8px; background: #D4AF37; color: #000; border: none; font-weight: bold; cursor: pointer;">Сменить пароль</button>
         </form>
-        <div id="reset-message" style="margin-top: 20px; color: #F44336;"></div>
+        <div id="reset-message" role="status" aria-live="polite" style="margin-top: 20px; color: #F44336;"></div>
     </div>
 
-    <script>
-        const SUPABASE_URL = 'https://drdarsun-site-main.layero.app';
-        const SUPABASE_ANON_KEY = 'ТВОЙ_ANON_KEY_ИЗ_ENV'; // Вставь ключ!
-        
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    <script type="module">
+        import { supabase } from './js/supabase-client.js';
 
-        async function initReset() {
+        const form = document.getElementById('reset-form');
+        const button = document.getElementById('reset-btn');
+        const message = document.getElementById('reset-message');
+        let recoveryReady = false;
+
+        try {
             const params = new URLSearchParams(window.location.search);
-            const token_hash = params.get('token_hash');
-
-            if (!token_hash) {
-                document.getElementById('reset-message').textContent = 'Ошибка: токен не найден.';
-                return;
+            const tokenHash = params.get('token_hash');
+            const code = params.get('code');
+            let error;
+            if (tokenHash) {
+                ({ error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' }));
+            } else if (code) {
+                ({ error } = await supabase.auth.exchangeCodeForSession(code));
+            } else {
+                throw new Error('Ссылка восстановления неполная или устарела. Запросите новую.');
             }
-
-            const { error } = await supabaseClient.auth.verifyOtp({
-                token_hash: token_hash,
-                type: 'recovery'
-            });
-
-            if (error) {
-                document.getElementById('reset-message').textContent = 'Ошибка: ' + error.message;
-            }
+            if (error) throw error;
+            recoveryReady = true;
+            message.textContent = 'Введите новый пароль.';
+            message.style.color = '#4CAF50';
+        } catch (error) {
+            message.textContent = `Не удалось подтвердить ссылку: ${error.message}`;
+            form.hidden = true;
         }
 
-        initReset();
-
-        document.getElementById('reset-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const newPassword = document.getElementById('reset-password').value;
-            const btn = document.getElementById('reset-btn');
-            const msg = document.getElementById('reset-message');
-
-            if (newPassword.length < 6) {
-                msg.textContent = 'Пароль слишком короткий.';
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
+            if (!recoveryReady) return;
+            const password = document.getElementById('reset-password').value;
+            if (password.length < 8) {
+                message.textContent = 'Пароль должен содержать не менее 8 символов.';
                 return;
             }
-
-            btn.disabled = true;
-            btn.textContent = 'Меняем...';
-
-            const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
-
-            if (error) {
-                msg.textContent = 'Ошибка: ' + error.message;
-                btn.disabled = false;
-                btn.textContent = 'Сменить пароль';
-            } else {
-                msg.style.color = '#4CAF50';
-                msg.textContent = 'Пароль успешно изменен! Перенаправление...';
+            button.disabled = true;
+            button.textContent = 'Меняем…';
+            try {
+                const { error } = await supabase.auth.updateUser({ password });
+                if (error) throw error;
+                message.style.color = '#4CAF50';
+                message.textContent = 'Пароль изменён. Перенаправляем на вход…';
                 setTimeout(() => window.location.href = 'login.html', 2000);
+            } catch (error) {
+                message.textContent = `Ошибка: ${error.message}`;
+                button.disabled = false;
+                button.textContent = 'Сменить пароль';
             }
         });
     </script>
+    <script src="js/site-status.js"></script>
 </body>
 </html>
