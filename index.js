@@ -20,7 +20,7 @@ const createTelegramWebhookApi = require('./telegram-webhook-api');
 const app = express();
 app.set('trust proxy', 1);
 app.use(cors({
-    origin: ['https://drdarsun.ru', 'https://drdarsun-site-main.layero.app'],
+    origin: ['https://drdarsun.ru', 'https://www.drdarsun.ru', 'https://drdarsun-site-main.layero.app'],
     credentials: true
 }));
 app.use(express.json({ limit: '32kb' }));
@@ -36,7 +36,7 @@ const rateLimit = require('express-rate-limit');
 const limiter = rateLimit({
     windowMs: 60 * 1000,
     max: 30,
-    skip: req => req.path.startsWith('/telegram/webhook/'),
+    skip: req => req.path === '/site-status' || req.path.startsWith('/telegram/webhook/'),
     message: { error: 'Слишком много запросов, попробуйте позже.' }
 });
 app.use('/api/', limiter);
@@ -59,7 +59,7 @@ async function getSiteMaintenanceStatus() {
         console.error('Site maintenance status lookup failed:', response.status);
         throw new Error('Site maintenance status is unavailable.');
     }
-    maintenanceCache = { enabled: settings[0]?.value?.enabled === true, expiresAt: Date.now() + 500 };
+    maintenanceCache = { enabled: settings[0]?.value?.enabled === true, expiresAt: Date.now() + 5000 };
     return maintenanceCache.enabled;
 }
 

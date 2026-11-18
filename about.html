@@ -33,6 +33,7 @@
             <a href="index.html">Главная</a>
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
+                <a href="scientists-about-oils.html">Учёные о маслах</a>
             <a href="delivery.html">Доставка</a>
             <a href="index.html#news">Новости</a>
         </nav>
@@ -48,6 +49,7 @@
         <a href="index.html">Главная</a>
         <a href="catalog.html">Каталог</a>
         <a href="about.html">О нас</a>
+            <a href="scientists-about-oils.html">Учёные о маслах</a>
         <a href="delivery.html">Доставка</a>
         <a href="index.html#news">Новости</a>
     </div>
@@ -64,8 +66,10 @@
             <div class="telegram-info__copy">
                 <p class="eyebrow">DR. DARSUN В TELEGRAM</p>
                 <h2 id="telegram-info-title">Полезные возможности — прямо в мессенджере</h2>
-                <p>Клиентский бот помогает смотреть каталог и свои заказы, а также связать Telegram с профилем. Бот-помощник отвечает на вопросы и при необходимости передаёт обращение поддержке. Отдельный бот привязки принимает одноразовый код из личного кабинета.</p>
-                <p>Вход и восстановление доступа по Telegram-коду доступны только для аккаунтов, где Telegram уже привязан. Никому не сообщайте код — даже если собеседник представился сотрудником.</p>
+                <p><strong>Клиентский бот</strong> работает с каталогом и вашими заказами после привязки Telegram к профилю. Показывает товары, статус и состав заказа, а также уведомляет о смене статуса.</p>
+                <p><strong>Бот для кодов</strong> создаёт и принимает одноразовый код привязки. Он нужен для безопасного входа по Telegram и восстановления пароля в привязанном аккаунте.</p>
+                <p><strong>Бот-помощник</strong> отвечает на вопросы о товарах, доставке, аккаунте и помощи с подключением. При сложном вопросе создаёт обращение и передаёт переписку оператору.</p>
+                <p>Никому не сообщайте коды и пароли. Администраторские и панельные боты не публикуются на сайте и доступны только владельцам.</p>
                 <div class="telegram-info__links" id="about-telegram-bots" aria-live="polite">
                     <a href="https://t.me/darsunhelp" target="_blank" rel="noopener noreferrer">Бот поддержки · @darsunhelp</a>
                     <span>Ссылки на клиентского бота и бота привязки загрузятся, если боты доступны.</span>
@@ -83,23 +87,32 @@
                     <p class="eyebrow">СЛОВА НАШИХ ПОКУПАТЕЛЕЙ</p>
                     <h2 id="reviews-title">Книга отзывов</h2>
                 </div>
-                <span class="reviews-section__note">Отзывы и форма — на одной странице, без перелистывания</span>
+                <span class="reviews-section__note">Листайте книгу стрелками, чтобы читать истории</span>
             </div>
 
             <div class="review-book-shell">
-                <div class="review-book review-book--fallback" id="review-book" aria-label="Книга отзывов">
+                <div class="review-book" id="review-book" aria-label="Книга отзывов">
                     <div class="review-book__page review-book__cover-page" data-density="hard">
-                        <button class="review-book__cover" id="review-book-open" type="button" aria-label="Открыть книгу отзывов">
+                        <div class="review-book__cover">
                             <span class="review-book__cover-emblem" aria-hidden="true">
                                 <img src="assets/images/logo.png" alt="">
                             </span>
                             <span class="review-book__cover-title">О нас</span>
                             <span class="review-book__cover-subtitle">Книга добрых историй</span>
                             <span class="review-book__cover-author">Dr. DarSun</span>
-                            <span class="review-book__cover-prompt">Нажмите, чтобы перейти к отзывам</span>
+                            <span class="review-book__cover-prompt">Листайте стрелками</span>
                             <span class="review-book__cover-spine" aria-hidden="true"></span>
-                        </button>
+                        </div>
                     </div>
+
+                    <section class="review-book__page review-book__page--about">
+                        <div class="review-form-card">
+                            <h3>О книге</h3>
+                            <p class="review-form-card__hint">Здесь собраны истории покупателей Dr. DarSun. Отзывы проходят проверку перед публикацией.</p>
+                            <img class="review-book__illustration" src="assets/images/sunflower2.png" alt="" loading="lazy">
+                            <p class="review-form-card__hint">Книга открыта для чтения. Новые отзывы сейчас не принимаются.</p>
+                        </div>
+                    </section>
 
                     <section class="review-book__page review-book__page--intro">
                         <span class="review-book__page-number">DR. DARSUN · С 2026</span>
@@ -111,32 +124,6 @@
                         <span class="review-book__page-number review-book__page-number--bottom">СТРАНИЦА 01</span>
                     </section>
 
-                    <section class="review-book__page review-book__page--form">
-                        <div class="review-form-card">
-                            <h3 id="review-form-title">Ваша история</h3>
-                            <p id="review-auth-hint" class="review-form-card__hint">Войдите, чтобы добавить свой отзыв.</p>
-                            <a class="btn btn--primary review-login-link" id="review-login-link" href="login.html?redirect=about.html%23reviews">Войти в аккаунт</a>
-                            <form id="review-form" hidden>
-                                <label for="review-rating">Ваша оценка</label>
-                                <select id="review-rating" name="review-rating" required>
-                                    <option value="5">★★★★★ — отлично</option>
-                                    <option value="4">★★★★☆ — очень хорошо</option>
-                                    <option value="3">★★★☆☆ — хорошо</option>
-                                    <option value="2">★★☆☆☆ — есть замечания</option>
-                                    <option value="1">★☆☆☆☆ — не понравилось</option>
-                                </select>
-                                <label for="review-text">Отзыв</label>
-                                <textarea id="review-text" name="review-text" minlength="5" maxlength="2000" rows="5" required placeholder="Расскажите о своём впечатлении"></textarea>
-                                <p class="review-form-card__hint" id="review-owner-status" aria-live="polite"></p>
-                                <div class="review-form-card__actions">
-                                    <button class="btn btn--primary" id="review-save" type="submit">Отправить на модерацию</button>
-                                    <button class="btn review-delete-btn" id="review-delete" type="button" hidden>Удалить мой отзыв</button>
-                                </div>
-                            </form>
-                        </div>
-                        <span class="review-book__page-number review-book__page-number--bottom">СТРАНИЦА 02</span>
-                    </section>
-
                     <section class="review-book__page review-book__page--entries">
                         <h3 class="review-book__section-title">Страницы читателей</h3>
                         <div class="review-entries" id="brand-review-list" aria-live="polite">
@@ -146,7 +133,7 @@
                             <h3>Отзывы на модерацию</h3>
                             <div id="review-moderation-list"></div>
                         </section>
-                        <span class="review-book__page-number review-book__page-number--bottom">СТРАНИЦА 03</span>
+                        <span class="review-book__page-number review-book__page-number--bottom">СТРАНИЦА 02</span>
                     </section>
 
                     <section class="review-book__page review-book__page--closing">
@@ -154,11 +141,17 @@
                         <h3>Спасибо, что вы с нами</h3>
                         <p>Каждая страница этой книги начинается с вашего доверия.</p>
                         <span class="review-book__signature">Dr. DarSun</span>
+                        <span class="review-book__page-number review-book__page-number--bottom">СТРАНИЦА 03</span>
                     </section>
                     <div class="review-book__page review-book__back-cover" data-density="hard" aria-label="Задняя обложка книги">
                         <img src="assets/images/logo_full.png" alt="Dr. DarSun" loading="lazy">
                     </div>
                 </div>
+                <nav class="review-book-controls" aria-label="Листание книги отзывов">
+                    <button class="btn" id="review-book-prev" type="button" aria-label="Предыдущая страница" disabled>← Назад</button>
+                    <span id="review-book-page-status" aria-live="polite">Обложка</span>
+                    <button class="btn btn--primary" id="review-book-next" type="button" aria-label="Следующая страница">Далее →</button>
+                </nav>
             </div>
         </section>
 
@@ -215,6 +208,7 @@
     </footer>
 
     <script type="module" src="js/public-telegram-bots.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.min.js"></script>
     <script type="module" src="js/about.js"></script>
     <script src="js/main.js"></script>
     <script src="js/burger.js"></script>

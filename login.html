@@ -85,14 +85,14 @@
                 </div>
                 <div class="input-group" id="telegram-auth-code-group" hidden>
                     <label for="telegram-auth-code">Код из Telegram</label>
-                    <input type="text" id="telegram-auth-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6">
+                    <input type="text" id="telegram-auth-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,12}" minlength="6" maxlength="12">
                 </div>
                 <div class="login-actions" id="telegram-auth-verify-actions" hidden>
                     <button type="submit" class="btn btn--primary btn--full" id="telegram-auth-verify">Подтвердить код</button>
                 </div>
                 <div class="input-group" id="telegram-new-password-group" hidden>
                     <label for="telegram-new-password">Новый пароль</label>
-                    <input type="password" id="telegram-new-password" minlength="8" autocomplete="new-password" placeholder="Минимум 8 символов">
+                    <input type="password" id="telegram-new-password" minlength="12" autocomplete="new-password" placeholder="Минимум 12 символов">
                     <button type="button" class="btn btn--primary btn--full" id="telegram-new-password-save">Сохранить новый пароль</button>
                 </div>
                 <a href="#" id="telegram-auth-back" style="display: block; text-align: center; margin-top: 15px; color: #888;">Вернуться ко входу</a>

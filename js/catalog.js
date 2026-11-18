@@ -361,13 +361,34 @@ const chatInput = document.getElementById('catalog-chat-input');
 const chatSend = document.getElementById('catalog-chat-send');
 const chatHistory = [];
 let chatBusy = false;
+const catalogStickers = new Map([
+    [':hello:', 'assets/images/hello.png'],
+    [':hooray:', 'assets/images/hooray.png'],
+    [':ok:', 'assets/images/ok.png'],
+    [':oops:', 'assets/images/oops.png'],
+    [':question:', 'assets/images/question.png'],
+    [':eat:', 'assets/images/eat.png']
+]);
 
 function appendChatMessage(text, sender) {
     const wrapper = document.createElement('div');
     wrapper.className = `msg-wrapper ${sender}`;
     const message = document.createElement('div');
     message.className = 'msg';
-    message.textContent = text;
+    const stickerPattern = /:(?:hello|hooray|ok|oops|question|eat):/g;
+    let cursor = 0;
+    for (const match of text.matchAll(stickerPattern)) {
+        message.append(document.createTextNode(text.slice(cursor, match.index)));
+        const image = document.createElement('img');
+        image.className = 'msg-sticker-img';
+        image.src = catalogStickers.get(match[0]);
+        image.alt = match[0].slice(1, -1);
+        image.width = 64;
+        image.height = 64;
+        message.appendChild(image);
+        cursor = match.index + match[0].length;
+    }
+    message.append(document.createTextNode(text.slice(cursor)));
     wrapper.appendChild(message);
     chatMessages.appendChild(wrapper);
     chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -380,7 +401,10 @@ function setChatOpen(open) {
     if (open) chatInput?.focus();
 }
 
-botToggle?.addEventListener('click', () => setChatOpen(!botModal.classList.contains('active')));
+botToggle?.addEventListener('click', () => {
+    if (!botModal) return;
+    setChatOpen(!botModal.classList.contains('active'));
+});
 botClose?.addEventListener('click', () => setChatOpen(false));
 
 async function sendCatalogMessage() {

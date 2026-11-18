@@ -34,6 +34,7 @@
                 <a href="index.html" class="active">Главная</a>
                 <a href="catalog.html">Каталог</a>
                 <a href="about.html">О нас</a>
+                <a href="scientists-about-oils.html">Учёные о маслах</a>
                 <a href="delivery.html">Доставка</a>
                 <a href="index.html#news">Новости</a>
             </nav>
@@ -49,6 +50,7 @@
             <a href="index.html">Главная</a>
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
+            <a href="scientists-about-oils.html">Учёные о маслах</a>
             <a href="delivery.html">Доставка</a>
             <a href="index.html#news">Новости</a>
         </div>
@@ -61,7 +63,27 @@
                     <p class="hero__subtitle">Для здоровья и вкуса. Отжимаем под заказ.</p>
                     <a href="catalog.html" class="btn btn--primary">В каталог</a>
                 </div>
-                <div class="hero__image"><img src="assets/images/sunflower.png" alt="Масло" class="hero__bottle"></div>
+                <div class="hero__image hero-scene" aria-hidden="true">
+                    <img class="hero-scene__logo" src="assets/images/banner.png" alt="" draggable="false" fetchpriority="high">
+                    <div class="hero-scene__characters">
+                        <span class="hero-character hero-character--darsun">
+                            <img src="assets/images/darsun.png" alt="" draggable="false">
+                            <img src="assets/images/darsun3.png" alt="" draggable="false">
+                        </span>
+                        <span class="hero-character hero-character--flax">
+                            <img src="assets/images/flax2.png" alt="" draggable="false">
+                            <img src="assets/images/flax3.png" alt="" draggable="false">
+                        </span>
+                        <span class="hero-character hero-character--sunflower">
+                            <img src="assets/images/sunflower.png" alt="" draggable="false">
+                            <img src="assets/images/sunflower2.png" alt="" draggable="false">
+                        </span>
+                        <span class="hero-character hero-character--walnut">
+                            <img src="assets/images/walnut2.png" alt="" draggable="false">
+                            <img src="assets/images/walnut3.png" alt="" draggable="false">
+                        </span>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -88,10 +110,23 @@
                 </div>
                 <img src="assets/images/hello.png" alt="" aria-hidden="true">
             </div>
+            <article class="news-card news-card--bots">
+                <time datetime="2026-11-18">18 ноября 2026</time>
+                <h3>Telegram-боты для покупателей</h3>
+                <p><strong>Клиентский бот</strong> показывает каталог, ищет товары и открывает историю и статус заказов привязанного аккаунта.</p>
+                <p><strong>Бот для кодов</strong> выполняет привязку Telegram для входа и восстановления пароля. <strong>Бот-помощник</strong> отвечает на вопросы и передаёт сложные обращения оператору.</p>
+                <a class="btn btn--primary" href="about.html#telegram-info">Посмотреть все три бота</a>
+            </article>
+            <article class="news-card news-card--science">
+                <time datetime="2026-11-18">18 ноября 2026</time>
+                <h3>Новый раздел: «Учёные о маслах»</h3>
+                <p>Открыли справочный раздел о составе растительных масел, незаменимых жирных кислотах, окислении и хранении. В карточках подходящих товаров появился краткий ориентир по составу; точные значения зависят от сырья и партии.</p>
+                <a class="btn btn--primary" href="scientists-about-oils.html">Открыть раздел</a>
+            </article>
             <article class="news-card">
                 <time datetime="2026-11-18T03:51:00+03:00">18 ноября 2026 · 03:51</time>
-                <h3>Готовим сайт к покупкам</h3>
-                <p>Основные разделы уже на месте: каталог, профиль, безопасный вход, отзывы и поддержка. Мы проверяем и шлифуем путь заказа, чтобы скоро покупки на сайте стали доступны и понятны каждому.</p>
+                <h3>Каталог и безопасный вход готовы</h3>
+                <p>Основные разделы уже доступны: каталог, профиль, безопасный вход, отзывы и поддержка. Мы завершаем финальную проверку заказа и обслуживающих интеграций.</p>
                 <p>А дальше — больше полезных функций, новых возможностей и заботы о вашем удобстве. Спасибо, что вы с нами на этом этапе.</p>
                 <div class="news-card__telegram">
                     <strong>Наши Telegram-боты для покупателей</strong>
@@ -138,6 +173,30 @@
         </footer>
 
         <button id="bot-toggle" class="chat-launcher" type="button" aria-label="Открыть чат с Доктором ДарСан" aria-controls="bot-modal" aria-expanded="false">✳</button>
+        <button id="snake-toggle" class="snake-launcher" type="button" aria-label="Открыть игру Змейка" aria-controls="snake-modal" aria-expanded="false">🐍</button>
+        <section class="snake-modal" id="snake-modal" aria-hidden="true" hidden>
+            <div class="snake-modal__panel" role="dialog" aria-modal="true" aria-labelledby="snake-title">
+                <header class="snake-modal__header">
+                    <div>
+                        <h2 id="snake-title">Змейка</h2>
+                        <p>Собирай солнышки и не врезайся в себя.</p>
+                    </div>
+                    <button id="snake-close" type="button" aria-label="Закрыть игру">×</button>
+                </header>
+                <div class="snake-modal__score">Счёт: <strong id="snake-score">0</strong><span>Рекорд: <strong id="snake-best">0</strong></span></div>
+                <canvas id="snake-canvas" width="320" height="320" aria-label="Игровое поле Змейки"></canvas>
+                <p class="snake-modal__status" id="snake-status" aria-live="polite">Нажми «Играть», чтобы начать.</p>
+                <div class="snake-controls" aria-label="Управление змейкой">
+                    <button type="button" data-snake-direction="up" aria-label="Вверх">↑</button>
+                    <div>
+                        <button type="button" data-snake-direction="left" aria-label="Влево">←</button>
+                        <button type="button" data-snake-direction="down" aria-label="Вниз">↓</button>
+                        <button type="button" data-snake-direction="right" aria-label="Вправо">→</button>
+                    </div>
+                </div>
+                <button id="snake-start" class="btn btn--primary snake-modal__start" type="button">Играть</button>
+            </div>
+        </section>
     <!-- Бот -->
     <div class="bot-modal" id="bot-modal" role="dialog" aria-label="Чат с Доктором ДарСан" aria-modal="false">
         <div class="bot-header">
@@ -159,6 +218,8 @@
     </div>
 
 <script type="module" src="js/main.js"></script>
+<script type="module" src="js/hero-scene.js"></script>
+<script type="module" src="js/snake-game.js"></script>
 <script type="module" src="js/chat.js"></script>
 <script type="module" src="js/public-telegram-bots.js"></script>
 <script src="js/burger.js"></script>

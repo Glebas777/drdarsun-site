@@ -106,12 +106,17 @@ function loadHistory() {
 }
 
 function setChatOpen(open) {
-    chatModal?.classList.toggle('active', open);
-    chatToggle?.setAttribute('aria-expanded', String(open));
-    if (open) chatInput?.focus();
+    if (!chatModal || !chatToggle) return;
+    chatModal.classList.toggle('active', open);
+    chatToggle.setAttribute('aria-expanded', String(open));
+    chatToggle.setAttribute('aria-label', open ? 'Закрыть чат с Доктором ДарСан' : 'Открыть чат с Доктором ДарСан');
+    if (open) chatInput?.focus({ preventScroll: true });
 }
 
-chatToggle?.addEventListener('click', () => setChatOpen(!chatModal.classList.contains('active')));
+chatToggle?.addEventListener('click', () => {
+    if (!chatModal) return;
+    setChatOpen(!chatModal.classList.contains('active'));
+});
 chatClose?.addEventListener('click', () => setChatOpen(false));
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') setChatOpen(false);

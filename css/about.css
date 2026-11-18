@@ -18,7 +18,7 @@
 .review-book__signature { display: block; margin-top: 30px; color: #1B5E20; font: 600 24px 'Caveat', cursive; }
 .review-book__illustration { width: min(56%, 200px); max-height: 185px; align-self: center; object-fit: contain; }
 .review-book__page-number--bottom { position: absolute; right: 24px; bottom: 20px; left: 24px; text-align: center; }
-.review-book__page--form, .review-book__page--entries { align-content: start; gap: 20px; }
+.review-book__page--about, .review-book__page--entries { align-content: start; gap: 20px; }
 .review-book__page--entries { overflow: visible; }
 .review-form-card { display: grid; gap: 10px; }
 .review-form-card h3, .review-moderation h3, .review-book__section-title { margin: 0; font-size: 29px; }
@@ -59,11 +59,6 @@
 .review-book__page--closing { align-items: center; justify-content: center; text-align: center; }
 .review-book__page--closing img { width: min(56%, 210px); max-height: 210px; object-fit: contain; }
 .review-book__page--closing h3 { margin: 24px 0 12px; }
-.review-book--fallback { display: grid; height: auto; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); align-items: stretch; gap: 18px; filter: drop-shadow(0 14px 24px rgba(48, 37, 22, .1)); }
-.review-book--fallback .review-book__page { min-height: 360px; border-radius: 18px; }
-.review-book--fallback .review-book__cover-page, .review-book--fallback .review-book__back-cover { min-height: 360px; }
-.review-book--fallback .review-book__page-number--bottom { position: static; margin-top: auto; padding-top: 20px; }
-.review-book--fallback .review-book__page--entries { align-content: start; }
 .tiktok-banner { position: relative; display: flex; min-height: 230px; align-items: center; justify-content: space-between; gap: 28px; overflow: hidden; margin-top: clamp(56px, 8vw, 96px); padding: clamp(28px, 5vw, 54px); border: 1px solid color-mix(in srgb, var(--accent-gold) 45%, var(--border)); border-radius: 28px; background: radial-gradient(ellipse at 12% 100%, color-mix(in srgb, var(--accent-green) 14%, transparent), transparent 38%), linear-gradient(120deg, var(--bg-card), color-mix(in srgb, var(--accent-gold) 17%, var(--bg-card))); }
 .tiktok-banner__art { position: absolute; right: 31%; bottom: -34px; width: 200px; height: 200px; object-fit: contain; opacity: .82; pointer-events: none; }
 .tiktok-banner__copy { position: relative; z-index: 1; max-width: 520px; }
@@ -84,10 +79,7 @@
 @keyframes review-page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 700px) {
     .reviews-section__heading { align-items: start; flex-direction: column; gap: 8px; }
-    .review-book--fallback { grid-template-columns: minmax(0, 1fr); gap: 14px; }
     .review-book__page { min-height: 0 !important; padding: 26px 22px; }
-    .review-book--fallback .review-book__cover-page { min-height: 360px !important; padding: 0; }
-    .review-book--fallback .review-book__back-cover { display: none; }
     .review-book__cover-page, .review-book__back-cover { padding: 0; }
     .review-book__cover::before { inset: 12px; }
     .review-book__cover::after { inset: 18px; }
@@ -100,4 +92,41 @@
 }
 @media (prefers-reduced-motion: reduce) {
     .review-book__cover-prompt, .review-entry { animation: none; }
+}
+
+.review-book {
+    height: clamp(460px, 72dvh, 660px);
+    overflow: hidden;
+}
+.review-book > .stf__wrapper { position: relative; width: 100%; height: 100%; }
+.review-book__page {
+    height: 100%;
+    min-height: 0;
+    border-radius: 18px;
+}
+.review-book__swipe-zone { position: absolute; z-index: 20; top: 0; bottom: 0; width: 40px; touch-action: pan-y; }
+.review-book__swipe-zone--left { left: 0; }
+.review-book__swipe-zone--right { right: 0; }
+.review-book__page--entries { overflow-y: auto; }
+.review-book__cover { min-height: 100%; user-select: none; }
+.review-book.is-closing { animation: review-book-close-spin .85s cubic-bezier(.35, .1, .2, 1) both; }
+.review-book-controls { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 18px; }
+.review-book-controls .btn { min-width: 120px; min-height: 44px; padding: 9px 16px; }
+.review-book-controls .btn:disabled { visibility: hidden; }
+.review-book-controls span { min-width: 140px; color: var(--text-muted); font-size: 13px; font-weight: 650; text-align: center; }
+@keyframes review-book-close-spin {
+    0% { transform: rotateY(0) scale(1); }
+    50% { transform: rotateY(180deg) scale(.91); }
+    100% { transform: rotateY(360deg) scale(1); }
+}
+@media (max-width: 700px) {
+    .review-book { height: min(72dvh, 620px); min-height: 460px; }
+    .review-book__page { padding: 26px 22px; }
+    .review-book-controls { gap: 8px; }
+    .review-book-controls .btn { min-width: 0; padding-inline: 13px; }
+    .review-book-controls span { min-width: 110px; font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .review-book__page.is-active { animation-duration: .4s !important; animation-iteration-count: 1 !important; }
+    .review-book.is-closing { animation-duration: .55s !important; animation-iteration-count: 1 !important; }
 }

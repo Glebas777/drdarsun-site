@@ -12,6 +12,7 @@ const ORDER_STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'cancel
 const states = new Map();
 const histories = new Map();
 const assistantUsage = new Map();
+const supportUsage = new Map();
 const botUsernames = new Map();
 const notified = { tickets: new Map(), reviews: new Set() };
 
@@ -42,8 +43,11 @@ function updateChatId(update) {
 function ownerAllowed(role, chatId, env) {
     if (role === 'admin') return Boolean(env.MY_CHAT_ID) && chatId === env.MY_CHAT_ID;
     if (role === 'panel') {
-        const panelChatId = env.M_CHAT_ID || env.PANEL_CHAT_ID;
-        return Boolean(panelChatId) && chatId === panelChatId;
+        const panelChatIds = String(env.M_CHAT_ID || env.PANEL_CHAT_ID || '')
+            .split(',')
+            .map(value => value.trim())
+            .filter(Boolean);
+        return panelChatIds.includes(chatId);
     }
     return true;
 }
@@ -53,6 +57,7 @@ function menuKeyboard(role) {
         return {
             keyboard: [
                 [{ text: '📚 Каталог' }, { text: '📦 Мои заказы' }],
+                [{ text: 'Найти товар' }, { text: 'Уведомления' }],
                 [{ text: '🔗 Связать аккаунт' }, { text: 'ℹ️ Помощь' }]
             ],
             resize_keyboard: true
@@ -61,7 +66,8 @@ function menuKeyboard(role) {
     if (role === 'support') {
         return {
             keyboard: [
-                [{ text: '🆘 Нужен оператор' }, { text: '📨 Моё обращение' }],
+                [{ text: '🧾 Частые вопросы' }, { text: '🆘 Нужен оператор' }],
+                [{ text: '📨 Моё обращение' }],
                 [{ text: '📂 Выбрать тему' }]
             ],
             resize_keyboard: true
@@ -72,7 +78,7 @@ function menuKeyboard(role) {
             keyboard: [
                 [{ text: '🆘 Обращения' }, { text: '✍️ Отзывы' }],
                 [{ text: '📦 Заказы' }, { text: '🛠 Техперерыв' }],
-                [{ text: '✉️ Email-рассылка' }]
+                [{ text: '🔔 Уведомление' }]
             ],
             resize_keyboard: true
         };
@@ -81,7 +87,8 @@ function menuKeyboard(role) {
         return {
             keyboard: [
                 [{ text: '📦 Заказы' }, { text: '➕ Новый заказ' }],
-                [{ text: '🛍 Товары' }, { text: '➕ Новый товар' }]
+                [{ text: '🛍 Товары' }, { text: '➕ Новый товар' }],
+                [{ text: '🧾 История' }]
             ],
             resize_keyboard: true
         };
@@ -281,21 +288,57 @@ async function processTelegramUpdate(role, update, options = {}) {
     return { processed: true };
 }
 
-async function showCatalog(bot, chatId) {
-    const { products = [] } = await bot.callApi('/client/catalog', chatId);
-    const lines = products.slice(0, 30).map(product =>
-        `• ${safeText(product.name, 120)} — ${Number.isFinite(Number(product.price)) ? `${Number(product.price)} ₽` : 'уточняйте цену'}`
-    );
-    await bot.send(chatId, lines.length ? `Каталог:\n\n${lines.join('\n')}` : 'Каталог пока пуст.');
-}
+const CLIENT_CATALOG_PAGE_SIZE = 8;
+const CLIENT_ORDERS_PAGE_SIZE = 10;
 
-async function showCustomerOrders(bot, chatId) {
-    const result = await bot.callApi('/client/orders', chatId);
-    if (!result.linked) {
-        await bot.send(chatId, 'Чтобы показать ваши заказы, сначала привяжите Telegram в профиле на сайте.');
+async function showCatalog(bot, chatId, { search = '', offset = 0 } = {}) {
+    const result = await bot.callApi(`/client/catalog?search=${encodeURIComponent(search)}&offset=${offset}`, chatId);
+    const products = result.products || [];
+    setState('client', chatId, { flow: 'catalog-list', products, search, offset });
+    if (!products.length) {
+        await bot.send(chatId, search ? `Ничего не найдено по запросу «${safeText(search, 80)}».` : 'Каталог пока пуст.', {
+            reply_markup: inline([[{ text: 'Искать снова', callback_data: 'cl:search' }, { text: 'Показать весь каталог', callback_data: 'cl:catalog' }]])
+        });
         return;
     }
-    await bot.send(chatId, formatOrders(result.orders));
+    const rows = products.map((product, index) => [{
+        text: `${safeText(product.name, 48)} · ${Number.isFinite(Number(product.price)) ? `${Number(product.price)} ₽` : 'цена уточняется'}`,
+        callback_data: `cl:product:${index}`
+    }]);
+    const navigation = [];
+    if (offset > 0) navigation.push({ text: 'Назад', callback_data: 'cl:catalog:prev' });
+    if (result.hasMore) navigation.push({ text: 'Дальше', callback_data: 'cl:catalog:next' });
+    if (navigation.length) rows.push(navigation);
+    rows.push([{ text: 'Поиск товара', callback_data: 'cl:search' }]);
+    await bot.send(chatId,
+        `Каталог${search ? ` · ${safeText(search, 80)}` : ''}\nСтраница ${Math.floor(offset / CLIENT_CATALOG_PAGE_SIZE) + 1} · найдено ${result.total}`,
+        { reply_markup: inline(rows) }
+    );
+}
+
+async function showCustomerOrders(bot, chatId, offset = 0) {
+    const result = await bot.callApi(`/client/orders?offset=${offset}`, chatId);
+    if (!result.linked) {
+        await bot.send(chatId, 'Чтобы показать ваши заказы, сначала привяжите Telegram в профиле на сайте.', {
+            reply_markup: inline([[{ text: 'Открыть профиль', url: 'https://drdarsun.ru/profile.html' }]])
+        });
+        return;
+    }
+    const orders = result.orders || [];
+    setState('client', chatId, { flow: 'orders-list', orders, offset });
+    if (!orders.length) {
+        await bot.send(chatId, 'Заказов пока нет.');
+        return;
+    }
+    const rows = orders.map((order, index) => [{
+        text: `Заказ ${safeText(order.id, 36)} · ${safeText(order.status, 32)} · ${Number(order.total) || 0} ₽`,
+        callback_data: `cl:order:${index}`
+    }]);
+    const navigation = [];
+    if (offset > 0) navigation.push({ text: 'Назад', callback_data: 'cl:orders:prev' });
+    if (result.hasMore) navigation.push({ text: 'Дальше', callback_data: 'cl:orders:next' });
+    if (navigation.length) rows.push(navigation);
+    await bot.send(chatId, 'Ваши заказы. Выберите заказ, чтобы посмотреть позиции и статус:', { reply_markup: inline(rows) });
 }
 
 async function confirmLink(bot, chatId, user, code) {
@@ -318,6 +361,28 @@ function ticketContactLink(number) {
     return `https://t.me/darsunhelp?text=${encodeURIComponent(`Здравствуйте, по обращению №${number}`)}`;
 }
 
+const SUPPORT_FAQ = {
+    account: 'Привязка: войдите в профиль на drdarsun.ru, откройте «Безопасность», создайте код Telegram и отправьте его боту командой /link КОД. Код одноразовый и действует ограниченное время.',
+    orders: 'Заказы доступны в клиентском боте после привязки Telegram к профилю. Команда /orders показывает только заказы вашего аккаунта.',
+    notifications: 'Уведомления о заказах можно включить в профиле в разделе настроек или в клиентском боте командой /notifications.',
+    storage: 'После открытия бутылки следуйте условиям на этикетке. Обычно масло хранят плотно закрытым, вдали от света и источников тепла.'
+};
+
+async function showSupportFaq(bot, chatId, topic) {
+    if (topic && SUPPORT_FAQ[topic]) {
+        await bot.send(chatId, SUPPORT_FAQ[topic], { reply_markup: inline([[{ text: 'Все вопросы', callback_data: 's:faq' }]]) });
+        return;
+    }
+    await bot.send(chatId, 'Выберите вопрос:', {
+        reply_markup: inline([
+            [{ text: 'Привязка аккаунта', callback_data: 's:faq:account' }],
+            [{ text: 'Заказы', callback_data: 's:faq:orders' }],
+            [{ text: 'Уведомления', callback_data: 's:faq:notifications' }],
+            [{ text: 'Хранение масла', callback_data: 's:faq:storage' }]
+        ])
+    });
+}
+
 async function createTicket(bot, chatId, user, message, topic) {
     const result = await bot.callApi('/support/tickets', chatId, {
         method: 'POST',
@@ -332,6 +397,16 @@ async function createTicket(bot, chatId, user, message, topic) {
 }
 
 async function supportMessage(bot, chatId, user, message) {
+    const now = Date.now();
+    const supportAttempts = (supportUsage.get(chatId) || []).filter(timestamp => now - timestamp < 5 * 60 * 1000);
+    if (supportAttempts.length >= 20) {
+        supportUsage.set(chatId, supportAttempts);
+        await bot.send(chatId, 'Слишком много сообщений за короткое время. Подождите несколько минут или воспользуйтесь FAQ.');
+        return;
+    }
+    supportAttempts.push(now);
+    supportUsage.set(chatId, supportAttempts);
+
     const state = getState('support', chatId);
     if (state.awaitingTopicMessage) {
         await createTicket(bot, chatId, user, message, state.topic || 'Другое');
@@ -348,7 +423,6 @@ async function supportMessage(bot, chatId, user, message) {
         return;
     }
 
-    const now = Date.now();
     const usage = (assistantUsage.get(chatId) || []).filter(timestamp => now - timestamp < 5 * 60 * 1000);
     if (usage.length >= 8) {
         assistantUsage.set(chatId, usage);
@@ -374,11 +448,18 @@ async function supportMessage(bot, chatId, user, message) {
     histories.set(chatId, history.slice(-8));
 
     if (response.escalation?.required) {
+        const recentQuestions = history
+            .filter(entry => entry.role === 'user')
+            .slice(-4)
+            .map(entry => safeText(entry.content, 300));
+        const handoffMessage = recentQuestions.length > 1
+            ? `Последний вопрос: ${message}\n\nКонтекст переписки:\n${recentQuestions.slice(0, -1).join('\n')}`.slice(0, 1200)
+            : message;
         await createTicket(
             bot,
             chatId,
             user,
-            message,
+            handoffMessage,
             TOPICS.includes(response.escalation.topic) ? response.escalation.topic : 'Другое'
         );
         return;
@@ -386,36 +467,54 @@ async function supportMessage(bot, chatId, user, message) {
     await bot.send(chatId, response.reply);
 }
 
-async function listAdminTickets(bot, chatId) {
-    const { tickets = [] } = await bot.callApi('/admin/tickets', chatId);
+async function listAdminTickets(bot, chatId, { status = 'open', offset = 0 } = {}) {
+    const result = await bot.callApi(`/admin/tickets?status=${status}&offset=${offset}`, chatId);
+    const tickets = result.tickets || [];
+    setState('admin', chatId, { flow: 'admin-ticket-list', queueStatus: status, offset });
     if (!tickets.length) {
-        await bot.send(chatId, 'Открытых обращений нет.', { reply_markup: menuKeyboard('admin') });
+        await bot.send(chatId, status === 'open' ? 'Открытых обращений нет.' : 'Закрытых обращений нет.', {
+            reply_markup: inline([[{ text: status === 'open' ? 'Показать закрытые' : 'Показать открытые', callback_data: `adm:tickets:filter:${status === 'open' ? 'closed' : 'open'}` }]])
+        });
         return;
     }
-    for (const ticket of tickets.slice(0, 20)) {
+    for (const ticket of tickets) {
         const text = `Обращение №${ticket.ticket_number}\nТема: ${safeText(ticket.topic, 60)}\nTelegram: ${safeText(ticket.telegram_username ? `@${ticket.telegram_username}` : ticket.telegram_chat_id, 80)}\nСоздано: ${new Date(ticket.created_at).toLocaleString('ru-RU')}`;
         await bot.send(chatId, text, {
             reply_markup: inline([[{ text: 'Переписка', callback_data: `adm:t:${ticket.id}` }, { text: 'Ответить', callback_data: `adm:r:${ticket.id}` }, { text: 'Закрыть', callback_data: `adm:c:${ticket.id}` }]])
         });
     }
+    const navigation = [];
+    if (offset > 0) navigation.push({ text: 'Назад', callback_data: 'adm:tickets:prev' });
+    if (result.hasMore) navigation.push({ text: 'Дальше', callback_data: 'adm:tickets:next' });
+    navigation.push({ text: status === 'open' ? 'Закрытые' : 'Открытые', callback_data: `adm:tickets:filter:${status === 'open' ? 'closed' : 'open'}` });
+    await bot.send(chatId, `Обращения: ${status === 'open' ? 'открытые' : 'закрытые'} · страница ${Math.floor(offset / 10) + 1}`, {
+        reply_markup: inline([navigation])
+    });
 }
 
-async function listAdminReviews(bot, chatId) {
-    const { reviews = [] } = await bot.callApi('/admin/reviews', chatId);
+async function listAdminReviews(bot, chatId, offset = 0) {
+    const result = await bot.callApi(`/admin/reviews?offset=${offset}`, chatId);
+    const reviews = result.reviews || [];
+    setState('admin', chatId, { flow: 'admin-review-list', offset });
     if (!reviews.length) {
         await bot.send(chatId, 'Ожидающих модерации отзывов нет.', { reply_markup: menuKeyboard('admin') });
         return;
     }
-    for (const review of reviews.slice(0, 20)) {
+    for (const review of reviews) {
         const text = `${safeText(review.user_name, 80)} · ${review.rating}/5\n${safeText(review.review_text, 2500)}`;
         await bot.send(chatId, text, {
             reply_markup: inline([[{ text: '✅ Одобрить', callback_data: `adm:ra:${review.id}` }, { text: '❌ Отклонить', callback_data: `adm:rr:${review.id}` }]])
         });
     }
+    const navigation = [];
+    if (offset > 0) navigation.push({ text: 'Назад', callback_data: 'adm:reviews:prev' });
+    if (result.hasMore) navigation.push({ text: 'Дальше', callback_data: 'adm:reviews:next' });
+    if (navigation.length) await bot.send(chatId, `Модерация отзывов · страница ${Math.floor(offset / 10) + 1}`, { reply_markup: inline([navigation]) });
 }
 
-async function listOrders(bot, chatId) {
-    const result = await bot.callApi('/panel/orders', chatId);
+async function listOrders(bot, chatId, { status = '', offset = 0 } = {}) {
+    const result = await bot.callApi(`/panel/orders?offset=${offset}${status ? `&status=${encodeURIComponent(status)}` : ''}`, chatId);
+    setState('panel', chatId, { flow: 'orders-list', status, offset, orders: result.orders || [] });
     if (!result.orders?.length) {
         await bot.send(chatId, 'Заказов пока нет.', { reply_markup: menuKeyboard('panel') });
         return;
@@ -424,7 +523,7 @@ async function listOrders(bot, chatId) {
         const text = `Заказ ${safeText(order.id, 40)}\n${formatOrders([order])}\nПозиции: ${Array.isArray(order.items) ? order.items.map(item => `${safeText(item.name || item.product_id, 80)} × ${item.quantity || 1}`).join(', ') : '—'}`;
         const buttons = ORDER_STATUSES.map(status => ({
             text: `${order.status === status ? '• ' : ''}${status}`,
-            callback_data: `p:o:${order.id}:${status}`
+            callback_data: `p:o:${result.orders.indexOf(order)}:${status}`
         }));
         await bot.send(chatId, text, { reply_markup: inline(buttons.reduce((rows, button, index) => {
             const row = Math.floor(index / 3);
@@ -433,6 +532,44 @@ async function listOrders(bot, chatId) {
             return rows;
         }, [])) });
     }
+    const filters = [{ text: 'Все', callback_data: 'p:filter:all' }, ...ORDER_STATUSES.map(value => ({ text: value, callback_data: `p:filter:${value}` }))];
+    const navigation = [];
+    if (offset > 0) navigation.push({ text: 'Назад', callback_data: 'p:orders:prev' });
+    if (result.hasMore) navigation.push({ text: 'Дальше', callback_data: 'p:orders:next' });
+    await bot.send(chatId, `Заказы${status ? ` · ${status}` : ''} · страница ${Math.floor(offset / 10) + 1}`, {
+        reply_markup: inline([filters.slice(0, 3), filters.slice(3), navigation].filter(row => row.length))
+    });
+}
+
+async function listAuditLog(bot, chatId, offset = 0) {
+    const { entries = [], hasMore = false } = await bot.callApi(`/panel/audit?offset=${offset}`, chatId);
+    setState('panel', chatId, { flow: 'audit-list', offset });
+    if (!entries.length) {
+        await bot.send(chatId, 'Журнал изменений пока пуст.', { reply_markup: menuKeyboard('panel') });
+        return;
+    }
+    const actionLabels = {
+        'order.created': 'Заказ создан',
+        'order.updated': 'Заказ изменён',
+        'product.created': 'Товар создан',
+        'product.updated': 'Товар изменён',
+        'review.moderated': 'Отзыв модерирован',
+        'ticket.closed': 'Обращение закрыто',
+        'toast.sent': 'Уведомление отправлено',
+        'maintenance.changed': 'Техперерыв изменён'
+    };
+    const lines = entries.map(entry => {
+        const date = new Date(entry.created_at).toLocaleString('ru-RU');
+        const action = actionLabels[entry.action] || safeText(entry.action, 80);
+        const details = safeText(JSON.stringify(entry.details || {}), 280);
+        return `${date}\n${action} · ${safeText(entry.entity_type, 40)} ${safeText(entry.entity_id, 48)}\n${details}`;
+    });
+    const navigation = [];
+    if (offset > 0) navigation.push({ text: 'Назад', callback_data: 'p:audit:prev' });
+    if (hasMore) navigation.push({ text: 'Дальше', callback_data: 'p:audit:next' });
+    await bot.send(chatId, `История действий · страница ${Math.floor(offset / 20) + 1}\n\n${lines.join('\n\n')}`, {
+        reply_markup: navigation.length ? inline([navigation]) : menuKeyboard('panel')
+    });
 }
 
 async function listProducts(bot, chatId) {
@@ -543,9 +680,10 @@ async function processPanelText(bot, chatId, text) {
             await bot.send(chatId, prompts[next]);
             return;
         }
-        const result = await bot.callApi('/panel/products', chatId, { method: 'POST', body: JSON.stringify(product) });
-        setState('panel', chatId, {});
-        await bot.send(chatId, `Товар опубликован: ${safeText(result.product.name, 160)} · ${Number(result.product.price)} ₽`, { reply_markup: menuKeyboard('panel') });
+        setState('panel', chatId, { flow: 'confirm-new-product', product });
+        await bot.send(chatId, `Проверьте товар перед публикацией:\n\n${safeText(product.name, 160)}\n${safeText(product.category, 80)} · ${Number(product.price)} ₽\n\n${safeText(product.description, 700)}\n\nИзображение: ${product.image_url ? safeText(product.image_url, 300) : 'не задано'}`, {
+            reply_markup: inline([[{ text: 'Опубликовать', callback_data: 'p:product:create:confirm' }, { text: 'Отмена', callback_data: 'p:product:create:cancel' }]])
+        });
         return;
     }
     if (state.flow === 'edit-product-value') {
@@ -557,13 +695,21 @@ async function processPanelText(bot, chatId, text) {
                 await bot.send(chatId, 'Введите цену числом от 0 до 10 000 000.');
                 return;
             }
+        } else {
+            const maxLength = field === 'name' ? 160 : field === 'category' ? 80 : 2000;
+            if (value.length > maxLength || (field !== 'description' && field !== 'image_url' && !value)) {
+                await bot.send(chatId, `Проверьте значение: максимум ${maxLength} символов.`);
+                return;
+            }
+            if (field === 'image_url' && value && !/^https?:\/\/\S+$/i.test(value)) {
+                await bot.send(chatId, 'Укажите ссылку https://… или пустое значение.');
+                return;
+            }
         }
-        await bot.callApi(`/panel/products/${encodeURIComponent(productId)}`, chatId, {
-            method: 'PATCH',
-            body: JSON.stringify({ [field]: value })
+        setState('panel', chatId, { flow: 'confirm-product-update', productId, field, value });
+        await bot.send(chatId, `Подтвердите изменение товара.\nПоле: ${field}\nНовое значение: ${safeText(value, 700)}`, {
+            reply_markup: inline([[{ text: 'Сохранить', callback_data: 'p:product:update:confirm' }, { text: 'Отмена', callback_data: 'p:product:update:cancel' }]])
         });
-        setState('panel', chatId, {});
-        await bot.send(chatId, 'Товар обновлён.', { reply_markup: menuKeyboard('panel') });
     }
 }
 
@@ -571,43 +717,186 @@ async function handleCallback(config, bot, callback, chatId) {
     const data = String(callback.data || '');
     await bot.answerCallback(callback.id);
     if (config.role === 'support') {
-        if (data.startsWith('s:topic:')) {
-            const topicIndex = Number(data.slice('s:topic:'.length));
-            const topic = TOPICS[topicIndex];
-            if (!topic) return;
-            setState('support', chatId, { topic, awaitingTopicMessage: true });
-            await bot.send(chatId, `Тема «${topic}». Кратко опишите вопрос, и я передам его оператору.`);
+        if (data === 's:faq') {
+            await showSupportFaq(bot, chatId);
+        } else if (data.startsWith('s:faq:')) {
+            await showSupportFaq(bot, chatId, data.slice('s:faq:'.length));
         } else if (data === 's:close') {
             const { ticket } = await getMyTicket(bot, chatId);
             if (!ticket) {
                 await bot.send(chatId, 'У вас нет открытого обращения.');
                 return;
             }
+            setState('support', chatId, { flow: 'confirm-close-ticket', ticketId: ticket.id });
+            await bot.send(chatId, `Закрыть обращение №${ticket.ticket_number}?`, {
+                reply_markup: inline([[{ text: 'Подтвердить закрытие', callback_data: 's:close:confirm' }, { text: 'Отмена', callback_data: 's:close:cancel' }]])
+            });
+        } else if (data === 's:close:cancel') {
+            setState('support', chatId, {});
+            await bot.editCallbackMessage(callback, 'Обращение оставлено открытым.');
+        } else if (data === 's:close:confirm') {
+            const state = getState('support', chatId);
+            if (state.flow !== 'confirm-close-ticket' || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(state.ticketId || '')) return;
+            const { ticket } = await getMyTicket(bot, chatId);
+            if (!ticket || ticket.id !== state.ticketId) {
+                setState('support', chatId, {});
+                await bot.editCallbackMessage(callback, 'Открытое обращение уже не найдено.');
+                return;
+            }
             await bot.callApi(`/support/tickets/${ticket.id}/close`, chatId, { method: 'POST', body: '{}' });
-            await bot.send(chatId, `Обращение №${ticket.ticket_number} закрыто.`);
+            setState('support', chatId, {});
+            await bot.editCallbackMessage(callback, `Обращение №${ticket.ticket_number} закрыто.`);
+        } else if (data.startsWith('s:topic:')) {
+            const topicIndex = Number(data.slice('s:topic:'.length));
+            const topic = TOPICS[topicIndex];
+            if (!topic) return;
+            setState('support', chatId, { topic, awaitingTopicMessage: true });
+            await bot.send(chatId, `Тема «${topic}». Кратко опишите вопрос, и я передам его оператору.`);
+        }
+        return;
+    }
+    if (config.role === 'client') {
+        const state = getState('client', chatId);
+        if (data === 'cl:search') {
+            setState('client', chatId, { flow: 'catalog-search' });
+            await bot.send(chatId, 'Введите название товара или категорию. Для отмены отправьте /cancel.');
+        } else if (data === 'cl:catalog') {
+            await showCatalog(bot, chatId);
+        } else if (data === 'cl:catalog:next' || data === 'cl:catalog:prev') {
+            await showCatalog(bot, chatId, {
+                search: state.search || '',
+                offset: Math.max(0, (state.offset || 0) + (data.endsWith('next') ? CLIENT_CATALOG_PAGE_SIZE : -CLIENT_CATALOG_PAGE_SIZE))
+            });
+        } else if (data.startsWith('cl:product:')) {
+            const product = state.products?.[Number(data.slice('cl:product:'.length))];
+            if (!product) return;
+            const description = safeText(product.description, 1200) || 'Описание пока не добавлено.';
+            await bot.send(chatId,
+                `${safeText(product.name, 120)}\n${safeText(product.category, 80)} · ${Number(product.price) || 0} ₽\n\n${description}`,
+                { reply_markup: inline([[{ text: 'Назад к каталогу', callback_data: 'cl:catalog' }, { text: 'Поиск товара', callback_data: 'cl:search' }]]) }
+            );
+        } else if (data === 'cl:orders:next' || data === 'cl:orders:prev') {
+            await showCustomerOrders(bot, chatId, Math.max(0, (state.offset || 0) + (data.endsWith('next') ? CLIENT_ORDERS_PAGE_SIZE : -CLIENT_ORDERS_PAGE_SIZE)));
+        } else if (data.startsWith('cl:order:')) {
+            const order = state.orders?.[Number(data.slice('cl:order:'.length))];
+            if (!order) return;
+            const items = Array.isArray(order.items)
+                ? order.items.map(item => `${safeText(item.name || item.product_id, 100)} × ${Number(item.quantity) || 1}`).join('\n')
+                : 'Состав заказа недоступен.';
+            await bot.send(chatId,
+                `Заказ ${safeText(order.id, 80)}\nСтатус: ${safeText(order.status, 32)}\nДата: ${new Date(order.created_at).toLocaleDateString('ru-RU')}\nСумма: ${Number(order.total) || 0} ₽\n\n${items}`,
+                { reply_markup: inline([[{ text: 'Назад к заказам', callback_data: 'cl:orders:prev' }]]) }
+            );
+        } else if (data === 'cl:notifications') {
+            const preferences = await bot.callApi('/client/notifications', chatId);
+            if (!preferences.linked) {
+                await bot.send(chatId, 'Сначала привяжите Telegram в профиле на сайте, чтобы управлять уведомлениями.');
+                return;
+            }
+            setState('client', chatId, { ...state, notificationsEnabled: preferences.enabled });
+            await bot.send(chatId, `Уведомления о заказах: ${preferences.enabled ? 'включены' : 'выключены'}.`, {
+                reply_markup: inline([[{ text: preferences.enabled ? 'Выключить уведомления' : 'Включить уведомления', callback_data: 'cl:notifications:toggle' }]])
+            });
+        } else if (data === 'cl:notifications:toggle') {
+            const preferences = await bot.callApi('/client/notifications', chatId);
+            if (!preferences.linked) {
+                await bot.send(chatId, 'Сначала привяжите Telegram в профиле на сайте, чтобы управлять уведомлениями.');
+                return;
+            }
+            const updated = await bot.callApi('/client/notifications', chatId, {
+                method: 'PATCH',
+                body: JSON.stringify({ enabled: !preferences.enabled })
+            });
+            setState('client', chatId, { ...state, notificationsEnabled: updated.enabled });
+            await bot.editCallbackMessage(callback, `Уведомления о заказах ${updated.enabled ? 'включены' : 'выключены'}.`);
         }
         return;
     }
     if (config.role === 'admin') {
-        if (data === 'adm:email') {
-            setState('admin', chatId, { flow: 'email-recipient' });
-            await bot.send(chatId, 'Укажите точный email подтверждённого аккаунта или отправьте `all`, чтобы написать пользователям, которые сами включили email-уведомления. Для отмены: /cancel.');
+        if (data.startsWith('adm:tickets:filter:')) {
+            const status = data.slice('adm:tickets:filter:'.length);
+            if (!['open', 'closed'].includes(status)) return;
+            await listAdminTickets(bot, chatId, { status, offset: 0 });
             return;
         }
-        if (data === 'adm:email:cancel') {
-            setState('admin', chatId, {});
-            await bot.send(chatId, 'Рассылка отменена.', { reply_markup: menuKeyboard('admin') });
-            return;
-        }
-        if (data === 'adm:email:send') {
+        if (data === 'adm:tickets:next' || data === 'adm:tickets:prev') {
             const state = getState('admin', chatId);
-            if (state.flow !== 'email-confirm') return;
-            const result = await bot.callApi('/admin/email/send', chatId, {
-                method: 'POST',
-                body: JSON.stringify({ target: state.target, subject: state.subject, text: state.text })
+            if (state.flow !== 'admin-ticket-list') return;
+            await listAdminTickets(bot, chatId, {
+                status: state.queueStatus,
+                offset: Math.max(0, state.offset + (data.endsWith('next') ? 10 : -10))
+            });
+            return;
+        }
+        if (data === 'adm:reviews:next' || data === 'adm:reviews:prev') {
+            const state = getState('admin', chatId);
+            if (state.flow !== 'admin-review-list') return;
+            await listAdminReviews(bot, chatId, Math.max(0, state.offset + (data.endsWith('next') ? 10 : -10)));
+            return;
+        }
+        if (data === 'adm:review:cancel' || data === 'adm:ticket:cancel') {
+            setState('admin', chatId, {});
+            await bot.editCallbackMessage(callback, 'Действие отменено.');
+            return;
+        }
+        if (data === 'adm:review:confirm') {
+            const state = getState('admin', chatId);
+            if (state.flow !== 'confirm-review') return;
+            await bot.callApi(`/admin/reviews/${state.reviewId}`, chatId, {
+                method: 'PATCH',
+                body: JSON.stringify({ status: state.status })
             });
             setState('admin', chatId, {});
-            await bot.send(chatId, `Рассылка завершена.\nОтправлено: ${result.sent}\nОшибок доставки: ${result.failed}`, { reply_markup: menuKeyboard('admin') });
+            await bot.editCallbackMessage(callback, state.status === 'approved' ? 'Отзыв опубликован.' : 'Отзыв отклонён.');
+            return;
+        }
+        if (data === 'adm:ticket:confirm') {
+            const state = getState('admin', chatId);
+            if (state.flow !== 'confirm-ticket-close') return;
+            await bot.callApi(`/admin/tickets/${state.ticketId}`, chatId, {
+                method: 'PATCH',
+                body: JSON.stringify({ status: 'closed' })
+            });
+            setState('admin', chatId, {});
+            await bot.editCallbackMessage(callback, 'Обращение закрыто.');
+            return;
+        }
+        if (data === 'adm:toast') {
+            setState('admin', chatId, { flow: 'toast-recipient' });
+            await bot.send(chatId, 'Кому показать уведомление? Отправьте email конкретного аккаунта или `all` для всех пользователей сайта. Для отмены: /cancel.');
+            return;
+        }
+        if (data === 'adm:toast:cancel') {
+            setState('admin', chatId, {});
+            await bot.send(chatId, 'Создание уведомления отменено.', { reply_markup: menuKeyboard('admin') });
+            return;
+        }
+        if (data.startsWith('adm:toast:kind:')) {
+            const state = getState('admin', chatId);
+            const kind = data.slice('adm:toast:kind:'.length);
+            if (state.flow !== 'toast-kind' || !['info', 'success', 'warning', 'error'].includes(kind)) return;
+            const nextState = { ...state, flow: 'toast-confirm', kind };
+            setState('admin', chatId, nextState);
+            const recipient = nextState.target === 'all' ? 'всем пользователям' : safeText(nextState.target, 160);
+            await bot.send(chatId, `Проверьте уведомление:\n\nКому: ${recipient}\nСтиль: ${kind}\nПоказывать: ${nextState.durationSeconds} сек.\n\n${safeText(nextState.message, 500)}`, {
+                reply_markup: inline([[{ text: '✅ Отправить', callback_data: 'adm:toast:send' }, { text: 'Отмена', callback_data: 'adm:toast:cancel' }]])
+            });
+            return;
+        }
+        if (data === 'adm:toast:send') {
+            const state = getState('admin', chatId);
+            if (state.flow !== 'toast-confirm') return;
+            const result = await bot.callApi('/admin/toasts/send', chatId, {
+                method: 'POST',
+                body: JSON.stringify({
+                    target: state.target,
+                    message: state.message,
+                    kind: state.kind,
+                    durationSeconds: state.durationSeconds
+                })
+            });
+            setState('admin', chatId, {});
+            await bot.send(chatId, `Уведомление создано.\nПолучателей: ${result.sent}\nСрок показа: ${result.durationSeconds} сек.`, { reply_markup: menuKeyboard('admin') });
             return;
         }
         if (data === 'adm:maintenance') {
@@ -631,14 +920,16 @@ async function handleCallback(config, bot, callback, chatId) {
         const [, action, id] = data.split(':');
         if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return;
         if (action === 'ra' || action === 'rr') {
-            await bot.callApi(`/admin/reviews/${id}`, chatId, {
-                method: 'PATCH',
-                body: JSON.stringify({ status: action === 'ra' ? 'approved' : 'rejected' })
+            const status = action === 'ra' ? 'approved' : 'rejected';
+            setState('admin', chatId, { flow: 'confirm-review', reviewId: id, status });
+            await bot.send(chatId, `${status === 'approved' ? 'Опубликовать' : 'Отклонить'} этот отзыв?`, {
+                reply_markup: inline([[{ text: 'Подтвердить', callback_data: 'adm:review:confirm' }, { text: 'Отмена', callback_data: 'adm:review:cancel' }]])
             });
-            await bot.editCallbackMessage(callback, action === 'ra' ? 'Отзыв одобрен.' : 'Отзыв отклонён.');
         } else if (action === 'c') {
-            await bot.callApi(`/admin/tickets/${id}`, chatId, { method: 'PATCH', body: JSON.stringify({ status: 'closed' }) });
-            await bot.editCallbackMessage(callback, 'Обращение закрыто.');
+            setState('admin', chatId, { flow: 'confirm-ticket-close', ticketId: id });
+            await bot.send(chatId, 'Закрыть это обращение?', {
+                reply_markup: inline([[{ text: 'Подтвердить закрытие', callback_data: 'adm:ticket:confirm' }, { text: 'Отмена', callback_data: 'adm:ticket:cancel' }]])
+            });
         } else if (action === 't') {
             const { messages = [] } = await bot.callApi(`/admin/tickets/${id}/messages`, chatId);
             const text = messages.map(message => `${message.sender_role === 'customer' ? 'Клиент' : 'Поддержка'}: ${safeText(message.message, 1200)}`).join('\n\n');
@@ -652,6 +943,65 @@ async function handleCallback(config, bot, callback, chatId) {
         return;
     }
     if (config.role === 'panel') {
+        if (data === 'p:audit:next' || data === 'p:audit:prev') {
+            const state = getState('panel', chatId);
+            if (state.flow !== 'audit-list') return;
+            await listAuditLog(bot, chatId, Math.max(0, state.offset + (data.endsWith('next') ? 20 : -20)));
+            return;
+        }
+        if (data.startsWith('p:filter:')) {
+            const status = data.slice('p:filter:'.length);
+            if (status !== 'all' && !ORDER_STATUSES.includes(status)) return;
+            await listOrders(bot, chatId, { status: status === 'all' ? '' : status, offset: 0 });
+            return;
+        }
+        if (data === 'p:orders:next' || data === 'p:orders:prev') {
+            const state = getState('panel', chatId);
+            if (state.flow !== 'orders-list') return;
+            await listOrders(bot, chatId, {
+                status: state.status,
+                offset: Math.max(0, state.offset + (data.endsWith('next') ? 10 : -10))
+            });
+            return;
+        }
+        if (data === 'p:status:confirm') {
+            const state = getState('panel', chatId);
+            if (state.flow !== 'confirm-order-status') return;
+            await bot.callApi(`/panel/orders/${encodeURIComponent(state.orderId)}`, chatId, {
+                method: 'PATCH',
+                body: JSON.stringify({ status: state.status })
+            });
+            setState('panel', chatId, {});
+            await bot.editCallbackMessage(callback, `Статус заказа изменён: ${state.status}.`);
+            return;
+        }
+        if (data === 'p:status:cancel' || data === 'p:product:create:cancel' || data === 'p:product:update:cancel') {
+            setState('panel', chatId, {});
+            await bot.editCallbackMessage(callback, 'Действие отменено.');
+            return;
+        }
+        if (data === 'p:product:create:confirm') {
+            const state = getState('panel', chatId);
+            if (state.flow !== 'confirm-new-product') return;
+            const result = await bot.callApi('/panel/products', chatId, {
+                method: 'POST',
+                body: JSON.stringify(state.product)
+            });
+            setState('panel', chatId, {});
+            await bot.editCallbackMessage(callback, `Товар опубликован: ${safeText(result.product.name, 160)} · ${Number(result.product.price)} ₽`);
+            return;
+        }
+        if (data === 'p:product:update:confirm') {
+            const state = getState('panel', chatId);
+            if (state.flow !== 'confirm-product-update') return;
+            await bot.callApi(`/panel/products/${encodeURIComponent(state.productId)}`, chatId, {
+                method: 'PATCH',
+                body: JSON.stringify({ [state.field]: state.value })
+            });
+            setState('panel', chatId, {});
+            await bot.editCallbackMessage(callback, 'Изменение товара сохранено.');
+            return;
+        }
         if (data === 'p:done') {
             const state = getState('panel', chatId);
             if (state.flow !== 'new-order-products' || !state.items.length) {
@@ -696,13 +1046,14 @@ async function handleCallback(config, bot, callback, chatId) {
             await bot.send(chatId, `Сколько «${safeText(state.products[index].name, 100)}» добавить? (1–99)`);
             return;
         }
-        const statusMatch = /^p:o:([A-Za-z0-9_-]{1,120}):(pending|processing|shipped|delivered|cancelled)$/.exec(data);
+        const statusMatch = /^p:o:(\d{1,2}):(pending|processing|shipped|delivered|cancelled)$/.exec(data);
         if (statusMatch) {
-            await bot.callApi(`/panel/orders/${encodeURIComponent(statusMatch[1])}`, chatId, {
-                method: 'PATCH',
-                body: JSON.stringify({ status: statusMatch[2] })
+            const orderId = getState('panel', chatId).orders?.[Number(statusMatch[1])]?.id;
+            if (!orderId) return;
+            setState('panel', chatId, { flow: 'confirm-order-status', orderId, status: statusMatch[2] });
+            await bot.send(chatId, `Подтвердите новый статус заказа ${safeText(orderId, 40)}: ${statusMatch[2]}?`, {
+                reply_markup: inline([[{ text: 'Подтвердить', callback_data: 'p:status:confirm' }, { text: 'Отмена', callback_data: 'p:status:cancel' }]])
             });
-            await bot.send(chatId, `Статус заказа обновлён: ${statusMatch[2]}.`);
             return;
         }
         const editMatch = /^p:pe:(\d+)$/.exec(data);
@@ -738,6 +1089,20 @@ async function handleMessage(config, bot, message) {
     }
 
     if (config.role === 'client' || config.role === 'auth') {
+        if (config.role === 'client' && getState('client', chatId).flow === 'catalog-search') {
+            if (text === '/cancel') {
+                setState('client', chatId, {});
+                await bot.send(chatId, 'Поиск отменён.', { reply_markup: menuKeyboard('client') });
+                return;
+            }
+            if (!text || text.length > 80) {
+                await bot.send(chatId, 'Введите запрос длиной до 80 символов.');
+                return;
+            }
+            setState('client', chatId, {});
+            await showCatalog(bot, chatId, { search: text });
+            return;
+        }
         if (text.startsWith('/link')) {
             const code = text.split(/\s+/)[1] || '';
             try {
@@ -778,7 +1143,25 @@ async function handleMessage(config, bot, message) {
         }
         if (config.role === 'client') {
             if (text === '📚 Каталог' || text === '/catalog') return showCatalog(bot, chatId);
+            if (text === 'Найти товар' || text === '/search') {
+                setState('client', chatId, { flow: 'catalog-search' });
+                await bot.send(chatId, 'Введите название товара или категорию. Для отмены отправьте /cancel.');
+                return;
+            }
+            if (text.startsWith('/search ')) return showCatalog(bot, chatId, { search: text.slice('/search '.length).trim().slice(0, 80) });
             if (text === '📦 Мои заказы' || text === '/orders') return showCustomerOrders(bot, chatId);
+            if (text === 'Уведомления' || text === '/notifications') {
+                const preferences = await bot.callApi('/client/notifications', chatId);
+                if (!preferences.linked) {
+                    await bot.send(chatId, 'Сначала привяжите Telegram в профиле на сайте, чтобы управлять уведомлениями.');
+                    return;
+                }
+                setState('client', chatId, { flow: 'notifications', notificationsEnabled: preferences.enabled });
+                await bot.send(chatId, `Уведомления о заказах: ${preferences.enabled ? 'включены' : 'выключены'}.`, {
+                    reply_markup: inline([[{ text: preferences.enabled ? 'Выключить уведомления' : 'Включить уведомления', callback_data: 'cl:notifications:toggle' }]])
+                });
+                return;
+            }
             if (text === '🔗 Связать аккаунт') {
                 const profileUrl = 'https://drdarsun.ru/profile.html';
                 await bot.send(chatId, 'Откройте настройки профиля на сайте, создайте код привязки и отправьте его сюда командой /link КОД.', {
@@ -808,6 +1191,10 @@ async function handleMessage(config, bot, message) {
             await bot.send(chatId, `Я помощник Dr. DarSun${botUsernames.has('support') ? ` · @${botUsernames.get('support')}` : ''}. Постараюсь решить вопрос, а если потребуется оператор — создам обращение с темой и номером. Чтобы получить ссылки на все боты, отправьте /bots.`, { reply_markup: menuKeyboard('support') });
             return;
         }
+        if (text === '/faq' || text === '🧾 Частые вопросы') {
+            await showSupportFaq(bot, chatId);
+            return;
+        }
         if (text === '/bots' || /(?:какие|где).{0,30}бот|ссылк.{0,30}бот|бот.{0,30}(?:ссылк|юзер|username)/i.test(text)) {
             await bot.send(chatId, botLinksMessage(), {
                 ...(publicBotLinks().length ? { reply_markup: botLinksKeyboard() } : {})
@@ -819,12 +1206,13 @@ async function handleMessage(config, bot, message) {
             return;
         }
         if (text === '/ticket' || text === '📨 Моё обращение') {
-            const { ticket } = await getMyTicket(bot, chatId);
+            const { ticket, messages = [] } = await getMyTicket(bot, chatId);
             if (!ticket) {
                 await bot.send(chatId, 'Открытых обращений нет. Если нужен оператор, выберите «Нужен оператор».');
                 return;
             }
-            await bot.send(chatId, `Обращение №${ticket.ticket_number}\nТема: ${safeText(ticket.topic, 60)}\nСтатус: открыто`, {
+            const latestMessage = messages.at(-1);
+            await bot.send(chatId, `Обращение №${ticket.ticket_number}\nТема: ${safeText(ticket.topic, 60)}\nСтатус: открыто${latestMessage ? `\nПоследнее сообщение (${latestMessage.sender_role === 'customer' ? 'вы' : 'поддержка'}): ${safeText(latestMessage.message, 500)}` : ''}`, {
                 reply_markup: inline([[{ text: 'Закрыть обращение', callback_data: 's:close' }]])
             });
             return;
@@ -882,50 +1270,57 @@ async function handleMessage(config, bot, message) {
             }
             return;
         }
-        if (adminState.flow === 'email-recipient' || adminState.flow === 'email-subject' || adminState.flow === 'email-text') {
+        if (adminState.flow === 'toast-recipient' || adminState.flow === 'toast-message' || adminState.flow === 'toast-duration') {
             if (text === '/cancel') {
                 setState('admin', chatId, {});
-                await bot.send(chatId, 'Рассылка отменена.', { reply_markup: menuKeyboard('admin') });
+                await bot.send(chatId, 'Создание уведомления отменено.', { reply_markup: menuKeyboard('admin') });
                 return;
             }
-            if (adminState.flow === 'email-recipient') {
+            if (adminState.flow === 'toast-recipient') {
                 const target = text.toLowerCase();
                 if (target !== 'all' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target)) {
-                    await bot.send(chatId, 'Введите корректный точный email аккаунта или `all`.');
+                    await bot.send(chatId, 'Введите точный email аккаунта или `all`.');
                     return;
                 }
-                setState('admin', chatId, { flow: 'email-subject', target });
-                await bot.send(chatId, 'Введите тему письма (до 150 символов).');
+                setState('admin', chatId, { flow: 'toast-message', target });
+                await bot.send(chatId, 'Напишите текст уведомления (до 500 символов).');
                 return;
             }
-            if (adminState.flow === 'email-subject') {
-                if (!text || text.length > 150) {
-                    await bot.send(chatId, 'Тема должна быть от 1 до 150 символов.');
+            if (adminState.flow === 'toast-message') {
+                if (!text || text.length > 500) {
+                    await bot.send(chatId, 'Текст должен содержать от 1 до 500 символов.');
                     return;
                 }
-                setState('admin', chatId, { ...adminState, flow: 'email-text', subject: text });
-                await bot.send(chatId, 'Введите текст письма (до 4000 символов).');
+                setState('admin', chatId, { ...adminState, flow: 'toast-duration', message: text });
+                await bot.send(chatId, 'На сколько секунд показать уведомление? Введите число от 1 до 3600.');
                 return;
             }
-            if (!text || text.length > 4000) {
-                await bot.send(chatId, 'Текст должен быть от 1 до 4000 символов.');
+            const durationSeconds = Number(text);
+            if (!/^\d+$/.test(text) || !Number.isInteger(durationSeconds) || durationSeconds < 1 || durationSeconds > 3600) {
+                await bot.send(chatId, 'Введите целое число от 1 до 3600 секунд.');
                 return;
             }
-            const nextState = { ...adminState, flow: 'email-confirm', text };
+            const nextState = { ...adminState, flow: 'toast-kind', durationSeconds };
             setState('admin', chatId, nextState);
-            await bot.send(chatId, `Проверьте письмо:\n\nКому: ${nextState.target === 'all' ? 'подписчикам email-уведомлений' : safeText(nextState.target, 160)}\nТема: ${safeText(nextState.subject, 150)}\n\n${safeText(nextState.text, 2500)}`, {
-                reply_markup: inline([[{ text: '✅ Подтвердить отправку', callback_data: 'adm:email:send' }, { text: 'Отмена', callback_data: 'adm:email:cancel' }]])
+            await bot.send(chatId, 'Выберите оформление уведомления:', {
+                reply_markup: inline([[
+                    { text: 'ℹ️ Инфо', callback_data: 'adm:toast:kind:info' },
+                    { text: '✅ Успех', callback_data: 'adm:toast:kind:success' },
+                    { text: '⚠️ Важно', callback_data: 'adm:toast:kind:warning' },
+                    { text: '❌ Ошибка', callback_data: 'adm:toast:kind:error' }
+                ], [{ text: 'Отмена', callback_data: 'adm:toast:cancel' }]])
             });
             return;
         }
         if (text.startsWith('/start')) {
             await bot.send(chatId, 'Админ-панель Dr. DarSun. Доступ разрешён только владельцу.', { reply_markup: menuKeyboard('admin') });
-        } else if (text === '🆘 Обращения' || text === '/tickets') {
-            await listAdminTickets(bot, chatId);
+        } else if (text === '🆘 Обращения' || text === '/tickets' || text.startsWith('/tickets ')) {
+            const requestedStatus = text.split(/\s+/)[1] === 'closed' ? 'closed' : 'open';
+            await listAdminTickets(bot, chatId, { status: requestedStatus });
         } else if (text === '✍️ Отзывы' || text === '/reviews') {
             await listAdminReviews(bot, chatId);
         } else if (text === '📦 Заказы' || text === '/orders') {
-            const { orders = [] } = await bot.callApi('/admin/orders', chatId);
+            const { orders = [] } = await bot.callApi('/admin/orders?offset=0', chatId);
             await bot.send(chatId, formatOrders(orders), { reply_markup: menuKeyboard('admin') });
         } else if (text === '🛠 Техперерыв' || text === '/maintenance') {
             const { enabled } = await bot.callApi('/admin/maintenance', chatId);
@@ -935,11 +1330,11 @@ async function handleMessage(config, bot, message) {
                     [{ text: '▶️ Возобновить сайт', callback_data: 'adm:maint:off' }]
                 ])
             });
-        } else if (text === '✉️ Email-рассылка' || text === '/email') {
-            setState('admin', chatId, { flow: 'email-recipient' });
-            await bot.send(chatId, 'Укажите точный email подтверждённого аккаунта или отправьте `all`, чтобы написать пользователям, которые сами включили email-уведомления. Для отмены: /cancel.');
+        } else if (text === '🔔 Уведомление' || text === '/toast') {
+            setState('admin', chatId, { flow: 'toast-recipient' });
+            await bot.send(chatId, 'Кому показать уведомление? Отправьте email конкретного аккаунта или `all` для всех пользователей сайта. Для отмены: /cancel.');
         } else if (text === '/help') {
-            await bot.send(chatId, 'Используйте кнопки для обращений, модерации, заказов, техперерыва и email-рассылки. Массовое письмо отправляется только пользователям с включёнными уведомлениями.');
+            await bot.send(chatId, 'Используйте кнопки для обращений, модерации, заказов, техперерыва и уведомлений на сайте.');
         } else if (getState('admin', chatId).flow === 'ticket-reply') {
             const state = getState('admin', chatId);
             if (text === '/cancel') {
@@ -963,16 +1358,20 @@ async function handleMessage(config, bot, message) {
     if (config.role === 'panel') {
         if (text.startsWith('/start')) {
             await bot.send(chatId, 'Панель заказов и товаров. Доступ только для настроенного panel chat ID.', { reply_markup: menuKeyboard('panel') });
-        } else if (text === '📦 Заказы' || text === '/orders') {
-            await listOrders(bot, chatId);
+        } else if (text === '📦 Заказы' || text === '/orders' || text.startsWith('/orders ')) {
+            const requestedStatus = text.split(/\s+/)[1];
+            const status = ORDER_STATUSES.includes(requestedStatus) ? requestedStatus : '';
+            await listOrders(bot, chatId, { status });
         } else if (text === '➕ Новый заказ' || text === '/neworder') {
             await startNewOrder(bot, chatId);
         } else if (text === '🛍 Товары' || text === '/products') {
             await listProducts(bot, chatId);
         } else if (text === '➕ Новый товар' || text === '/newproduct') {
             await startNewProduct(bot, chatId);
+        } else if (text === '🧾 История' || text === '/history') {
+            await listAuditLog(bot, chatId);
         } else if (text === '/help') {
-            await bot.send(chatId, 'Кнопки: список/изменение статуса заказов, создание заказа, просмотр/изменение и публикация товара. /cancel отменяет текущий ввод.');
+            await bot.send(chatId, 'Кнопки: заказы, создание заказа, поиск/изменение товара и журнал действий. Изменения требуют подтверждения. /cancel отменяет текущий ввод.');
         } else {
             await processPanelText(bot, chatId, text);
         }
@@ -1068,7 +1467,7 @@ function startTelegramBots(options = {}) {
                         commands: role === 'panel'
                             ? [{ command: 'start', description: 'Открыть меню' }, { command: 'orders', description: 'Заказы' }, { command: 'neworder', description: 'Создать заказ' }, { command: 'products', description: 'Товары' }, { command: 'newproduct', description: 'Создать товар' }]
                             : role === 'admin'
-                                ? [{ command: 'start', description: 'Открыть админ-меню' }, { command: 'tickets', description: 'Обращения' }, { command: 'reviews', description: 'Отзывы на модерации' }, { command: 'orders', description: 'Заказы' }, { command: 'maintenance', description: 'Техперерыв сайта' }, { command: 'email', description: 'Написать аккаунту или подписчикам' }]
+                                ? [{ command: 'start', description: 'Открыть админ-меню' }, { command: 'tickets', description: 'Обращения' }, { command: 'reviews', description: 'Отзывы на модерации' }, { command: 'orders', description: 'Заказы' }, { command: 'maintenance', description: 'Техперерыв сайта' }, { command: 'toast', description: 'Уведомление на сайте' }]
                                 : role === 'support'
                                     ? [{ command: 'start', description: 'Начать общение' }, { command: 'ticket', description: 'Моё обращение' }, { command: 'operator', description: 'Позвать оператора' }, { command: 'bots', description: 'Ссылки на ботов' }, { command: 'help', description: 'Помощь' }]
                                     : [{ command: 'start', description: 'Открыть меню' }, { command: 'link', description: 'Привязать аккаунт: /link КОД' }, { command: 'help', description: 'Помощь' }]

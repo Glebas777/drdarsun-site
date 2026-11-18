@@ -134,6 +134,10 @@
     line-height: 1.55;
 }
 
+.security-heading { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.security-heading > span { min-width: 0; }
+.security-heading__icon { display: block; width: 40px; height: 40px; flex: 0 0 40px; object-fit: contain; }
+
 .telegram-link-card {
     display: grid;
     gap: 8px;

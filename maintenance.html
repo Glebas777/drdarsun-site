@@ -12,7 +12,11 @@
         main img { width: 92px; height: 92px; object-fit: contain; }
         h1 { margin: 22px 0 12px; font-size: clamp(30px, 7vw, 48px); }
         p { color: rgba(250, 247, 230, .78); line-height: 1.7; }
-        a { display: inline-flex; margin-top: 16px; padding: 12px 20px; border: 1px solid rgba(212, 175, 55, .6); border-radius: 999px; color: #F9C74F; }
+        .maintenance-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; margin-top: 24px; }
+        .maintenance-actions a, .maintenance-actions button { display: inline-flex; min-height: 46px; align-items: center; justify-content: center; padding: 11px 20px; border: 1px solid rgba(212, 175, 55, .6); border-radius: 999px; background: transparent; color: #F9C74F; font: inherit; font-weight: 650; cursor: pointer; }
+        .maintenance-actions button { background: #D4AF37; color: #102411; }
+        .maintenance-actions button:disabled { cursor: wait; opacity: .65; }
+        #maintenance-status { min-height: 1.5em; margin: 12px 0 0; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -22,17 +26,51 @@
         <h1>Небольшой технический перерыв</h1>
         <p>Мы временно обновляем сайт. Скоро вернёмся — ваши данные и аккаунт в безопасности.</p>
         <p>Пожалуйста, зайдите чуть позже.</p>
-        <a href="https://t.me/darsunhelp" target="_blank" rel="noopener noreferrer">Связаться с поддержкой</a>
+        <div class="maintenance-actions">
+            <button type="button" id="maintenance-retry">Попробовать ещё раз</button>
+            <a href="https://t.me/darsunhelp" target="_blank" rel="noopener noreferrer">Связаться с поддержкой</a>
+        </div>
+        <p id="maintenance-status" role="status" aria-live="polite"></p>
     </main>
     <script>
-        setTimeout(async () => {
+        const retryButton = document.getElementById('maintenance-retry');
+        const statusMessage = document.getElementById('maintenance-status');
+        let checkingStatus = false;
+
+        async function checkSiteStatus() {
+            if (checkingStatus) return;
+            checkingStatus = true;
+            retryButton.disabled = true;
+            retryButton.textContent = 'Проверяем…';
             try {
-                const response = await fetch('https://drdarsun-site-main.layero.app/api/site-status', { cache: 'no-store' });
-                if (response.ok && !(await response.json()).maintenance) window.location.replace('index.html');
+                const response = await fetch('https://drdarsun-site-main.layero.app/api/site-status', {
+                    cache: 'no-store',
+                    signal: AbortSignal.timeout(5000)
+                });
+                const result = await response.json().catch(() => null);
+                if (!response.ok) throw new Error('Сервис пока не отвечает. Попробуйте чуть позже.');
+                if (result?.maintenance === false) {
+                    statusMessage.textContent = 'Сайт снова доступен. Переходим…';
+                    window.location.replace('index.html');
+                    return;
+                }
+                statusMessage.textContent = 'Технический перерыв ещё продолжается. Мы проверим снова автоматически.';
             } catch (error) {
+                statusMessage.textContent = error instanceof TypeError || error.name === 'TimeoutError'
+                    ? 'Не получилось связаться с сервером. Проверьте интернет и нажмите ещё раз.'
+                    : error.message || 'Не удалось проверить статус. Попробуйте ещё раз.';
                 console.warn('Maintenance status check failed:', error);
+            } finally {
+                checkingStatus = false;
+                retryButton.disabled = false;
+                retryButton.textContent = 'Попробовать ещё раз';
             }
-        }, 15000);
+        }
+
+        retryButton.addEventListener('click', checkSiteStatus);
+        window.setInterval(checkSiteStatus, 15000);
     </script>
+    <script src="js/music-player.js"></script>
+    <script src="js/floating-controls.js"></script>
 </body>
 </html>

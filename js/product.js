@@ -4,6 +4,43 @@ import { toggleFavorite } from './favorites.js';
 
 const urlParams = new URLSearchParams(window.location.search);
 const productId = urlParams.get('id');
+const OIL_COMPOSITION_PROFILES = [
+    { match: ['олив', 'olive'], title: 'Оливковое масло', items: ['Олеиновая кислота обычно преобладает; в предоставленном учебном профиле указано около 71%.', 'Также присутствуют линолевая и пальмитиновая кислоты, фитостеролы и токоферолы.'] },
+    { match: ['персик', 'peach'], title: 'Персиковое масло', items: ['В профиле обычно указывают олеиновую, линолевую, пальмитиновую и стеариновую кислоты.', 'Состав минорных веществ зависит от сырья и способа обработки.'] },
+    { match: ['подсолнеч', 'sunflower'], title: 'Подсолнечное масло', items: ['В обычных сортах часто преобладает линолевая кислота; высокоолеиновые сорта имеют иной профиль.', 'Также встречаются олеиновая, пальмитиновая, стеариновая и другие жирные кислоты; состав зависит от сорта.'] },
+    { match: ['миндал', 'almond'], title: 'Миндальное масло', items: ['Обычно преобладает мононенасыщенная олеиновая кислота; значимую долю составляет линолевая.', 'Также присутствуют пальмитиновая кислота и токоферолы.'] },
+    { match: ['виноград', 'grape'], title: 'Масло виноградной косточки', items: ['Обычно преобладает линолевая кислота; также присутствуют олеиновая, пальмитиновая и стеариновая.', 'Приведённые в учебном материале значения являются ориентировочными.'] },
+    { match: ['авокад', 'avocado'], title: 'Масло авокадо', items: ['Часто преобладает олеиновая кислота; также присутствуют пальмитиновая, линолевая и пальмитолеиновая.', 'Профили масла из мякоти и семени различаются.'] },
+    { match: ['жожоб', 'jojoba'], title: 'Масло жожоба', items: ['По составу это преимущественно жидкие восковые эфиры длинноцепочечных жирных кислот и спиртов, а не типичные триацилглицерины.', 'Жожоба обычно используют как косметическое сырьё; проверяйте назначение и маркировку продукта.'] },
+    { match: ['какао', 'cocoa'], title: 'Масло какао', items: ['Основные жирные кислоты — стеариновая, олеиновая и пальмитиновая.', 'Соотношение кислот влияет на твёрдость и температуру плавления.'] },
+    { match: ['кокос', 'coconut'], title: 'Кокосовое масло', items: ['Содержит значительную долю насыщенных жирных кислот, включая лауриновую и миристиновую.', 'Также присутствуют каприловая, каприновая, пальмитиновая, олеиновая и другие кислоты.'] },
+    { match: ['зародыш', 'пшенич', 'wheat germ'], title: 'Масло зародышей пшеницы', items: ['В профиле присутствуют линолевая, олеиновая, пальмитиновая, стеариновая и альфа-линоленовая кислоты.', 'В нерафинированном масле могут сохраняться токоферолы и фосфолипиды.'] },
+    { match: ['макадам', 'macadamia'], title: 'Масло макадамии', items: ['Характерны мононенасыщенные олеиновая и пальмитолеиновая кислоты.', 'Также присутствуют линолевая, пальмитиновая и другие жирные кислоты.'] },
+    { match: ['грецк', 'walnut'], title: 'Масло грецкого ореха', items: ['Содержит полиненасыщенные линолевую и альфа-линоленовую кислоты, а также олеиновую.', 'Высокая доля полиненасыщенных кислот делает правильное хранение особенно важным.'] },
+    { match: ['тыквен', 'pumpkin'], title: 'Тыквенное масло', items: ['В жирнокислотном профиле обычно представлены линолевая и олеиновая кислоты.', 'Также присутствуют пальмитиновая и стеариновая кислоты и минорные компоненты.'] },
+    { match: ['облепих', 'sea buckthorn'], title: 'Облепиховое масло', items: ['Состав масла из семян отличается от масла из мякоти плодов.', 'В разных профилях встречаются пальмитолеиновая, олеиновая, линолевая, альфа-линоленовая и пальмитиновая кислоты.'] }
+];
+
+function renderOilComposition(product) {
+    const name = String(product.name || '').toLocaleLowerCase('ru-RU').normalize('NFD').replace(/\p{Diacritic}/gu, '');
+    const profile = OIL_COMPOSITION_PROFILES.find(item => item.match.some(term => name.includes(term)));
+    if (!profile) return;
+
+    const section = document.createElement('section');
+    section.className = 'product-composition';
+    const heading = document.createElement('h2');
+    heading.textContent = `Состав: ${profile.title}`;
+    const list = document.createElement('ul');
+    for (const component of profile.items) {
+        const row = document.createElement('li');
+        row.textContent = component;
+        list.appendChild(row);
+    }
+    const note = document.createElement('p');
+    note.textContent = 'Это справочный профиль вида масла, а не лабораторный анализ конкретной партии. Фактический состав зависит от сорта сырья, происхождения и обработки.';
+    section.append(heading, list, note);
+    document.querySelector('.specs')?.after(section);
+}
 
 async function loadProduct() {
     const query = supabase.from('products').select('*');
@@ -22,6 +59,7 @@ async function loadProduct() {
     document.getElementById('product-price').textContent = `${new Intl.NumberFormat('ru-RU').format(Number(product.price) || 0)} ₽`;
     document.getElementById('product-desc').textContent = product.description || '';
     document.getElementById('spec-volume').textContent = product.volume || 'Не указан';
+    renderOilComposition(product);
     
     // Картинки (с заглушкой для п.5)
     const mainImg = document.getElementById('main-img');

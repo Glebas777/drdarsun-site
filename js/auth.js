@@ -1,4 +1,5 @@
 import { supabase } from './supabase-client.js';
+import { validateNewPassword } from './password-policy.mjs';
 import {
     cancelQrLoginRequest,
     approveQrLogin,
@@ -256,13 +257,9 @@ telegramAuthForm?.addEventListener('submit', async event => {
 document.getElementById('telegram-new-password-save')?.addEventListener('click', async event => {
     const button = event.currentTarget;
     const password = document.getElementById('telegram-new-password').value;
-    if (password.length < 8) {
-        telegramAuthStatus.textContent = 'Пароль должен содержать не менее 8 символов.';
-        telegramAuthStatus.hidden = false;
-        return;
-    }
     button.disabled = true;
     try {
+        await validateNewPassword(password);
         const { error } = await supabase.auth.updateUser({ password });
         if (error) throw error;
         document.getElementById('telegram-new-password').value = '';
@@ -315,6 +312,12 @@ document.getElementById('register-form')?.addEventListener('submit', async (e) =
     const name = document.getElementById('reg-name').value;
     const email = document.getElementById('reg-email').value;
     const password = document.getElementById('reg-password').value;
+    try {
+        await validateNewPassword(password);
+    } catch (error) {
+        alert(error.message);
+        return;
+    }
     const captchaToken = await getCaptchaToken('captcha-register').catch(error => {
         alert(error.message);
         return null;

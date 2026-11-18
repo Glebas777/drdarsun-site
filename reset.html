@@ -13,7 +13,7 @@
         <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 14px;">Введите новый пароль для входа.</p>
         
         <form id="reset-form" style="display: flex; flex-direction: column; gap: 15px;">
-            <input type="password" id="reset-password" placeholder="Минимум 8 символов" minlength="8" autocomplete="new-password" required style="padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-color); color: var(--text-main); outline: none;">
+            <input type="password" id="reset-password" placeholder="Минимум 12 символов" minlength="12" autocomplete="new-password" required style="padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-color); color: var(--text-main); outline: none;">
             <button type="submit" id="reset-btn" style="padding: 12px; border-radius: 8px; background: #D4AF37; color: #000; border: none; font-weight: bold; cursor: pointer;">Сменить пароль</button>
         </form>
         <div id="reset-message" role="status" aria-live="polite" style="margin-top: 20px; color: #F44336;"></div>
@@ -21,6 +21,7 @@
 
     <script type="module">
         import { supabase } from './js/supabase-client.js';
+        import { validateNewPassword } from './js/password-policy.mjs';
 
         const form = document.getElementById('reset-form');
         const button = document.getElementById('reset-btn');
@@ -52,13 +53,10 @@
             event.preventDefault();
             if (!recoveryReady) return;
             const password = document.getElementById('reset-password').value;
-            if (password.length < 8) {
-                message.textContent = 'Пароль должен содержать не менее 8 символов.';
-                return;
-            }
             button.disabled = true;
             button.textContent = 'Меняем…';
             try {
+                await validateNewPassword(password);
                 const { error } = await supabase.auth.updateUser({ password });
                 if (error) throw error;
                 message.style.color = '#4CAF50';

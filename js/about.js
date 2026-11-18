@@ -1,30 +1,109 @@
 import { supabase } from './supabase-client.js';
 
 const reviewBook = document.getElementById('review-book');
-const openBookButton = document.getElementById('review-book-open');
-const reviewForm = document.getElementById('review-form');
+const previousBookButton = document.getElementById('review-book-prev');
+const nextBookButton = document.getElementById('review-book-next');
+const bookPageStatus = document.getElementById('review-book-page-status');
 const reviewList = document.getElementById('brand-review-list');
-const authHint = document.getElementById('review-auth-hint');
-const loginLink = document.getElementById('review-login-link');
-const ownerStatus = document.getElementById('review-owner-status');
-const saveButton = document.getElementById('review-save');
-const deleteButton = document.getElementById('review-delete');
 const moderationSection = document.getElementById('review-moderation');
 const moderationList = document.getElementById('review-moderation-list');
 const REVIEWS_API = 'https://drdarsun-site-main.layero.app/api/reviews';
 
 let currentSession = null;
-let ownReview = null;
 let moderationRequest = false;
 function initializeBook() {
     if (!reviewBook) return;
-    reviewBook.classList.add('review-book--fallback');
-    openBookButton?.addEventListener('click', () => {
-        document.getElementById('review-form-title')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        if (reviewForm && !reviewForm.hidden) {
-            reviewForm.elements.namedItem('review-text')?.focus({ preventScroll: true });
+    const pages = Array.from(reviewBook.querySelectorAll('.review-book__page'));
+    const pageNames = ['Обложка', 'О книге', 'Вступление', 'Отзывы читателей', 'Послесловие', 'Задняя обложка'];
+    const PageFlip = window.St?.PageFlip;
+    if (!PageFlip) {
+        let currentPage = 0;
+        const showFallbackPage = index => {
+            currentPage = Math.max(0, Math.min(index, pages.length - 1));
+            pages.forEach((page, pageIndex) => { page.hidden = pageIndex !== currentPage; });
+            previousBookButton.disabled = currentPage === 0;
+            nextBookButton.disabled = currentPage === pages.length - 1;
+            bookPageStatus.textContent = pageNames[currentPage] || `Страница ${currentPage + 1}`;
+        };
+        previousBookButton?.addEventListener('click', () => showFallbackPage(currentPage - 1));
+        nextBookButton?.addEventListener('click', () => showFallbackPage(currentPage + 1));
+        showFallbackPage(0);
+        return;
+    }
+
+    const pageFlip = new PageFlip(reviewBook, {
+        width: 520,
+        height: 620,
+        size: 'stretch',
+        minWidth: 320,
+        maxWidth: 520,
+        minHeight: 460,
+        maxHeight: 660,
+        autoSize: false,
+        showCover: true,
+        usePortrait: true,
+        useMouseEvents: false,
+        mobileScrollSupport: false,
+        drawShadow: true,
+        maxShadowOpacity: 0.38,
+        flippingTime: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 450 : 850,
+        startPage: 0
+    });
+    let previousPage = 0;
+
+    function updateBookControls() {
+        const pageIndex = pageFlip.getCurrentPageIndex();
+        const orientation = pageFlip.getOrientation();
+        const spreadSize = orientation === 'landscape' && pageIndex > 0 ? 2 : 1;
+        const visibleNames = pages.slice(pageIndex, pageIndex + spreadSize).map((_, index) => pageNames[pageIndex + index]);
+        previousBookButton.disabled = pageIndex === 0;
+        nextBookButton.disabled = pageIndex >= pages.length - 1;
+        bookPageStatus.textContent = visibleNames.join(' · ') || pageNames[pageIndex] || `Страница ${pageIndex + 1}`;
+    }
+
+    pageFlip.on('flip', () => {
+        updateBookControls();
+        const pageIndex = pageFlip.getCurrentPageIndex();
+        if (pageIndex === 0 && previousPage > 0) {
+            reviewBook.classList.remove('is-closing');
+            void reviewBook.offsetWidth;
+            reviewBook.classList.add('is-closing');
+        }
+        previousPage = pageIndex;
+    });
+    pageFlip.on('changeOrientation', updateBookControls);
+    pageFlip.on('init', updateBookControls);
+    let pointerStart = null;
+    pages.forEach(page => {
+        for (const edge of ['left', 'right']) {
+            const swipeZone = document.createElement('span');
+            swipeZone.className = `review-book__swipe-zone review-book__swipe-zone--${edge}`;
+            swipeZone.setAttribute('aria-hidden', 'true');
+            page.appendChild(swipeZone);
         }
     });
+    reviewBook.addEventListener('pointerdown', event => {
+        if (!(event.target instanceof Element) || !event.target.closest('.review-book__swipe-zone')) return;
+        if (event.pointerType === 'mouse' || event.button !== 0) return;
+        pointerStart = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    }, true);
+    document.addEventListener('pointerup', event => {
+        if (!pointerStart || event.pointerId !== pointerStart.id) return;
+        const deltaX = event.clientX - pointerStart.x;
+        const deltaY = event.clientY - pointerStart.y;
+        pointerStart = null;
+        if (Math.abs(deltaX) < 48 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) return;
+        if (deltaX < 0) pageFlip.flipNext();
+        else pageFlip.flipPrev();
+    });
+    document.addEventListener('pointercancel', () => { pointerStart = null; });
+    pageFlip.loadFromHTML(pages);
+    previousBookButton?.addEventListener('click', () => pageFlip.flipPrev());
+    nextBookButton?.addEventListener('click', () => pageFlip.flipNext());
+    reviewBook.addEventListener('animationend', event => {
+        if (event.animationName === 'review-book-close-spin') reviewBook.classList.remove('is-closing');
+    });
+    updateBookControls();
 }
 
 function createReviewCard(review, { moderation = false } = {}) {
@@ -87,33 +166,11 @@ async function loadPublishedReviews() {
     if (!data?.length) {
         const empty = document.createElement('p');
         empty.className = 'review-form-card__hint';
-        empty.textContent = 'Книга пока ждёт первых историй. Вы можете написать свою.';
+        empty.textContent = 'Здесь появятся первые опубликованные истории.';
         reviewList.appendChild(empty);
         return;
     }
     reviewList.append(...data.map(review => createReviewCard(review)));
-}
-
-async function loadOwnReview() {
-    const { data, error } = await supabase
-        .from('brand_reviews')
-        .select('id,user_id,user_name,rating,review_text,created_at,status')
-        .eq('user_id', currentSession.user.id)
-        .maybeSingle();
-    if (error) throw error;
-
-    ownReview = data;
-    reviewForm.hidden = false;
-    loginLink.hidden = true;
-    authHint.textContent = 'Один аккаунт может оставить только один отзыв. После изменений отзыв снова уйдёт на проверку.';
-    reviewForm.elements.namedItem('review-text').value = ownReview?.review_text || '';
-    document.getElementById('review-rating').value = String(ownReview?.rating || 5);
-    document.getElementById('review-form-title').textContent = ownReview ? 'Ваша страница' : 'Ваша история';
-    saveButton.textContent = ownReview ? 'Сохранить и отправить на проверку' : 'Отправить на модерацию';
-    deleteButton.hidden = !ownReview;
-    ownerStatus.textContent = ownReview
-        ? `Ваш отзыв: ${ownReview.status === 'approved' ? 'опубликован' : ownReview.status === 'rejected' ? 'отклонён — его можно изменить и отправить снова' : 'ожидает решения модератора'}.`
-        : 'Отправим отзыв на модерацию от имени вашего аккаунта.';
 }
 
 async function loadModerationQueue() {
@@ -165,84 +222,18 @@ async function moderateReview(id, status, button) {
     }
 }
 
-reviewForm?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    if (!currentSession) return;
-    saveButton.disabled = true;
-
-    const payload = {
-        user_name: (currentSession.user.user_metadata?.full_name || currentSession.user.email?.split('@')[0] || 'Покупатель').trim().slice(0, 80),
-        rating: Number(document.getElementById('review-rating').value),
-        review_text: reviewForm.elements.namedItem('review-text').value.trim()
-    };
-    try {
-        const result = ownReview
-            ? await supabase.from('brand_reviews').update(payload).eq('id', ownReview.id).eq('user_id', currentSession.user.id)
-            : await supabase.from('brand_reviews').insert({ ...payload, user_id: currentSession.user.id });
-
-        if (result.error) {
-            window.showToast?.(
-                result.error.code === '23505'
-                    ? 'У вас уже есть отзыв. Его можно изменить ниже.'
-                    : `Не удалось сохранить отзыв: ${result.error.message}`,
-                'error'
-            );
-            return;
-        }
-        window.showToast?.('Отзыв отправлен на модерацию.');
-        await Promise.all([loadOwnReview(), loadPublishedReviews()]);
-    } catch (error) {
-        console.error('Brand review save failed:', error);
-        window.showToast?.('Не удалось сохранить отзыв. Проверьте соединение и попробуйте ещё раз.', 'error');
-    } finally {
-        saveButton.disabled = false;
-    }
-});
-
-deleteButton?.addEventListener('click', async () => {
-    if (!ownReview || !confirm('Удалить ваш отзыв? Это действие нельзя отменить.')) return;
-    deleteButton.disabled = true;
-    try {
-        const { error } = await supabase.from('brand_reviews').delete()
-            .eq('id', ownReview.id)
-            .eq('user_id', currentSession.user.id);
-        if (error) {
-            window.showToast?.(`Не удалось удалить отзыв: ${error.message}`, 'error');
-            return;
-        }
-        ownReview = null;
-        reviewForm.reset();
-        window.showToast?.('Отзыв удалён. Теперь можно написать новый.');
-        await Promise.all([loadOwnReview(), loadPublishedReviews()]);
-    } catch (error) {
-        console.error('Brand review delete failed:', error);
-        window.showToast?.('Не удалось удалить отзыв. Проверьте соединение.', 'error');
-    } finally {
-        deleteButton.disabled = false;
-    }
-});
-
 async function initializeReviews() {
     try {
-        const [sessionResult] = await Promise.all([
-            supabase.auth.getSession(),
-            loadPublishedReviews()
-        ]);
+        const sessionResult = await supabase.auth.getSession();
         if (sessionResult.error) throw sessionResult.error;
         currentSession = sessionResult.data.session;
-        if (!currentSession) {
-            authHint.textContent = 'Отзывы доступны всем, а написать, изменить или удалить свой может только авторизованный пользователь.';
-            loginLink.hidden = false;
-            return;
-        }
-        await loadOwnReview();
+        await loadPublishedReviews();
         await loadModerationQueue();
     } catch (error) {
         const message = document.createElement('p');
         message.className = 'review-form-card__hint';
         message.textContent = 'Не удалось загрузить книгу отзывов. Обновите страницу через минуту.';
         reviewList.replaceChildren(message);
-        authHint.textContent = 'Раздел отзывов временно недоступен.';
         console.error('Brand reviews initialization failed:', error);
     }
 }

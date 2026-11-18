@@ -61,7 +61,7 @@ if ('IntersectionObserver' in window && !window.matchMedia('(prefers-reduced-mot
     revealItems.forEach(item => item.classList.add('is-visible'));
 }
 
-window.showToast = function(message, type = 'success') {
+window.showToast = function(message, type = 'success', durationMs = 3500) {
     let container = document.querySelector('.toast-container');
     if (!container) {
         container = document.createElement('div');
@@ -78,5 +78,5 @@ window.showToast = function(message, type = 'success') {
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 400);
-    }, 3500);
+    }, Math.max(1000, durationMs));
 };

@@ -1,4 +1,5 @@
 import { supabase } from './supabase-client.js';
+import './site-toasts.js';
 
 const container = document.getElementById('auth-buttons');
 

@@ -29,6 +29,10 @@ function isUuid(value) {
     return /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(value || '');
 }
 
+function safeMessageText(value, maxLength) {
+    return String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, maxLength);
+}
+
 function createTelegramIntegrationRouter(options = {}) {
     const router = express.Router();
     const env = options.env || process.env;
@@ -60,6 +64,50 @@ function createTelegramIntegrationRouter(options = {}) {
         return result;
     }
 
+    async function writeTelegramAudit(req, action, entityType, entityId, details = {}) {
+        const chatId = req.get('X-Telegram-Chat-Id') || '';
+        try {
+            await databaseRequest('telegram_admin_audit', {
+                method: 'POST',
+                headers: { Prefer: 'return=minimal' },
+                body: JSON.stringify({
+                    actor_role: req.telegramBotRole,
+                    actor_chat_id: chatId,
+                    action,
+                    entity_type: entityType,
+                    entity_id: String(entityId).slice(0, 120),
+                    details
+                })
+            });
+        } catch (error) {
+            console.warn('Telegram admin audit write failed:', error.message);
+        }
+    }
+
+    async function notifyCustomerOrder(userId, order, created = false) {
+        const token = env.CLIENT_BOT_TOKEN;
+        if (!token || !isUuid(userId) || !order?.id) return;
+        const [preference] = await databaseRequest(`notification_settings?select=telegram_enabled&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+        if (preference?.telegram_enabled !== true) return;
+        const [account] = await databaseRequest(`telegram_accounts?select=telegram_chat_id&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+        if (!account?.telegram_chat_id || !isValidChatId(String(account.telegram_chat_id))) return;
+
+        const orderLabel = safeMessageText(order.id, 40);
+        const message = created
+            ? `Ваш заказ №${orderLabel} создан. Текущий статус: ${safeMessageText(order.status || 'pending', 40)}.`
+            : `Обновление заказа №${orderLabel}: новый статус — ${safeMessageText(order.status, 40)}.`;
+        const response = await request(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: String(account.telegram_chat_id), text: message }),
+            signal: AbortSignal.timeout(10000)
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok || !result?.ok) {
+            throw new Error(`Telegram order notification failed with status ${response.status}.`);
+        }
+    }
+
     function authenticateBot(req, res, next) {
         const match = /^Bearer ([^\s]+)$/.exec(req.get('Authorization') || '');
         if (!match) return res.status(401).json({ error: 'Требуется токен Telegram-бота.' });
@@ -85,12 +133,12 @@ function createTelegramIntegrationRouter(options = {}) {
     }
 
     function requireOwnerChat(req, res, next) {
-        const expectedChatId = req.telegramBotRole === 'admin'
-            ? env.MY_CHAT_ID
-            : (env.M_CHAT_ID || env.PANEL_CHAT_ID);
+        const expectedChatIds = req.telegramBotRole === 'admin'
+            ? [env.MY_CHAT_ID]
+            : String(env.M_CHAT_ID || env.PANEL_CHAT_ID || '').split(',').map(value => value.trim()).filter(Boolean);
         const suppliedChatId = req.get('X-Telegram-Chat-Id') || '';
 
-        if (!expectedChatId || !isValidChatId(suppliedChatId) || suppliedChatId !== expectedChatId) {
+        if (!expectedChatIds.length || !isValidChatId(suppliedChatId) || !expectedChatIds.includes(suppliedChatId)) {
             return res.status(403).json({ error: 'Этот Telegram-аккаунт не имеет доступа.' });
         }
         next();
@@ -121,7 +169,78 @@ function createTelegramIntegrationRouter(options = {}) {
         throw new Error('Превышен лимит получателей для одной рассылки. Разделите аудиторию.');
     }
 
-    router.post('/admin/email/send', authenticateBot, allowRoles('admin'), requireOwnerChat, withErrors('Telegram admin email send failed', async (req, res) => {
+    router.post('/admin/toasts/send', authenticateBot, allowRoles('admin'), requireOwnerChat, withErrors('Telegram admin toast send failed', async (req, res) => {
+        const target = typeof req.body?.target === 'string' ? req.body.target.trim().toLowerCase() : '';
+        const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+        const kind = req.body?.kind;
+        const durationSeconds = Number(req.body?.durationSeconds);
+        if (!message || message.length > 500) {
+            return res.status(400).json({ error: 'Текст уведомления должен содержать от 1 до 500 символов.' });
+        }
+        if (!/^(all|[^\s@]+@[^\s@]+\.[^\s@]+)$/.test(target)) {
+            return res.status(400).json({ error: 'Укажите точный email аккаунта или all.' });
+        }
+        if (!['info', 'success', 'warning', 'error'].includes(kind)) {
+            return res.status(400).json({ error: 'Выберите стиль уведомления.' });
+        }
+        if (!Number.isInteger(durationSeconds) || durationSeconds < 1 || durationSeconds > 3600) {
+            return res.status(400).json({ error: 'Срок показа должен быть от 1 до 3600 секунд.' });
+        }
+
+        const users = await getAdminUsersByEmail(target === 'all' ? '' : target);
+        const recipients = target === 'all'
+            ? users
+            : users.filter(user => user.email?.toLowerCase() === target);
+        if (target !== 'all' && recipients.length !== 1) {
+            return res.status(404).json({ error: 'Аккаунт с таким email не найден.' });
+        }
+        const userIds = [...new Set(recipients.map(user => user.id).filter(isUuid))];
+        if (userIds.length >= 10000) {
+            return res.status(413).json({ error: 'Слишком большая аудитория для одной отправки.' });
+        }
+        if (!userIds.length) return res.json({ sent: 0, durationSeconds });
+
+        const expiresAt = new Date(Date.now() + durationSeconds * 1000).toISOString();
+        let sent = 0;
+        for (let offset = 0; offset < userIds.length; offset += 500) {
+            const batch = userIds.slice(offset, offset + 500);
+            await databaseRequest('site_toast_notifications', {
+                method: 'POST',
+                headers: { Prefer: 'return=minimal' },
+                body: JSON.stringify(batch.map(user_id => ({
+                    user_id,
+                    message,
+                    kind,
+                    expires_at: expiresAt
+                })))
+            });
+            sent += batch.length;
+        }
+        await writeTelegramAudit(req, 'toast.sent', 'toast', target === 'all' ? 'all' : target, {
+            kind,
+            durationSeconds,
+            audience: target,
+            recipientCount: sent
+        });
+        res.json({ sent, durationSeconds });
+    }));
+
+    router.post('/admin/email/send', authenticateBot, allowRoles('admin'), requireOwnerChat, (req, res) => {
+        return res.status(410).json({ error: 'Email-рассылка отключена. Используйте уведомления-тосты.' });
+    });
+
+    router.use('/admin/email', authenticateBot, allowRoles('admin'), requireOwnerChat, (req, res, next) => {
+        if (req.path.startsWith('/send')) {
+            return res.status(410).json({ error: 'Email-рассылка отключена. Используйте уведомления-тосты.' });
+        }
+        next();
+    });
+
+    router.post('/admin/email/send-legacy', authenticateBot, allowRoles('admin'), requireOwnerChat, (req, res) => {
+        return res.status(410).json({ error: 'Email-рассылка отключена. Используйте уведомления-тосты.' });
+    });
+
+    router.post('/admin/email/send-legacy-disabled', authenticateBot, allowRoles('admin'), requireOwnerChat, withErrors('Telegram admin email send failed', async (req, res) => {
         const target = typeof req.body?.target === 'string' ? req.body.target.trim().toLowerCase() : '';
         const subject = typeof req.body?.subject === 'string' ? req.body.subject.trim() : '';
         const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
@@ -211,6 +330,7 @@ function createTelegramIntegrationRouter(options = {}) {
                 updated_at: new Date().toISOString()
             })
         });
+        await writeTelegramAudit(req, 'maintenance.changed', 'maintenance', 'site', { enabled: req.body.enabled });
         res.setHeader('Cache-Control', 'no-store');
         res.json({ enabled: settings?.[0]?.value?.enabled === true });
     }));
@@ -320,17 +440,57 @@ function createTelegramIntegrationRouter(options = {}) {
     }));
 
     router.get('/client/catalog', authenticateBot, allowRoles('client', 'support'), withErrors('Telegram catalog lookup failed', async (req, res) => {
-        const products = await databaseRequest('products?select=id,name,price,description,category&order=name.asc&limit=100');
-        res.json({ products });
+        const search = typeof req.query.search === 'string' ? req.query.search.trim().slice(0, 80) : '';
+        const offset = Math.max(0, Math.min(1000, Number.parseInt(req.query.offset, 10) || 0));
+        const products = await databaseRequest('products?select=id,name,price,description,category&order=name.asc&limit=200');
+        const normalizedSearch = search.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('ru-RU');
+        const matchingProducts = normalizedSearch
+            ? products.filter(product => [product.name, product.category, product.description]
+                .some(value => String(value || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('ru-RU').includes(normalizedSearch)))
+            : products;
+        const limit = 8;
+        res.json({
+            products: matchingProducts.slice(offset, offset + limit),
+            offset,
+            search,
+            hasMore: offset + limit < matchingProducts.length,
+            total: matchingProducts.length
+        });
     }));
 
     router.get('/client/orders', authenticateBot, allowRoles('client'), withErrors('Telegram customer orders lookup failed', async (req, res) => {
         const chatId = req.get('X-Telegram-Chat-Id') || '';
         if (!isValidChatId(chatId)) return res.status(400).json({ error: 'Некорректный Telegram chat ID.' });
+        const offset = Math.max(0, Math.min(1000, Number.parseInt(req.query.offset, 10) || 0));
         const [account] = await databaseRequest(`telegram_accounts?select=user_id&telegram_chat_id=eq.${encodeURIComponent(chatId)}&limit=1`);
-        if (!account) return res.json({ linked: false, orders: [] });
-        const orders = await databaseRequest(`orders?select=id,items,total,status,created_at&user_id=eq.${encodeURIComponent(account.user_id)}&order=created_at.desc&limit=20`);
-        res.json({ linked: true, orders });
+        if (!account) return res.json({ linked: false, orders: [], offset, hasMore: false });
+        const rows = await databaseRequest(`orders?select=id,items,total,status,created_at&user_id=eq.${encodeURIComponent(account.user_id)}&order=created_at.desc&limit=11&offset=${offset}`);
+        res.json({ linked: true, orders: rows.slice(0, 10), offset, hasMore: rows.length > 10 });
+    }));
+
+    router.get('/client/notifications', authenticateBot, allowRoles('client'), withErrors('Telegram customer notification preference lookup failed', async (req, res) => {
+        const chatId = req.get('X-Telegram-Chat-Id') || '';
+        if (!isValidChatId(chatId)) return res.status(400).json({ error: 'Некорректный Telegram chat ID.' });
+        const [account] = await databaseRequest(`telegram_accounts?select=user_id&telegram_chat_id=eq.${encodeURIComponent(chatId)}&limit=1`);
+        if (!account) return res.json({ linked: false, enabled: false });
+        const [preference] = await databaseRequest(`notification_settings?select=telegram_enabled&user_id=eq.${encodeURIComponent(account.user_id)}&limit=1`);
+        res.json({ linked: true, enabled: preference?.telegram_enabled === true });
+    }));
+
+    router.patch('/client/notifications', authenticateBot, allowRoles('client'), withErrors('Telegram customer notification preference update failed', async (req, res) => {
+        const chatId = req.get('X-Telegram-Chat-Id') || '';
+        const enabled = req.body?.enabled;
+        if (!isValidChatId(chatId) || typeof enabled !== 'boolean') {
+            return res.status(400).json({ error: 'Укажите Telegram chat ID и значение enabled.' });
+        }
+        const [account] = await databaseRequest(`telegram_accounts?select=user_id&telegram_chat_id=eq.${encodeURIComponent(chatId)}&limit=1`);
+        if (!account) return res.status(409).json({ error: 'Сначала привяжите Telegram в профиле на сайте.' });
+        await databaseRequest('notification_settings?on_conflict=user_id', {
+            method: 'POST',
+            headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+            body: JSON.stringify({ user_id: account.user_id, telegram_enabled: enabled })
+        });
+        res.json({ linked: true, enabled });
     }));
 
     router.get('/support/my-ticket', authenticateBot, allowRoles('client', 'support'), withErrors('Telegram customer ticket lookup failed', async (req, res) => {
@@ -456,17 +616,19 @@ function createTelegramIntegrationRouter(options = {}) {
     }));
 
     router.get('/admin/tickets', authenticateBot, allowRoles('admin'), requireOwnerChat, withErrors('Telegram admin tickets lookup failed', async (req, res) => {
-        const tickets = await databaseRequest('telegram_support_tickets?select=id,ticket_number,topic,telegram_chat_id,telegram_username,status,created_at,updated_at&status=eq.open&order=updated_at.desc&limit=50');
+        const status = req.query.status === 'closed' ? 'closed' : 'open';
+        const offset = Math.max(0, Math.min(100000, Number.parseInt(req.query.offset, 10) || 0));
+        const tickets = await databaseRequest(`telegram_support_tickets?select=id,ticket_number,topic,telegram_chat_id,telegram_username,status,created_at,updated_at&status=eq.${status}&order=updated_at.desc&limit=11&offset=${offset}`);
         if (tickets.length) {
             const ids = tickets.map(ticket => ticket.id).join(',');
-            const messages = await databaseRequest(`telegram_support_messages?select=ticket_id,sender_role,message,created_at&ticket_id=in.(${ids})&order=created_at.desc&limit=200`);
+            const messages = await databaseRequest(`telegram_support_messages?select=ticket_id,sender_role,message,created_at&ticket_id=in.(${ids})&order=created_at.desc&limit=100`);
             const latestMessages = new Map();
             for (const message of messages) {
                 if (!latestMessages.has(message.ticket_id)) latestMessages.set(message.ticket_id, message);
             }
             for (const ticket of tickets) ticket.last_message = latestMessages.get(ticket.id) || null;
         }
-        res.json({ tickets });
+        res.json({ tickets: tickets.slice(0, 10), status, offset, hasMore: tickets.length > 10 });
     }));
 
     router.get('/admin/tickets/:id/messages', authenticateBot, allowRoles('admin'), requireOwnerChat, withErrors('Telegram admin ticket messages lookup failed', async (req, res) => {
@@ -526,12 +688,14 @@ function createTelegramIntegrationRouter(options = {}) {
             body: JSON.stringify({ status: 'closed', updated_at: new Date().toISOString() })
         });
         if (!updated?.length) return res.status(404).json({ error: 'Открытое обращение не найдено.' });
+        await writeTelegramAudit(req, 'ticket.closed', 'ticket', req.params.id, { status: 'closed' });
         res.json({ success: true });
     }));
 
     router.get('/admin/reviews', authenticateBot, allowRoles('admin'), requireOwnerChat, withErrors('Telegram review moderation lookup failed', async (req, res) => {
-        const reviews = await databaseRequest('brand_reviews?select=id,user_name,rating,review_text,created_at&status=eq.pending&order=created_at.asc&limit=50');
-        res.json({ reviews });
+        const offset = Math.max(0, Math.min(100000, Number.parseInt(req.query.offset, 10) || 0));
+        const reviews = await databaseRequest(`brand_reviews?select=id,user_name,rating,review_text,created_at&status=eq.pending&order=created_at.asc&limit=11&offset=${offset}`);
+        res.json({ reviews: reviews.slice(0, 10), offset, hasMore: reviews.length > 10 });
     }));
 
     router.patch('/admin/reviews/:id', authenticateBot, allowRoles('admin'), requireOwnerChat, withErrors('Telegram review moderation failed', async (req, res) => {
@@ -544,13 +708,22 @@ function createTelegramIntegrationRouter(options = {}) {
             body: JSON.stringify({ status, updated_at: new Date().toISOString() })
         });
         if (!updated?.length) return res.status(404).json({ error: 'Отзыв не найден или уже обработан.' });
+        await writeTelegramAudit(req, 'review.moderated', 'review', req.params.id, { status });
         res.json({ success: true });
     }));
 
     router.get('/panel/orders', authenticateBot, allowRoles('panel'), requireOwnerChat, withErrors('Telegram panel orders lookup failed', async (req, res) => {
         const offset = Math.max(0, Math.min(100000, Number.parseInt(req.query.offset, 10) || 0));
-        const orders = await databaseRequest(`orders?select=id,items,total,status,created_at&order=created_at.desc&limit=100&offset=${offset}`);
-        res.json({ orders });
+        const status = ORDER_STATUSES.includes(req.query.status) ? req.query.status : '';
+        const statusFilter = status ? `&status=eq.${status}` : '';
+        const orders = await databaseRequest(`orders?select=id,items,total,status,created_at&order=created_at.desc&limit=11&offset=${offset}${statusFilter}`);
+        res.json({ orders: orders.slice(0, 10), status, offset, hasMore: orders.length > 10 });
+    }));
+
+    router.get('/panel/audit', authenticateBot, allowRoles('panel', 'admin'), requireOwnerChat, withErrors('Telegram admin audit lookup failed', async (req, res) => {
+        const offset = Math.max(0, Math.min(100000, Number.parseInt(req.query.offset, 10) || 0));
+        const entries = await databaseRequest(`telegram_admin_audit?select=id,actor_role,action,entity_type,entity_id,details,created_at&order=created_at.desc&limit=21&offset=${offset}`);
+        res.json({ entries: entries.slice(0, 20), offset, hasMore: entries.length > 20 });
     }));
 
     router.post('/panel/orders', authenticateBot, allowRoles('panel'), requireOwnerChat, withErrors('Telegram order creation failed', async (req, res) => {
@@ -583,6 +756,13 @@ function createTelegramIntegrationRouter(options = {}) {
             body: JSON.stringify({ user_id: userId, items, total, status: 'pending' })
         });
         if (!order) throw new Error('Order was not created.');
+        await writeTelegramAudit(req, 'order.created', 'order', order.id, {
+            item_count: items.length,
+            total
+        });
+        notifyCustomerOrder(userId, order, true).catch(error => {
+            console.warn('Telegram order creation notification failed:', error.message);
+        });
         res.status(201).json({ order });
     }));
 
@@ -616,12 +796,24 @@ function createTelegramIntegrationRouter(options = {}) {
             update.total = update.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
         }
         if (!Object.keys(update).length) return res.status(400).json({ error: 'Нет полей для изменения.' });
-        const [order] = await databaseRequest(`orders?id=eq.${encodeURIComponent(orderId)}&select=id,items,total,status,created_at`, {
+        const [previousOrder] = await databaseRequest(`orders?id=eq.${encodeURIComponent(orderId)}&select=id,user_id,status,items,total&limit=1`);
+        const [order] = await databaseRequest(`orders?id=eq.${encodeURIComponent(orderId)}&select=id,user_id,items,total,status,created_at`, {
             method: 'PATCH',
             headers: { Prefer: 'return=representation' },
             body: JSON.stringify(update)
         });
         if (!order) return res.status(404).json({ error: 'Заказ не найден.' });
+        await writeTelegramAudit(req, 'order.updated', 'order', orderId, {
+            fields: Object.keys(update),
+            previous_status: previousOrder?.status || null,
+            status: order.status,
+            total: order.total
+        });
+        if (previousOrder && previousOrder.status !== order.status) {
+            notifyCustomerOrder(order.user_id || previousOrder.user_id, order).catch(error => {
+                console.warn('Telegram order status notification failed:', error.message);
+            });
+        }
         res.json({ order });
     }));
 
@@ -645,6 +837,11 @@ function createTelegramIntegrationRouter(options = {}) {
             body: JSON.stringify({ name, category, description, price, image_url: imageUrl })
         });
         if (!product) throw new Error('Product was not created.');
+        await writeTelegramAudit(req, 'product.created', 'product', product.id, {
+            name: product.name,
+            category: product.category,
+            price: product.price
+        });
         res.status(201).json({ product });
     }));
 
@@ -677,6 +874,11 @@ function createTelegramIntegrationRouter(options = {}) {
             body: JSON.stringify(update)
         });
         if (!product) return res.status(404).json({ error: 'Товар не найден.' });
+        await writeTelegramAudit(req, 'product.updated', 'product', productId, {
+            name: product.name,
+            fields: Object.keys(update),
+            price: product.price
+        });
         res.json({ product });
     }));
 

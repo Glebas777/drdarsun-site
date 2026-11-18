@@ -52,6 +52,7 @@
             <a href="index.html">Главная</a>
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
+            <a href="scientists-about-oils.html">Учёные о маслах</a>
             <a href="delivery.html">Доставка</a>
             <a href="index.html#news">Новости</a>
         </nav>
@@ -67,6 +68,7 @@
         <a href="index.html">Главная</a>
         <a href="catalog.html">Каталог</a>
         <a href="about.html">О нас</a>
+        <a href="scientists-about-oils.html">Учёные о маслах</a>
         <a href="delivery.html">Доставка</a>
         <a href="index.html#news">Новости</a>
     </div>
@@ -167,7 +169,7 @@
                 
 <div style="margin-bottom: 20px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <h4 style="margin: 0;">Активные сессии</h4>
+        <h4 class="security-heading" style="margin: 0;"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-lock-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-lock-dark.png" alt=""><span>Активные сессии</span></h4>
         <button id="refresh-devices-btn" class="btn" style="padding: 5px 10px; font-size: 12px; border: 1px solid var(--border);">Обновить</button>
     </div>
     <p class="session-help">Сессии проверяются автоматически. Завершённое устройство выйдет из аккаунта в течение нескольких секунд.</p>
@@ -177,7 +179,7 @@
 <div style="margin-bottom: 20px;">
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <div>
-            <h4 style="margin: 0;">Двухфакторная аутентификация (2FA)</h4>
+            <h4 class="security-heading" style="margin: 0;"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-lock-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-lock-dark.png" alt=""><span>Двухфакторная аутентификация (2FA)</span></h4>
             <p style="font-size: 13px; color: var(--text-muted); margin: 5px 0 0;">Защитите аккаунт дополнительным кодом</p>
         </div>
         <label class="toggle-switch">
@@ -189,7 +191,7 @@
 </div>
 
     <section class="recovery-codes-card" aria-labelledby="recovery-codes-title">
-        <h4 id="recovery-codes-title">Резервные коды</h4>
+        <h4 id="recovery-codes-title" class="security-heading"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-key-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-key-dark.png" alt=""><span>Резервные коды</span></h4>
         <p class="security-help">Коды создаются один раз для 2FA и хранятся зашифрованными. Первые два символа видны всегда; полный список открывается только после кода из письма на ваш адрес.</p>
         <div id="recovery-codes-status" class="security-help" aria-live="polite">Проверка резервных кодов...</div>
         <div class="recovery-codes-card__actions">
@@ -207,7 +209,7 @@
     </section>
 
                     <section class="telegram-link-card" aria-labelledby="telegram-link-title">
-                    <h4 id="telegram-link-title">Подключение Telegram</h4>
+                    <h4 id="telegram-link-title" class="security-heading"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-phone-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-phone-dark.png" alt=""><span>Подключение Telegram</span></h4>
                     <p class="security-help">Свяжите аккаунт через клиентского бота или отдельного бота привязки. Нажмите на ссылку — откроется нужный Telegram-бот.</p>
                     <div id="telegram-public-bots" class="telegram-link-card__actions" aria-label="Telegram-боты"></div>
                     <div id="telegram-link-status" class="security-help" aria-live="polite">Проверка подключения...</div>
@@ -224,7 +226,7 @@
                 </section>
 
                 <div style="margin-bottom: 20px;">
-                    <h4>Face ID / Отпечаток (Passkey)</h4>
+                    <h4 class="security-heading"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-eye-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-eye-dark.png" alt=""><span>Face ID / Отпечаток (Passkey)</span></h4>
                     <p class="security-help">Входите с помощью Face ID, отпечатка пальца или PIN-кода устройства. Доступность зависит от браузера и устройства.</p>
                     <button class="btn btn--primary" id="enable-passkey-btn" type="button">Добавить Passkey</button>
                     <div id="passkeys-status" class="security-help" aria-live="polite"></div>
@@ -232,7 +234,7 @@
                 </div>
 
 <div style="margin-top: 20px;">
-    <h4>QR-код</h4>
+    <h4 class="security-heading"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-phone-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-phone-dark.png" alt=""><span>QR-код</span></h4>
     <p style="font-size: 13px; color: var(--text-muted);">Чтобы безопасно войти на другом устройстве, откройте там QR-вход и отсканируйте код здесь. Подтверждение возможно только после входа в аккаунт.</p>
     <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
         <button class="btn btn--primary" id="scan-qr-btn">Сканировать QR и подтвердить вход</button>
@@ -264,14 +266,17 @@
                 </form>
 
                 <form class="settings-form" id="password-form">
-                    <label for="new-password">Новый пароль</label>
-                    <input type="password" id="new-password" placeholder="Минимум 6 символов" minlength="6" autocomplete="new-password" required>
+                    <label for="new-password" class="security-heading"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-key-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-key-dark.png" alt=""><span>Новый пароль</span></label>
+                    <input type="password" id="new-password" placeholder="Минимум 12 символов" minlength="12" autocomplete="new-password" required>
                     <div id="password-hints" style="font-size: 12px; color: #888; margin-top: 5px; display: flex; flex-direction: column; gap: 4px;">
-                        <div id="hint-length" style="display: flex; align-items: center; gap: 5px;">❌ Минимум 6 символов</div>
+                        <div id="hint-length" style="display: flex; align-items: center; gap: 5px;">❌ Минимум 12 символов</div>
                         <div id="hint-upper" style="display: flex; align-items: center; gap: 5px;">❌ Заглавная буква</div>
+                        <div id="hint-lower" style="display: flex; align-items: center; gap: 5px;">❌ Строчная буква</div>
                         <div id="hint-digit" style="display: flex; align-items: center; gap: 5px;">❌ Цифра</div>
+                        <div id="hint-symbol" style="display: flex; align-items: center; gap: 5px;">❌ Специальный символ</div>
                         <div id="hint-pwned" style="display: flex; align-items: center; gap: 5px;">❌ Проверка на утечки</div>
                     </div>
+                    <p class="security-help">Для проверки утечек пароль не отправляется: используется только префикс его SHA-1-хеша.</p>
                     <button type="submit" class="btn btn--primary">Сменить пароль</button>
                 </form>
 
@@ -284,6 +289,16 @@
         <button class="btn btn--primary" id="enable-notify-btn">Включить уведомления</button>
         <button class="btn" id="disable-notify" style="border: 1px solid #F44336; color: #F44336;">Отключить уведомления</button>
     </div>
+</div>
+<div style="margin-top: 24px;">
+    <h4>Уведомления в Telegram</h4>
+    <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 12px;" id="telegram-notification-help">
+        Получайте сообщения о смене статуса заказа в клиентском Telegram-боте.
+    </p>
+    <label style="display: flex; align-items: center; gap: 10px;">
+        <input type="checkbox" id="telegram-notifications-enabled" disabled>
+        <span>Присылать обновления заказов в Telegram</span>
+    </label>
 </div>
 
                 <div style="margin-top: 40px; border-top: 1px solid var(--border); padding-top: 20px;">
@@ -349,6 +364,7 @@
     </div>
 </div>
 
+<script type="module" src="js/main.js"></script>
 <script type="module" src="js/profile.js"></script>
 <script src="js/burger.js"></script>
 <script type="module" src="js/auth-header.js"></script>

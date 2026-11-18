@@ -1,8 +1,8 @@
 const API_URL = 'https://drdarsun-site-main.layero.app/api/telegram/public-bots';
 const BOT_PURPOSES = {
-    client: 'каталог, заказы и привязка аккаунта',
-    support: 'ответы на вопросы и связь с поддержкой',
-    auth: 'безопасное подключение Telegram к профилю'
+    client: 'клиентский бот: каталог, поиск товаров, заказы привязанного аккаунта и Telegram-уведомления',
+    auth: 'бот для кодов: привязка, вход и восстановление доступа через одноразовый код',
+    support: 'бот-помощник: ответы на вопросы и создание обращения в поддержку'
 };
 
 async function loadTelegramBots() {

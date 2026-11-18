@@ -144,8 +144,8 @@ function createTelegramAuthRouter(options = {}) {
             : '';
         const mode = req.body?.mode;
         const token = typeof req.body?.code === 'string' ? req.body.code.trim() : '';
-        if (!/^[a-z0-9_]{5,32}$/.test(username) || !['login', 'recovery'].includes(mode) || !/^\d{6}$/.test(token)) {
-            return res.status(400).json({ error: 'Проверьте username и шестизначный код.' });
+        if (!/^[a-z0-9_]{5,32}$/.test(username) || !['login', 'recovery'].includes(mode) || !/^\d{6,12}$/.test(token)) {
+            return res.status(400).json({ error: 'Проверьте username и код (6–12 цифр).' });
         }
         if (!supabaseUrl || !anonKey || !serviceRoleKey) {
             console.error('Telegram authentication is unavailable: Supabase configuration is incomplete.');

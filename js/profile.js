@@ -1,4 +1,5 @@
 import { supabase } from './supabase-client.js';
+import { PASSWORD_MIN_LENGTH, getPasswordCriteria, checkPasswordBreach } from './password-policy.mjs';
 import { approveQrLogin, getQrLoginId, startQrScanner } from './qr-login.js';
 import { getFavoriteProducts, toggleFavorite } from './favorites.js';
 import { addToCart } from './cart.js';
@@ -9,7 +10,7 @@ window.profileDeviceSetup = new Promise(resolve => {
 });
 
 // Функция для тостов
-window.showToast = function(message, type = 'success') {
+window.showToast = function(message, type = 'success', durationMs = 3000) {
     let container = document.querySelector('.toast-container');
     if (!container) {
         container = document.createElement('div');
@@ -24,7 +25,7 @@ window.showToast = function(message, type = 'success') {
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 400);
-    }, 3000);
+    }, Math.max(1000, durationMs));
 };
 
 // Функция выбора готовой аватарки (вызывается из HTML)
@@ -1172,12 +1173,90 @@ if (passkeyButton && passkeysList) {
         showToast('Письмо для подтверждения отправлено на новый адрес.');
     });
 
-document.getElementById('password-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const newPassword = document.getElementById('new-password').value;
-    if (newPassword.length < 6) return showToast('Пароль слишком короткий', 'error');
+const newPasswordInput = document.getElementById('new-password');
+let passwordLeakCheckValue = '';
+let passwordLeakCheckResult = null;
+let passwordLeakCheckTimer;
 
-    const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+function updatePasswordHint(id, valid, label) {
+   const hint = document.getElementById(id);
+   if (!hint) return;
+   hint.textContent = `${valid ? '✅' : '❌'} ${label}`;
+   hint.dataset.valid = String(valid);
+}
+
+function updatePasswordCriteria(password) {
+    const criteria = getPasswordCriteria(password);
+    updatePasswordHint('hint-length', criteria.length, `Минимум ${PASSWORD_MIN_LENGTH} символов`);
+    updatePasswordHint('hint-upper', criteria.uppercase, 'Заглавная буква');
+    updatePasswordHint('hint-lower', criteria.lowercase, 'Строчная буква');
+    updatePasswordHint('hint-digit', criteria.digit, 'Цифра');
+    updatePasswordHint('hint-symbol', criteria.symbol, 'Специальный символ');
+}
+
+async function checkPasswordLeak(password) {
+   const hint = document.getElementById('hint-pwned');
+   if (!password) {
+       passwordLeakCheckValue = password;
+       passwordLeakCheckResult = null;
+       if (hint) hint.textContent = '❌ Проверка на утечки';
+       return null;
+   }
+
+   if (hint) hint.textContent = '⏳ Проверяем пароль на утечки…';
+   passwordLeakCheckValue = password;
+   passwordLeakCheckResult = null;
+   try {
+       const leaked = await checkPasswordBreach(password);
+       if (password === newPasswordInput?.value) {
+           passwordLeakCheckResult = leaked;
+           if (hint) hint.textContent = leaked
+               ? '⚠️ Этот пароль найден в утечках — выберите другой'
+               : '✅ Проверка на утечки пройдена';
+       }
+       return leaked;
+   } catch (error) {
+       console.warn('Password breach lookup failed:', error);
+       if (password === newPasswordInput?.value && hint) {
+           hint.textContent = '⚠️ Не удалось проверить утечки';
+       }
+       return null;
+   }
+}
+
+newPasswordInput?.addEventListener('input', () => {
+   const password = newPasswordInput.value;
+   updatePasswordCriteria(password);
+   clearTimeout(passwordLeakCheckTimer);
+   if (!getPasswordCriteria(password).length) {
+       passwordLeakCheckValue = '';
+       passwordLeakCheckResult = null;
+       document.getElementById('hint-pwned').textContent = '❌ Проверка на утечки';
+       return;
+   }
+   document.getElementById('hint-pwned').textContent = '⏳ Проверка на утечки…';
+   passwordLeakCheckTimer = setTimeout(() => checkPasswordLeak(password), 500);
+});
+
+document.getElementById('password-form')?.addEventListener('submit', async (e) => {
+   e.preventDefault();
+   const newPassword = newPasswordInput.value;
+   if (!Object.values(getPasswordCriteria(newPassword)).every(Boolean)) {
+       return showToast(`Пароль должен содержать минимум ${PASSWORD_MIN_LENGTH} символов, заглавную и строчную буквы, цифру и специальный символ.`, 'error');
+   }
+
+   clearTimeout(passwordLeakCheckTimer);
+   if (passwordLeakCheckValue !== newPassword || passwordLeakCheckResult === null) {
+       await checkPasswordLeak(newPassword);
+   }
+   if (passwordLeakCheckResult === true) {
+       return showToast('Этот пароль найден в утечках. Выберите другой.', 'error');
+   }
+   if (passwordLeakCheckResult === null) {
+       return showToast('Не удалось проверить пароль на утечки. Попробуйте ещё раз позже.', 'error');
+   }
+
+   const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aalError) return showToast('Не удалось проверить 2FA: ' + aalError.message, 'error');
 
     if (aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
@@ -1245,7 +1324,9 @@ document.getElementById('password-form')?.addEventListener('submit', async (e) =
 
             const response = await fetch('https://drdarsun-site-main.layero.app/api/delete-account', {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${session.access_token}` }
+                headers: { Authorization: `Bearer ${session.access_token}` },
+                cache: 'no-store',
+                signal: AbortSignal.timeout(15000)
             });
             const result = await response.json().catch(() => null);
             if (!response.ok) throw new Error(result?.error || 'Не удалось удалить аккаунт.');
@@ -1254,7 +1335,10 @@ document.getElementById('password-form')?.addEventListener('submit', async (e) =
             window.location.href = 'index.html';
         } catch (error) {
             console.error('Account deletion failed:', error);
-            showToast(error.message || 'Не удалось удалить аккаунт. Попробуйте позже.', 'error');
+            const message = error instanceof TypeError || error.name === 'TimeoutError'
+                ? 'Не удалось связаться с сервером удаления. Проверьте соединение и попробуйте ещё раз.'
+                : error.message || 'Не удалось удалить аккаунт. Попробуйте позже.';
+            showToast(message, 'error');
         } finally {
             deleteButton.disabled = false;
         }
@@ -1329,6 +1413,9 @@ document.getElementById('logout-btn')?.addEventListener('click', async () => {
 const notifyEmail = document.getElementById('notify-email');
 const enableNotifyBtn = document.getElementById('enable-notify-btn');
 const disableNotifyBtn = document.getElementById('disable-notify');
+const telegramNotificationsEnabled = document.getElementById('telegram-notifications-enabled');
+const telegramNotificationHelp = document.getElementById('telegram-notification-help');
+let savedEmailNotificationsEnabled = false;
 
 if (notifyEmail) {
     supabase.auth.getSession().then(async ({ data: { session }, error }) => {
@@ -1337,19 +1424,66 @@ if (notifyEmail) {
         notifyEmail.textContent = session.user.email;
         const { data, error: settingsError } = await supabase
             .from('notification_settings')
-            .select('email_enabled')
+            .select('email_enabled,telegram_enabled')
             .eq('user_id', session.user.id)
             .maybeSingle();
         if (settingsError) throw settingsError;
+        savedEmailNotificationsEnabled = data?.email_enabled === true;
         if (data?.email_enabled) {
             enableNotifyBtn.textContent = 'Уведомления включены';
             disableNotifyBtn.disabled = false;
+        }
+        if (telegramNotificationsEnabled) {
+            try {
+                const linkResponse = await fetch('https://drdarsun-site-main.layero.app/api/telegram/link', {
+                    headers: { Authorization: `Bearer ${session.access_token}` },
+                    cache: 'no-store'
+                });
+                const linkResult = await linkResponse.json().catch(() => null);
+                if (!linkResponse.ok) throw new Error(linkResult?.error || 'Не удалось проверить привязку Telegram.');
+                const linked = Boolean(linkResult?.account);
+                telegramNotificationsEnabled.checked = linked && data?.telegram_enabled === true;
+                telegramNotificationsEnabled.disabled = !linked;
+                if (telegramNotificationHelp && !linked) {
+                    telegramNotificationHelp.textContent = 'Сначала привяжите Telegram в разделе «Безопасность», чтобы получать уведомления.';
+                }
+            } catch (error) {
+                console.warn('Telegram notification link status failed:', error);
+                telegramNotificationsEnabled.disabled = true;
+                if (telegramNotificationHelp) telegramNotificationHelp.textContent = 'Не удалось проверить привязку Telegram. Обновите страницу.';
+            }
         }
     }).catch(error => {
         console.error('Email notification preference lookup failed:', error);
         showToast('Не удалось загрузить настройку email-уведомлений.', 'error');
     });
 }
+
+telegramNotificationsEnabled?.addEventListener('change', async () => {
+    telegramNotificationsEnabled.disabled = true;
+    try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!session) throw new Error('Войдите в аккаунт и попробуйте снова.');
+        const { error } = await supabase.from('notification_settings').upsert({
+            user_id: session.user.id,
+            email_enabled: savedEmailNotificationsEnabled,
+            telegram_enabled: telegramNotificationsEnabled.checked,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+        if (error) throw error;
+        showToast(telegramNotificationsEnabled.checked
+            ? 'Уведомления о заказах в Telegram включены.'
+            : 'Уведомления в Telegram отключены.');
+    } catch (error) {
+        console.error('Telegram notification preference could not be saved:', error);
+        telegramNotificationsEnabled.checked = !telegramNotificationsEnabled.checked;
+        showToast('Не удалось сохранить настройку Telegram: ' + error.message, 'error');
+    } finally {
+        telegramNotificationsEnabled.disabled = false;
+    }
+});
+
 enableNotifyBtn?.addEventListener('click', async () => {
     enableNotifyBtn.disabled = true;
     try {
@@ -1358,9 +1492,11 @@ enableNotifyBtn?.addEventListener('click', async () => {
         if (!session) throw new Error('Войдите в аккаунт и попробуйте снова.');
         const { error: saveError } = await supabase.from('notification_settings').upsert({
             user_id: session.user.id,
-            email_enabled: true
+            email_enabled: true,
+            telegram_enabled: telegramNotificationsEnabled?.checked === true
         }, { onConflict: 'user_id' });
         if (saveError) throw saveError;
+        savedEmailNotificationsEnabled = true;
 
         const { error: sendError } = await supabase.functions.invoke('send-notification', {
             body: {
@@ -1372,8 +1508,10 @@ enableNotifyBtn?.addEventListener('click', async () => {
         if (sendError) {
             await supabase.from('notification_settings').upsert({
                 user_id: session.user.id,
-                email_enabled: false
+                email_enabled: false,
+                telegram_enabled: telegramNotificationsEnabled?.checked === true
             }, { onConflict: 'user_id' });
+            savedEmailNotificationsEnabled = false;
             throw sendError;
         }
         enableNotifyBtn.textContent = 'Уведомления включены';
@@ -1394,9 +1532,11 @@ disableNotifyBtn?.addEventListener('click', async () => {
         if (!session) throw new Error('Войдите в аккаунт и попробуйте снова.');
         const { error } = await supabase.from('notification_settings').upsert({
             user_id: session.user.id,
-            email_enabled: false
+            email_enabled: false,
+            telegram_enabled: telegramNotificationsEnabled?.checked === true
         }, { onConflict: 'user_id' });
         if (error) throw error;
+        savedEmailNotificationsEnabled = false;
         enableNotifyBtn.textContent = 'Включить уведомления';
         showToast('Email-уведомления отключены.');
     } catch (error) {

@@ -1,0 +1,50 @@
+.oils-page { padding-block: 36px 80px; }
+.oils-intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 280px); align-items: center; gap: clamp(24px, 6vw, 72px); padding: clamp(28px, 5vw, 52px); border: 1px solid var(--border); border-radius: 22px; background: radial-gradient(ellipse at 12% 100%, color-mix(in srgb, var(--accent-green) 12%, transparent), transparent 42%), linear-gradient(125deg, var(--bg-card), color-mix(in srgb, var(--accent-gold) 12%, var(--bg-card))); }
+.oils-intro h1 { max-width: 700px; margin: 10px 0 16px; font-size: clamp(38px, 6vw, 64px); }
+.oils-intro__lead { max-width: 680px; color: var(--text-muted); font-size: 18px; line-height: 1.65; }
+.oils-intro__art { display: grid; min-height: 180px; place-items: center; }
+.oils-intro__art img { width: min(100%, 240px); max-height: 240px; object-fit: contain; }
+.oils-note, .oils-caution { padding: 12px 14px; border-left: 3px solid var(--accent-gold); background: color-mix(in srgb, var(--accent-gold) 8%, var(--bg-card)); color: var(--text-muted); font-size: 13px; line-height: 1.6; }
+.oils-index { position: sticky; top: 76px; z-index: 20; display: flex; gap: 8px; overflow-x: auto; margin: 20px 0 42px; padding: 10px 0; background: color-mix(in srgb, var(--bg-color) 92%, transparent); scrollbar-width: thin; }
+.oils-index a { flex: 0 0 auto; padding: 9px 13px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text-main); font-size: 12px; font-weight: 650; text-decoration: none; }
+.oils-index a:hover, .oils-index a:focus-visible { border-color: var(--accent-gold); }
+.oils-section { margin: 0 0 28px; padding: clamp(24px, 4vw, 42px); border: 1px solid var(--border); border-radius: 18px; background: var(--bg-card); scroll-margin-top: 130px; }
+.oils-section h2, .oils-sources h2 { margin: 8px 0 18px; font-size: clamp(25px, 4vw, 36px); }
+.oils-section > p:not(.eyebrow), .oils-sources > p:not(.eyebrow) { max-width: 850px; color: var(--text-muted); line-height: 1.75; }
+.oils-section--tinted { background: linear-gradient(130deg, color-mix(in srgb, var(--accent-green) 5%, var(--bg-card)), var(--bg-card) 60%, color-mix(in srgb, var(--accent-gold) 8%, var(--bg-card))); }
+.oils-text-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.oils-text-grid p { color: var(--text-muted); line-height: 1.8; }
+.oils-acid-grid, .oils-factor-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 24px 0; }
+.oils-acid, .oils-factor-grid article { min-width: 0; padding: 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); }
+.oils-acid h3, .oils-factor-grid h3 { margin: 0 0 8px; color: var(--accent-green); font-size: 16px; }
+.oils-acid p, .oils-factor-grid p, .oils-storage p { margin: 0; color: var(--text-muted); font-size: 13px; line-height: 1.7; }
+.oils-process-list { display: grid; gap: 0; margin-top: 24px; }
+.oils-process-list article { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 14px; padding: 19px 0; border-top: 1px solid var(--border); }
+.oils-process-list article > span { color: var(--accent-gold); font-size: 13px; font-weight: 750; }
+.oils-process-list h3, .oils-storage h3 { margin: 0 0 7px; font-size: 17px; }
+.oils-process-list p { max-width: 840px; margin: 0; color: var(--text-muted); line-height: 1.75; }
+.oils-storage { margin-top: 24px; padding: 18px; border-radius: 12px; background: color-mix(in srgb, var(--accent-green) 7%, var(--bg-card)); }
+.oils-profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 22px 0; }
+.oils-profile-grid details { min-width: 0; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); }
+.oils-profile-grid summary { padding: 14px 16px; color: var(--text-main); font-weight: 700; cursor: pointer; }
+.oils-profile-grid details p { margin: 0; padding: 0 16px 16px; color: var(--text-muted); font-size: 13px; line-height: 1.7; }
+.oils-source-book { margin: 0 0 28px; padding: clamp(24px, 4vw, 42px); border: 1px solid color-mix(in srgb, var(--accent-gold) 36%, var(--border)); border-radius: 18px; background: radial-gradient(ellipse at 100% 100%, color-mix(in srgb, var(--accent-gold) 12%, transparent), transparent 38%), var(--bg-card); }
+.oils-source-book h2 { margin: 8px 0 12px; }
+.oils-source-book p { color: var(--text-muted); }
+.oils-source-book blockquote { max-width: 800px; margin: 16px 0; padding: 18px 20px; border-left: 3px solid var(--accent-gold); background: color-mix(in srgb, var(--accent-gold) 7%, var(--bg-card)); color: var(--text-main); line-height: 1.7; }
+.oils-source-book__link { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 9px 16px; border: 1px solid color-mix(in srgb, var(--accent-gold) 55%, var(--border)); border-radius: 999px; color: var(--accent-green); font-size: 12px; font-weight: 750; text-decoration: none; }
+.dark-theme .oils-source-book__link { color: var(--accent-gold); }
+.oils-sources { padding: clamp(24px, 4vw, 42px) 0; }
+.oils-sources ul { display: grid; gap: 10px; padding-left: 20px; line-height: 1.6; }
+.oils-sources a { color: var(--accent-green); text-decoration: underline; text-underline-offset: 3px; }
+.dark-theme .oils-sources a { color: var(--accent-gold); }
+@media (max-width: 700px) {
+    .oils-page { padding-block: 20px 52px; }
+    .oils-intro { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 24px 20px; }
+    .oils-intro__art { min-height: 0; justify-items: end; }
+    .oils-intro__art img { width: 120px; max-height: 120px; }
+    .oils-intro__lead { font-size: 16px; }
+    .oils-index { top: 64px; margin: 12px 0 28px; }
+    .oils-text-grid, .oils-acid-grid, .oils-factor-grid, .oils-profile-grid { grid-template-columns: minmax(0, 1fr); }
+    .oils-section { padding: 22px 18px; }
+}

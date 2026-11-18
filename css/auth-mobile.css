@@ -14,7 +14,7 @@
         max-width: 100%;
         padding: 0 16px;
         margin-top: 20px;
-        margin-bottom: 40px;
+        margin-bottom: 112px;
     }
 
     /* Сама карточка */
@@ -109,7 +109,7 @@
 }
 
 @media (max-width: 768px) {
-    .auth-container { padding: 10px; margin-top: 10px; }
+    .auth-container { padding: 10px; margin-top: 10px; margin-bottom: 112px; }
     .auth-box { padding: 20px 15px; border-radius: 16px; }
     .input-group input { font-size: 16px; padding: 12px; }
     .btn { padding: 14px; font-size: 16px; }
