@@ -31,21 +31,23 @@ let deviceCheckInProgress = false;
 async function checkDeviceAlive(session) {
     if (!session || deviceCheckInProgress) return;
 
-    deviceCheckInProgress = true;
+    let deviceKey;
     try {
-        if (window.profileDeviceSetup) {
-            await window.profileDeviceSetup;
-        }
-
-        const deviceKey = localStorage.getItem('device_key');
+        deviceKey = localStorage.getItem('device_key');
         const deviceUserId = localStorage.getItem('device_user_id');
         if (deviceUserId && deviceUserId !== session.user.id) {
             localStorage.removeItem('device_key');
             localStorage.removeItem('device_user_id');
             return;
         }
-        if (!deviceKey) return;
+    } catch (error) {
+        console.warn('Device key is unavailable:', error);
+        return;
+    }
+    if (!deviceKey) return;
 
+    deviceCheckInProgress = true;
+    try {
         const { data, error } = await supabase
             .from('devices')
             .select('device_key,last_active')
@@ -60,7 +62,6 @@ async function checkDeviceAlive(session) {
         if (!data) {
             localStorage.removeItem('device_key');
             localStorage.removeItem('device_user_id');
-            localStorage.removeItem('pending_device_registration');
             await supabase.auth.signOut({ scope: 'local' });
             window.location.href = 'index.html';
             return;
@@ -100,7 +101,6 @@ if (container) {
         if (event === 'SIGNED_OUT') {
             localStorage.removeItem('device_key');
             localStorage.removeItem('device_user_id');
-            localStorage.removeItem('pending_device_registration');
         }
         if (event === 'SIGNED_IN' && session) checkDeviceAlive(session);
         if (

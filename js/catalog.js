@@ -1,13 +1,11 @@
 import { supabase } from './supabase-client.js';
 import { addToCart } from './cart.js';
-import { getFavoriteIds, toggleFavorite } from './favorites.js';
 
 const grid = document.getElementById('product-grid');
 const filtersSidebar = document.getElementById('filters-sidebar');
 const filtersMobileBtn = document.getElementById('filters-mobile-btn');
 const filtersClose = document.getElementById('filters-close');
 const filtersBackdrop = document.getElementById('filters-backdrop');
-const filterReset = document.getElementById('filter-reset');
 const categoryFilters = document.getElementById('category-filters');
 const priceRange = document.getElementById('price-range');
 const priceValue = document.getElementById('price-value');
@@ -17,8 +15,6 @@ const resultCount = document.getElementById('catalog-result-count');
 
 let allProducts = [];
 let filteredProducts = [];
-let favoriteUserId = null;
-let favoriteIds = new Set();
 
 function setFiltersOpen(open) {
     filtersSidebar?.classList.toggle('active', open);
@@ -30,7 +26,6 @@ function setFiltersOpen(open) {
 filtersMobileBtn?.addEventListener('click', () => setFiltersOpen(true));
 filtersClose?.addEventListener('click', () => setFiltersOpen(false));
 filtersBackdrop?.addEventListener('click', () => setFiltersOpen(false));
-filterReset?.addEventListener('click', resetFilters);
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') setFiltersOpen(false);
 });
@@ -74,36 +69,6 @@ function createProductCard(product, index) {
         tag.textContent = product.tag;
         media.appendChild(tag);
     }
-
-    const favoriteButton = document.createElement('button');
-    favoriteButton.className = 'favorite-toggle';
-    favoriteButton.type = 'button';
-    favoriteButton.setAttribute('aria-label', favoriteIds.has(String(product.id)) ? 'Убрать из избранного' : 'Добавить в избранное');
-    favoriteButton.setAttribute('aria-pressed', String(favoriteIds.has(String(product.id))));
-    favoriteButton.classList.toggle('is-favorite', favoriteIds.has(String(product.id)));
-    favoriteButton.textContent = favoriteIds.has(String(product.id)) ? '♥' : '♡';
-    favoriteButton.addEventListener('click', async (event) => {
-        event.stopPropagation();
-        if (!favoriteUserId) {
-            window.showToast?.('Войдите в аккаунт, чтобы сохранять избранное.', 'error');
-            window.location.href = `login.html?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
-            return;
-        }
-        favoriteButton.disabled = true;
-        try {
-            const isFavorite = await toggleFavorite(favoriteUserId, product.id);
-            favoriteButton.classList.toggle('is-favorite', isFavorite);
-            favoriteButton.setAttribute('aria-pressed', String(isFavorite));
-            favoriteButton.setAttribute('aria-label', isFavorite ? 'Убрать из избранного' : 'Добавить в избранное');
-            favoriteButton.textContent = isFavorite ? '♥' : '♡';
-        } catch (error) {
-            console.error('Favorite toggle failed:', error);
-            window.showToast?.('Не удалось изменить избранное. Проверьте подключение.', 'error');
-        } finally {
-            favoriteButton.disabled = false;
-        }
-    });
-    media.appendChild(favoriteButton);
 
     if (product.image_url) {
         const image = document.createElement('img');
@@ -326,17 +291,6 @@ async function loadProducts() {
     }
 
     allProducts = (data || []).filter(product => product && product.id != null);
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) {
-        console.error('Favorite session lookup failed:', sessionError);
-    } else if (sessionData.session) {
-        favoriteUserId = sessionData.session.user.id;
-        try {
-            favoriteIds = await getFavoriteIds(favoriteUserId);
-        } catch (error) {
-            console.error('Favorite list load failed:', error);
-        }
-    }
     const maxPrice = Math.max(1000, ...allProducts.map(product => Number(product.price)).filter(Number.isFinite));
     if (priceRange) {
         priceRange.max = String(Math.ceil(maxPrice / 100) * 100);

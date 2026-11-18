@@ -250,7 +250,6 @@ body.dark-theme .auth-box {
 .auth-header { text-align: center; margin-bottom: 30px; }
 .auth-header h2 { font-size: 28px; margin-bottom: 5px; }
 .auth-header p { color: var(--text-muted); font-size: 14px; }
-.auth-inline-error { margin: -12px 0 18px; padding: 12px 14px; border: 1px solid color-mix(in srgb, #b74b42 40%, var(--border)); border-radius: 12px; background: color-mix(in srgb, #b74b42 8%, var(--bg-card)); color: #a53d34; font-size: 13px; line-height: 1.5; }
 
 .input-group { margin-bottom: 20px; }
 .input-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 8px; color: var(--text-muted); }
@@ -260,9 +259,6 @@ body.dark-theme .auth-box {
     font-family: var(--font-main); font-size: 15px; outline: none; transition: border-color 0.2s;
 }
 .input-group input:focus { border-color: var(--accent-green); }
-.auth-captcha { display: flex; justify-content: center; margin: 0 0 16px; }
-.auth-captcha[hidden] { display: none; }
-.auth-captcha[data-error="true"]::after { color: #a53d34; content: "Не удалось загрузить CAPTCHA. Обновите страницу."; font-size: 13px; }
 
 /* Кнопка Войти + Меню */
 .login-actions {

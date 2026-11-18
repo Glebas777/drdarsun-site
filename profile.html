@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dr. DarSun | Личный кабинет</title>
     <link rel="stylesheet" href="css/base.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -49,7 +49,6 @@
     <div class="container header__inner">
         <a href="index.html" class="logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
         <nav class="nav">
-            <a href="index.html">Главная</a>
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
             <a href="delivery.html">Доставка</a>
@@ -76,7 +75,6 @@
             <h3 style="margin-bottom: 20px;">Мой кабинет</h3>
             <button class="profile-nav-btn active" data-tab="info">Личные данные</button>
             <button class="profile-nav-btn" data-tab="orders">История заказов</button>
-            <button class="profile-nav-btn" data-tab="favorites">Избранное</button>
             <button class="profile-nav-btn" data-tab="wallet">Кошелек</button>
             <button class="profile-nav-btn" data-tab="security">Безопасность</button>
             <button class="profile-nav-btn" data-tab="settings">Настройки</button>
@@ -135,14 +133,6 @@
                 <div id="orders-list">Загрузка...</div>
             </div>
 
-            <div class="profile-tab" id="tab-favorites">
-                <h2 class="tab-title">Избранное</h2>
-                <p class="security-help">Сохранённые товары — всегда под рукой. Добавляйте их в корзину или убирайте из списка.</p>
-                <div class="favorites-grid" id="favorites-list" aria-live="polite">
-                    <p class="empty-state">Загрузка избранного...</p>
-                </div>
-            </div>
-
             <!-- Вкладка: Кошелек -->
             <div class="profile-tab" id="tab-wallet">
                 <h2 class="tab-title">Кошелек</h2>
@@ -186,40 +176,6 @@
     <div id="2fa-status" style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">Проверка...</div>
 </div>
 
-    <section class="recovery-codes-card" aria-labelledby="recovery-codes-title">
-        <h4 id="recovery-codes-title">Резервные коды</h4>
-        <p class="security-help">Коды создаются один раз для 2FA и хранятся зашифрованными. Первые два символа видны всегда; полный список открывается только после кода из письма на ваш адрес.</p>
-        <div id="recovery-codes-status" class="security-help" aria-live="polite">Проверка резервных кодов...</div>
-        <div class="recovery-codes-card__actions">
-            <button class="btn btn--primary" id="recovery-codes-create" type="button" hidden>Создать резервные коды</button>
-            <button class="btn" id="recovery-codes-save-retry" type="button" hidden>Повторить сохранение</button>
-            <button class="btn" id="recovery-codes-request" type="button" hidden>Получить код по почте</button>
-        </div>
-        <form id="recovery-codes-email-form" class="recovery-codes-card__form" hidden>
-            <label for="recovery-codes-email-code">Код из письма</label>
-            <input id="recovery-codes-email-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required>
-            <button class="btn btn--primary" type="submit">Подтвердить и открыть список</button>
-        </form>
-        <button class="btn" id="recovery-codes-visibility" type="button" hidden>Показать коды</button>
-        <ol id="recovery-codes-list" class="recovery-codes-card__list" aria-live="polite"></ol>
-    </section>
-
-                    <section class="telegram-link-card" aria-labelledby="telegram-link-title">
-                    <h4 id="telegram-link-title">Подключение Telegram</h4>
-                    <p class="security-help">Свяжите аккаунт через клиентского бота или отдельного бота привязки. Нажмите на ссылку — откроется нужный Telegram-бот.</p>
-                    <div id="telegram-public-bots" class="telegram-link-card__actions" aria-label="Telegram-боты"></div>
-                    <div id="telegram-link-status" class="security-help" aria-live="polite">Проверка подключения...</div>
-                    <div class="telegram-link-card__actions">
-                        <button class="btn btn--primary" id="telegram-link-start" type="button">Создать код привязки</button>
-                        <button class="btn" id="telegram-link-remove" type="button" hidden>Отключить Telegram</button>
-                    </div>
-                    <div class="telegram-link-code" id="telegram-link-code" hidden>
-                        <p class="security-help">Код действует 10 минут. Откройте бота привязки или клиентского бота по кнопке ниже. Код отправится автоматически; вручную можно ввести <code>/link КОД</code>.</p>
-                        <strong id="telegram-link-code-value"></strong>
-                        <div id="telegram-link-code-actions" class="telegram-link-card__actions"></div>
-                        <button class="btn" id="telegram-link-copy" type="button">Скопировать код</button>
-                    </div>
-                </section>
 
                 <div style="margin-bottom: 20px;">
                     <h4>Face ID / Отпечаток (Passkey)</h4>

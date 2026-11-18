@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Dr. DarSun | О нас</title>
     <link rel="stylesheet" href="css/base.css">
-    <link rel="stylesheet" href="css/about.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -30,7 +29,6 @@
     <div class="container header__inner">
         <a href="index.html" class="logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
         <nav class="nav">
-            <a href="index.html">Главная</a>
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
             <a href="delivery.html">Доставка</a>
@@ -44,123 +42,24 @@
     </div>
     <!-- Мобильное меню -->
     <div class="mobile-menu" id="mobile-menu">
-        <a href="index.html">Главная</a>
         <a href="catalog.html">Каталог</a>
         <a href="about.html">О нас</a>
         <a href="delivery.html">Доставка</a>
     </div>
 </header>
 
-    <main class="container page-content about-page">
-        <section class="about-intro">
-            <p class="eyebrow">ИСТОРИЯ DR. DARSUN</p>
-            <h1>Вкус, в котором есть <span>смысл</span></h1>
-            <p>Мы выбираем растительные масла с заботой о происхождении, качестве и простых радостях за общим столом.</p>
-        </section>
+    <main class="container page-content" style="padding: 40px 0;">
+        <h1 class="page-title" style="font-size: 48px; margin-bottom: 30px;">О бренде Dr. DarSun</h1>
+        <div style="background: var(--bg-card); padding: 40px; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 40px;">
+<p style="font-size: 18px; line-height: 1.8; color: var(--text-muted);">
+    Скоро здесь будет магия.
+</p>
+        </div>
 
-        <section class="reviews-section" aria-labelledby="reviews-title">
-            <div class="reviews-section__heading">
-                <div>
-                    <p class="eyebrow">СЛОВА НАШИХ ПОКУПАТЕЛЕЙ</p>
-                    <h2 id="reviews-title">Книга отзывов</h2>
-                </div>
-                <span class="reviews-section__note">Листайте — и оставьте свою страницу</span>
-            </div>
-
-            <div class="review-book-shell">
-                <div class="review-book" id="review-book" aria-label="Интерактивная книга отзывов">
-                    <div class="review-book__page review-book__cover-page" data-density="hard">
-                        <button class="review-book__cover" id="review-book-open" type="button" aria-label="Открыть книгу отзывов">
-                            <span class="review-book__cover-emblem" aria-hidden="true">
-                                <img src="assets/images/logo.png" alt="">
-                            </span>
-                            <span class="review-book__cover-title">О нас</span>
-                            <span class="review-book__cover-subtitle">Книга добрых историй</span>
-                            <span class="review-book__cover-author">Dr. DarSun</span>
-                            <span class="review-book__cover-prompt">Нажмите или потяните за угол</span>
-                            <span class="review-book__cover-spine" aria-hidden="true"></span>
-                        </button>
-                    </div>
-
-                    <section class="review-book__page review-book__page--intro">
-                        <span class="review-book__page-number">DR. DARSUN · С 2026</span>
-                        <h3>Истории, которые остаются</h3>
-                        <p>Каждый отзыв здесь — настоящая история человека, который попробовал нашу продукцию.</p>
-                        <p>Отзывы появляются в книге после проверки. Так мы бережём доверие и читаем только то, что действительно важно.</p>
-                        <img class="review-book__illustration" src="assets/images/sunflower2.png" alt="" loading="lazy">
-                        <span class="review-book__signature">С теплом, Dr. DarSun</span>
-                        <span class="review-book__page-number review-book__page-number--bottom">СТРАНИЦА 01</span>
-                    </section>
-
-                    <section class="review-book__page review-book__page--form">
-                        <div class="review-form-card">
-                            <h3 id="review-form-title">Ваша история</h3>
-                            <p id="review-auth-hint" class="review-form-card__hint">Войдите, чтобы добавить свой отзыв.</p>
-                            <a class="btn btn--primary review-login-link" id="review-login-link" href="login.html?redirect=about.html%23reviews">Войти в аккаунт</a>
-                            <form id="review-form" hidden>
-                                <label for="review-rating">Ваша оценка</label>
-                                <select id="review-rating" name="review-rating" required>
-                                    <option value="5">★★★★★ — отлично</option>
-                                    <option value="4">★★★★☆ — очень хорошо</option>
-                                    <option value="3">★★★☆☆ — хорошо</option>
-                                    <option value="2">★★☆☆☆ — есть замечания</option>
-                                    <option value="1">★☆☆☆☆ — не понравилось</option>
-                                </select>
-                                <label for="review-text">Отзыв</label>
-                                <textarea id="review-text" name="review-text" minlength="5" maxlength="2000" rows="5" required placeholder="Расскажите о своём впечатлении"></textarea>
-                                <p class="review-form-card__hint" id="review-owner-status" aria-live="polite"></p>
-                                <div class="review-form-card__actions">
-                                    <button class="btn btn--primary" id="review-save" type="submit">Отправить на модерацию</button>
-                                    <button class="btn review-delete-btn" id="review-delete" type="button" hidden>Удалить мой отзыв</button>
-                                </div>
-                            </form>
-                        </div>
-                        <span class="review-book__page-number review-book__page-number--bottom">СТРАНИЦА 02</span>
-                    </section>
-
-                    <section class="review-book__page review-book__page--entries">
-                        <h3 class="review-book__section-title">Страницы читателей</h3>
-                        <div class="review-entries" id="brand-review-list" aria-live="polite">
-                            <p class="review-form-card__hint">Загружаем страницы книги…</p>
-                        </div>
-                        <section class="review-moderation" id="review-moderation" hidden>
-                            <h3>Отзывы на модерацию</h3>
-                            <div id="review-moderation-list"></div>
-                        </section>
-                        <span class="review-book__page-number review-book__page-number--bottom">СТРАНИЦА 03</span>
-                    </section>
-
-                    <section class="review-book__page review-book__page--closing">
-                        <img src="assets/images/hooray.png" alt="" loading="lazy">
-                        <h3>Спасибо, что вы с нами</h3>
-                        <p>Каждая страница этой книги начинается с вашего доверия.</p>
-                        <span class="review-book__signature">Dr. DarSun</span>
-                    </section>
-                    <div class="review-book__page review-book__back-cover" data-density="hard" aria-label="Задняя обложка книги">
-                        <img src="assets/images/logo_full.png" alt="Dr. DarSun" loading="lazy">
-                    </div>
-                </div>
-                <div class="review-book-controls" aria-label="Управление страницами книги">
-                    <button class="review-book-controls__button" id="review-book-prev" type="button" aria-label="Предыдущая страница" disabled>←</button>
-                    <span id="review-book-page-status" aria-live="polite">Обложка</span>
-                    <button class="review-book-controls__button" id="review-book-next" type="button" aria-label="Следующая страница">→</button>
-                </div>
-            </div>
-        </section>
-
-        <section class="tiktok-banner" aria-labelledby="tiktok-title">
-            <img class="tiktok-banner__art" src="assets/images/load_drop_hello.png" alt="" loading="lazy">
-            <div class="tiktok-banner__copy">
-                <p class="eyebrow">DR. DARSUN В СОЦСЕТЯХ</p>
-                <h2 id="tiktok-title">Загляните к нам в TikTok</h2>
-                <p>Короткие истории, продукты и жизнь бренда — в нашем канале.</p>
-            </div>
-            <a class="btn btn--primary tiktok-banner__link" href="https://www.tiktok.com/@drdarsun" target="_blank" rel="noopener noreferrer">
-                <img src="assets/images/hello.png" alt="" aria-hidden="true">
-                Открыть @drdarsun
-                <span aria-hidden="true">↗</span>
-            </a>
-        </section>
+        <h2 style="font-size: 32px; margin-bottom: 20px;">Книга отзывов</h2>
+        <div id="reviews-book" style="display: flex; flex-direction: column; gap: 15px;">
+            <div class="empty-state">Загрузка отзывов...</div>
+        </div>
     </main>
 
     <footer class="footer">
@@ -193,8 +92,27 @@
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.min.js"></script>
-    <script type="module" src="js/about.js"></script>
+    <script type="module">
+        import { supabase } from './js/supabase-client.js';
+        async function loadBook() {
+            const container = document.getElementById('reviews-book');
+            const { data: reviews } = await supabase.from('reviews').select('*').order('created_at', { ascending: false }).limit(10);
+            if (!reviews || reviews.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-muted);">Пока нет отзывов. Станьте первым!</p>';
+                return;
+            }
+            container.innerHTML = reviews.map(r => `
+                <div style="background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border);">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <strong>${r.user_name}</strong>
+                        <span style="color: var(--accent-gold);">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</span>
+                    </div>
+                    <p style="color: var(--text-muted);">${r.text}</p>
+                </div>
+            `).join('');
+        }
+        loadBook();
+    </script>
     <script src="js/main.js"></script>
     <script src="js/burger.js"></script>
     <script type="module" src="js/auth-header.js"></script>

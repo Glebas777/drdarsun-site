@@ -2,10 +2,9 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dr. DarSun | Корзина</title>
     <link rel="stylesheet" href="css/base.css">
-    <link rel="stylesheet" href="css/cart.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -30,7 +29,6 @@
     <div class="container header__inner">
         <a href="index.html" class="logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
         <nav class="nav">
-            <a href="index.html">Главная</a>
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
             <a href="delivery.html">Доставка</a>
@@ -44,46 +42,36 @@
     </div>
     <!-- Мобильное меню -->
     <div class="mobile-menu" id="mobile-menu">
-        <a href="index.html">Главная</a>
         <a href="catalog.html">Каталог</a>
         <a href="about.html">О нас</a>
         <a href="delivery.html">Доставка</a>
     </div>
 </header>
 
-    <main class="container cart-page">
-        <div class="cart-page__heading">
-            <div>
-                <p class="eyebrow">ВАШ ВЫБОР DR. DARSUN</p>
-                <h1>Корзина</h1>
-                <p>Проверьте товары перед оформлением.</p>
-            </div>
-            <a class="cart-continue" href="catalog.html">← Продолжить покупки</a>
-        </div>
-        <div class="cart-layout">
-            <div class="cart-items" id="cart-items" aria-live="polite"></div>
-            <div class="cart-summary">
+    <main class="container" style="padding: 40px 0;">
+        <h1 style="margin-bottom: 20px;">Корзина</h1>
+        <div class="cart-layout" style="display: flex; gap: 30px;">
+            <div class="cart-items" id="cart-items" style="flex: 1;"></div>
+            <div class="cart-summary" style="width: 350px; background: var(--bg-card); padding: 20px; border-radius: var(--radius); border: 1px solid var(--border); height: fit-content;">
                 <h3>Итого</h3>
-                <div class="summary-row"><span>Товары</span><span id="sum-subtotal">0 ₽</span></div>
-                <div class="summary-row total"><span>К оплате</span><span id="sum-total">0 ₽</span></div>
+                <div class="summary-row" style="display: flex; justify-content: space-between; margin: 10px 0;"><span>Товары</span><span id="sum-subtotal">0 ₽</span></div>
+                <div class="summary-row total" style="display: flex; justify-content: space-between; margin: 10px 0; font-weight: bold; font-size: 20px;"><span>К оплате</span><span id="sum-total">0 ₽</span></div>
                 
-                <button class="btn btn--primary checkout-start" id="checkout-btn">Перейти к оформлению</button>
+                <button class="btn btn--primary" style="width:100%; margin-top:20px;" id="checkout-btn">Оформить</button>
                 
-                <form id="checkout-form" class="checkout-form" hidden>
-                    <label for="order-name">Ваше имя</label>
-                    <input type="text" id="order-name" placeholder="Имя" required maxlength="100">
+                <form id="checkout-form" style="display:none; flex-direction:column; gap:10px; margin-top:20px;">
+                    <input type="text" id="order-name" placeholder="Имя" required style="padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-color); color:var(--text-main);">
                     <label class="checkout-email-label" for="order-email">Почта аккаунта</label>
                     <input type="email" id="order-email" class="checkout-email" placeholder="Загрузка почты..." readonly required>
                     <p class="checkout-email-help">Чтобы изменить адрес почты, зайдите в <a href="profile.html#settings">настройки профиля</a>.</p>
-                    <label for="order-address">Адрес доставки</label>
-                    <input type="text" id="order-address" placeholder="Город, улица, дом" required maxlength="300">
+                    <input type="text" id="order-address" placeholder="Адрес" required style="padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-color); color:var(--text-main);">
                     
-                    <p class="checkout-payment-title">Способ оплаты</p>
-                    <label class="checkout-payment"><input type="radio" name="payment" value="card" checked> Карта</label>
-                    <label class="checkout-payment"><input type="radio" name="payment" value="sbp"> СБП</label>
-                    <label class="checkout-payment"><input type="radio" name="payment" value="wallet"> Кошелёк</label>
+                    <p style="font-size:14px; font-weight:600;">Оплата:</p>
+                    <label><input type="radio" name="payment" value="card" checked> Карта</label>
+                    <label><input type="radio" name="payment" value="sbp"> СБП</label>
+                    <label><input type="radio" name="payment" value="wallet"> Кошелек</label>
 
-                    <button type="submit" class="btn btn--primary checkout-start">Подтвердить заказ</button>
+                    <button type="submit" class="btn btn--primary" style="width:100%; margin-top:10px;">Оплатить</button>
                 </form>
             </div>
         </div>

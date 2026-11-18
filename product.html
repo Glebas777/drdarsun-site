@@ -2,11 +2,26 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dr. DarSun | Товар</title>
     <link rel="stylesheet" href="css/base.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/product.css">
+    <style>
+        .product-layout { display: flex; gap: 50px; margin: 40px 0; }
+        .product-gallery { flex: 1; }
+        .main-image { width: 100%; height: 500px; background: var(--bg-card); border-radius: var(--radius); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; padding: 40px; }
+        .main-image img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .product-info { flex: 1; }
+        .product-info h1 { font-size: 36px; margin-bottom: 15px; }
+        .product-price { font-size: 32px; font-weight: 700; color: var(--accent-green); margin-bottom: 30px; }
+        .product-desc { font-size: 16px; color: var(--text-muted); line-height: 1.6; margin-bottom: 30px; }
+        .product-actions { display: flex; gap: 15px; margin-bottom: 40px; }
+        .product-actions .btn { flex: 1; padding: 16px; font-size: 16px; }
+        .specs { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+        .spec-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .spec-row:last-child { border-bottom: none; }
+        @media (max-width: 768px) { .product-layout { flex-direction: column; } .main-image { height: 300px; } }
+    </style>
 </head>
 <body>
 <div id="preloader">
@@ -30,7 +45,6 @@
     <div class="container header__inner">
         <a href="index.html" class="logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
         <nav class="nav">
-            <a href="index.html">Главная</a>
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
             <a href="delivery.html">Доставка</a>
@@ -44,51 +58,33 @@
     </div>
     <!-- Мобильное меню -->
     <div class="mobile-menu" id="mobile-menu">
-        <a href="index.html">Главная</a>
         <a href="catalog.html">Каталог</a>
         <a href="about.html">О нас</a>
         <a href="delivery.html">Доставка</a>
     </div>
 </header>
 
-    <main class="container product-page">
-        <a class="product-back" href="catalog.html">← Каталог</a>
+    <main class="container">
         <div class="product-layout">
             <div class="product-gallery">
-                <div class="main-image">
-                    <span class="product-image-label">DR. DARSUN · НАТУРАЛЬНЫЙ ПРОДУКТ</span>
-                    <img src="assets/images/sunflower.png" id="main-img" alt="Товар">
-                    <span class="product-image-caption" aria-hidden="true">Создано природой</span>
-                </div>
+                <div class="main-image"><img src="assets/images/sunflower.png" id="main-img" alt="Товар"></div>
             </div>
             <div class="product-info">
-                <p class="product-kicker">МАСЛО ПРЕССОВАННОЕ</p>
                 <h1 id="product-name">Загрузка...</h1>
                 <div class="product-price" id="product-price">...</div>
                 <p class="product-desc" id="product-desc"></p>
                 <div class="product-actions">
                     <button class="btn btn--primary" id="add-to-cart-btn">В корзину</button>
-                    <button class="btn favorite-product-btn" id="favorite-btn" type="button" aria-pressed="false" aria-label="Добавить в избранное">♡</button>
+                    <button class="btn" style="border: 1px solid var(--border); flex: 0 0 60px;" id="favorite-btn">❤️</button>
                 </div>
                 <div class="specs">
-                    <div class="spec-row"><span>Объём</span><span id="spec-volume">...</span></div>
+                    <div class="spec-row"><span>Объем</span><span id="spec-volume">...</span></div>
                     <div class="spec-row"><span>Тип отжима</span><span>Холодный</span></div>
                     <div class="spec-row"><span>Срок годности</span><span>6 месяцев</span></div>
                     <div class="spec-row"><span>Упаковка</span><span>Темное стекло</span></div>
                 </div>
-                <p class="product-trust-note"><span aria-hidden="true">✦</span> Бережное производство и внимание к каждой детали</p>
             </div>
         </div>
-
-        <section class="product-reviews">
-            <div class="product-reviews__heading">
-                <p class="eyebrow">ВПЕЧАТЛЕНИЯ ПОКУПАТЕЛЕЙ</p>
-                <h2>Отзывы о товаре</h2>
-            </div>
-            <div id="reviews-list" class="product-reviews__list" aria-live="polite">
-                <p class="product-reviews__empty">Загрузка отзывов...</p>
-            </div>
-        </section>
     </main>
 
     <footer class="footer">

@@ -1,58 +1,66 @@
-function initializePreloader() {
+document.addEventListener('DOMContentLoaded', () => {
     const preloader = document.getElementById('preloader');
-    if (!preloader || preloader.dataset.initialized === 'true') return;
-    preloader.dataset.initialized = 'true';
+    const progressBar = document.querySelector('.preloader-progress-bar');
+    const textEl = document.getElementById('preloader-text');
+    if (!preloader) return;
 
-    const progressBar = preloader.querySelector('.preloader-progress-bar');
-    const text = preloader.querySelector('.preloader-text');
+    // Список фраз
     const phrases = [
-        'Вставляем картинки...',
-        'Настраиваем свет...',
-        'Готовим витрину...',
-        'Почти готово...'
+        "Вставляем картинки...",
+        "Протираем пыль с картинок...",
+        "Настраиваем свет...",
+        "Доктор Брезель уже тут...",
+        "Почти готово..."
     ];
+
     let phraseIndex = 0;
-    let progress = 0;
+    
+    // Меняем текст каждые 1.5 секунды
+    const textInterval = setInterval(() => {
+        if (textEl) {
+            textEl.style.opacity = '0'; // Плавно скрываем
+            setTimeout(() => {
+                phraseIndex = (phraseIndex + 1) % phrases.length;
+                textEl.textContent = phrases[phraseIndex];
+                textEl.style.opacity = '1'; // Плавно показываем
+            }, 300);
+        }
+    }, 1500);
+
     const startTime = Date.now();
-    const minimumDuration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 350;
+    const MIN_DURATION = 3000;
 
     const hour = new Date().getHours();
-    const backgroundId = hour >= 5 && hour < 12
-        ? 'bg-load_morning'
-        : hour >= 12 && hour < 18
-            ? 'bg-load_day'
-            : hour >= 18 && hour < 23
-                ? 'bg-load_evening'
-                : 'bg-load_night';
-    document.getElementById(backgroundId)?.classList.add('active');
+    let activeBg = 'load_day';
+    if (hour >= 5 && hour < 12) activeBg = 'load_morning';
+    else if (hour >= 12 && hour < 18) activeBg = 'load_day';
+    else if (hour >= 18 && hour < 23) activeBg = 'load_evening';
+    else activeBg = 'load_night';
+    
+    const bgEl = document.getElementById(`bg-${activeBg}`);
+    if (bgEl) bgEl.classList.add('active');
 
-    const progressInterval = window.setInterval(() => {
-        progress = Math.min(progress + 4, 88);
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+        progress += Math.random() * 10;
+        if (progress > 90) progress = 90;
         if (progressBar) progressBar.style.width = `${progress}%`;
-    }, 100);
-    const textInterval = text ? window.setInterval(() => {
-        phraseIndex = (phraseIndex + 1) % phrases.length;
-        text.textContent = phrases[phraseIndex];
-    }, 1400) : null;
+    }, 200);
 
-    let hidden = false;
-    const hide = () => {
-        if (hidden) return;
-        hidden = true;
-        window.clearInterval(progressInterval);
-        if (textInterval) window.clearInterval(textInterval);
+    const hidePreloader = () => {
+        clearInterval(textInterval);
+        clearInterval(progressInterval);
         if (progressBar) progressBar.style.width = '100%';
-        const remaining = Math.max(0, minimumDuration - (Date.now() - startTime));
-        window.setTimeout(() => preloader.classList.add('hidden'), remaining);
+        setTimeout(() => preloader.classList.add('hidden'), 500);
     };
 
-    window.addEventListener('load', hide, { once: true });
-    window.setTimeout(hide, 8000);
-    if (document.readyState === 'complete') hide();
-}
+    window.addEventListener('load', () => {
+        const elapsedTime = Date.now() - startTime;
+        if (elapsedTime < MIN_DURATION) {
+            setTimeout(hidePreloader, MIN_DURATION - elapsedTime);
+        } else {
+            hidePreloader();
+        }
+    });
+});
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializePreloader, { once: true });
-} else {
-    initializePreloader();
-}

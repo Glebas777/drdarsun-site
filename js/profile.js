@@ -1,12 +1,5 @@
 import { supabase } from './supabase-client.js';
 import { approveQrLogin, getQrLoginId, startQrScanner } from './qr-login.js';
-import { getFavoriteProducts, toggleFavorite } from './favorites.js';
-import { addToCart } from './cart.js';
-
-let resolveProfileDeviceSetup;
-window.profileDeviceSetup = new Promise(resolve => {
-    resolveProfileDeviceSetup = resolve;
-});
 
 // Функция для тостов
 window.showToast = function(message, type = 'success') {
@@ -46,11 +39,10 @@ window.selectAvatar = async function(src) {
 };
 
 async function ensureCurrentDevice(session) {
-    let deviceKey = localStorage.getItem('device_key');
+    const deviceKey = localStorage.getItem('device_key');
     const deviceUserId = localStorage.getItem('device_user_id');
-    const pendingUserId = localStorage.getItem('pending_device_registration');
 
-    const registerDevice = async () => {
+    if (!deviceKey || (deviceUserId && deviceUserId !== session.user.id)) {
         deviceKey = crypto.randomUUID();
         localStorage.setItem('device_key', deviceKey);
         localStorage.setItem('device_user_id', session.user.id);
@@ -65,12 +57,7 @@ async function ensureCurrentDevice(session) {
             localStorage.removeItem('device_user_id');
             throw error;
         }
-        localStorage.removeItem('pending_device_registration');
         return deviceKey;
-    };
-
-    if (!deviceKey || (deviceUserId && deviceUserId !== session.user.id)) {
-        return registerDevice();
     }
 
     const { data, error } = await supabase
@@ -80,12 +67,8 @@ async function ensureCurrentDevice(session) {
         .eq('device_key', deviceKey)
         .maybeSingle();
     if (error) throw error;
-    if (!data) {
-        if (pendingUserId === session.user.id) return registerDevice();
-        return null;
-    }
+    if (!data) return null;
     if (!deviceUserId) localStorage.setItem('device_user_id', session.user.id);
-    localStorage.removeItem('pending_device_registration');
     return deviceKey;
 }
 
@@ -93,7 +76,6 @@ async function init() {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     if (sessionError || !session) {
         showToast('Сессия истекла. Войдите заново.', 'error');
-        resolveProfileDeviceSetup();
         return window.location.href = 'login.html';
     }
     try {
@@ -102,162 +84,19 @@ async function init() {
             localStorage.removeItem('device_key');
             localStorage.removeItem('device_user_id');
             await supabase.auth.signOut({ scope: 'local' });
-            resolveProfileDeviceSetup();
             return window.location.href = 'index.html';
         }
     } catch (error) {
         console.error('Device session registration failed:', error);
         showToast('Не удалось проверить активную сессию. Обновите страницу.', 'error');
-        resolveProfileDeviceSetup();
         return;
     }
-    resolveProfileDeviceSetup();
 
     // 1. ДАННЫЕ
     document.getElementById('user-name').textContent = session.user.user_metadata.full_name || 'Гость';
     document.getElementById('user-email').textContent = session.user.email;
     document.getElementById('settings-name').value = session.user.user_metadata.full_name || '';
     document.getElementById('settings-email').value = session.user.email || '';
-
-    const telegramLinkStatus = document.getElementById('telegram-link-status');
-    const telegramLinkStart = document.getElementById('telegram-link-start');
-    const telegramLinkRemove = document.getElementById('telegram-link-remove');
-    const telegramLinkCode = document.getElementById('telegram-link-code');
-    const telegramLinkCodeValue = document.getElementById('telegram-link-code-value');
-    const telegramLinkCopy = document.getElementById('telegram-link-copy');
-    const telegramLinkCodeActions = document.getElementById('telegram-link-code-actions');
-    const telegramPublicBots = document.getElementById('telegram-public-bots');
-    const telegramApiBase = 'https://drdarsun-site-main.layero.app/api/telegram';
-    const telegramApiUrl = `${telegramApiBase}/link`;
-    let publicTelegramBots = [];
-
-    function renderTelegramBotLinks(code = '') {
-        if (telegramPublicBots) {
-            telegramPublicBots.replaceChildren();
-            for (const bot of publicTelegramBots) {
-                const link = document.createElement('a');
-                link.className = 'btn';
-                link.href = bot.url;
-                link.target = '_blank';
-                link.rel = 'noopener noreferrer';
-                link.textContent = `${bot.label} · @${bot.username}`;
-                telegramPublicBots.appendChild(link);
-            }
-        }
-
-        if (telegramLinkCodeActions) {
-            telegramLinkCodeActions.replaceChildren();
-            if (code) {
-                const linkBot = publicTelegramBots.find(bot => bot.role === 'auth') ||
-                    publicTelegramBots.find(bot => bot.role === 'client');
-                if (linkBot) {
-                    const link = document.createElement('a');
-                    link.className = 'btn btn--primary';
-                    link.href = `${linkBot.url}?start=${encodeURIComponent(code)}`;
-                    link.target = '_blank';
-                    link.rel = 'noopener noreferrer';
-                    link.textContent = `Открыть @${linkBot.username} и привязать`;
-                    telegramLinkCodeActions.appendChild(link);
-                }
-            }
-        }
-    }
-
-    async function loadPublicTelegramBots() {
-        const response = await fetch(`${telegramApiBase}/public-bots`, { cache: 'no-store' });
-        const result = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(result?.error || 'Не удалось получить ссылки на Telegram-ботов.');
-        publicTelegramBots = Array.isArray(result?.bots)
-            ? result.bots.filter(bot =>
-                bot &&
-                ['client', 'support', 'auth'].includes(bot.role) &&
-                typeof bot.username === 'string' &&
-                /^https:\/\/t\.me\/[A-Za-z0-9_]+$/.test(bot.url)
-            )
-            : [];
-        renderTelegramBotLinks(telegramLinkCodeValue?.textContent || '');
-    }
-
-    async function refreshTelegramLink() {
-        await loadPublicTelegramBots().catch(error => {
-            console.warn('Telegram public bot links are not available:', error.message);
-        });
-        const response = await fetch(telegramApiUrl, {
-            headers: { Authorization: `Bearer ${session.access_token}` }
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Не удалось проверить подключение Telegram.');
-        const account = result.account;
-        telegramLinkStatus.textContent = account
-            ? `Telegram подключён${account.telegram_username ? `: @${account.telegram_username}` : ''}.`
-            : 'Telegram пока не подключён.';
-        telegramLinkStart.hidden = Boolean(account);
-        telegramLinkRemove.hidden = !account;
-        if (account) telegramLinkCode.hidden = true;
-    }
-
-    telegramLinkStart?.addEventListener('click', async () => {
-        telegramLinkStart.disabled = true;
-        try {
-            const response = await fetch(`${telegramApiUrl}/start`, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${session.access_token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: '{}'
-            });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error || 'Не удалось создать код привязки.');
-            telegramLinkCodeValue.textContent = result.code;
-            telegramLinkCode.hidden = false;
-            await loadPublicTelegramBots();
-            renderTelegramBotLinks(result.code);
-        } catch (error) {
-            showToast(error.message || 'Не удалось создать код привязки.', 'error');
-        } finally {
-            telegramLinkStart.disabled = false;
-        }
-    });
-
-    telegramLinkCopy?.addEventListener('click', async () => {
-        try {
-            await navigator.clipboard.writeText(telegramLinkCodeValue.textContent);
-            showToast('Код скопирован.');
-        } catch (error) {
-            console.error('Telegram link code copy failed:', error);
-            showToast('Не удалось скопировать код. Выделите его и скопируйте вручную.', 'error');
-        }
-    });
-
-    telegramLinkRemove?.addEventListener('click', async () => {
-        if (!confirm('Отключить Telegram от этого аккаунта?')) return;
-        telegramLinkRemove.disabled = true;
-        try {
-            const response = await fetch(telegramApiUrl, {
-                method: 'DELETE',
-                headers: { Authorization: `Bearer ${session.access_token}` }
-            });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error || 'Не удалось отключить Telegram.');
-            telegramLinkCode.hidden = true;
-            await refreshTelegramLink();
-            showToast('Telegram отключён.');
-        } catch (error) {
-            showToast(error.message || 'Не удалось отключить Telegram.', 'error');
-        } finally {
-            telegramLinkRemove.disabled = false;
-        }
-    });
-
-    if (telegramLinkStatus && telegramLinkStart && telegramLinkRemove) {
-        try {
-            await refreshTelegramLink();
-        } catch (error) {
-            telegramLinkStatus.textContent = 'Не удалось проверить подключение Telegram.';
-            console.error('Telegram link status check failed:', error);
-        }
-    }
 
     // 2. АВАТАРКА
     const avatarInput = document.getElementById('avatar-input');
@@ -406,87 +245,6 @@ async function init() {
             `).join('');
         }
     }
-
-    const favoritesList = document.getElementById('favorites-list');
-    async function loadFavorites() {
-        if (!favoritesList) return;
-        try {
-            const products = await getFavoriteProducts(session.user.id);
-            favoritesList.replaceChildren();
-            if (!products.length) {
-                const empty = document.createElement('p');
-                empty.className = 'empty-state favorites-empty';
-                empty.textContent = 'Пока ничего не сохранено. Нажмите на сердечко у понравившегося товара.';
-                favoritesList.appendChild(empty);
-                return;
-            }
-
-            products.forEach(product => {
-                const card = document.createElement('article');
-                card.className = 'favorite-card';
-                const link = document.createElement('a');
-                link.className = 'favorite-card__image';
-                link.href = `product.html?id=${encodeURIComponent(product.id)}`;
-                const image = document.createElement('img');
-                image.src = product.image_url || 'assets/images/logo.png';
-                image.alt = product.name || 'Товар Dr. DarSun';
-                image.loading = 'lazy';
-                link.appendChild(image);
-
-                const details = document.createElement('div');
-                details.className = 'favorite-card__details';
-                const category = document.createElement('span');
-                category.className = 'favorite-card__category';
-                category.textContent = product.category || 'Dr. DarSun';
-                const title = document.createElement('a');
-                title.className = 'favorite-card__title';
-                title.href = link.href;
-                title.textContent = product.name || 'Товар';
-                const price = document.createElement('strong');
-                price.className = 'favorite-card__price';
-                price.textContent = `${new Intl.NumberFormat('ru-RU').format(Number(product.price) || 0)} ₽`;
-                const actions = document.createElement('div');
-                actions.className = 'favorite-card__actions';
-                const addButton = document.createElement('button');
-                addButton.className = 'btn btn--primary';
-                addButton.type = 'button';
-                addButton.textContent = 'В корзину';
-                addButton.addEventListener('click', () => addToCart({
-                    id: product.id,
-                    name: product.name,
-                    price: Number(product.price),
-                    image: product.image_url
-                }));
-                const removeButton = document.createElement('button');
-                removeButton.className = 'btn favorite-card__remove';
-                removeButton.type = 'button';
-                removeButton.textContent = 'Убрать';
-                removeButton.addEventListener('click', async () => {
-                    removeButton.disabled = true;
-                    try {
-                        await toggleFavorite(session.user.id, product.id);
-                        await loadFavorites();
-                    } catch (error) {
-                        removeButton.disabled = false;
-                        showToast('Не удалось изменить избранное: ' + error.message, 'error');
-                    }
-                });
-                actions.append(addButton, removeButton);
-                details.append(category, title, price, actions);
-                card.append(link, details);
-                favoritesList.appendChild(card);
-            });
-        } catch (error) {
-            console.error('Favorites load failed:', error);
-            favoritesList.replaceChildren();
-            const message = document.createElement('p');
-            message.className = 'empty-state';
-            message.textContent = 'Не удалось загрузить избранное. Проверьте подключение и повторите попытку.';
-            favoritesList.appendChild(message);
-        }
-    }
-
-    await loadFavorites();
 
     // 6. ВКЛАДКИ
     document.querySelectorAll('.profile-nav-btn').forEach(btn => {
@@ -686,161 +444,6 @@ logoutAllBtn.onclick = async () => {
 
 const toggle2fa = document.getElementById('2fa-toggle');
 const status2fa = document.getElementById('2fa-status');
-const recoveryCodesStatus = document.getElementById('recovery-codes-status');
-const recoveryCodesCreate = document.getElementById('recovery-codes-create');
-const recoveryCodesRetry = document.getElementById('recovery-codes-save-retry');
-const recoveryCodesRequest = document.getElementById('recovery-codes-request');
-const recoveryCodesForm = document.getElementById('recovery-codes-email-form');
-const recoveryCodesInput = document.getElementById('recovery-codes-email-code');
-const recoveryCodesVisibility = document.getElementById('recovery-codes-visibility');
-const recoveryCodesList = document.getElementById('recovery-codes-list');
-const RECOVERY_CODES_API = 'https://drdarsun-site-main.layero.app/api/recovery-codes';
-let pendingRecoveryCodes = null;
-let displayedRecoveryCodes = null;
-let recoveryCodesVisible = false;
-
-async function recoveryCodesApi(path, method = 'GET', body) {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) throw new Error('Войдите в аккаунт и повторите попытку.');
-    const response = await fetch(`${RECOVERY_CODES_API}${path}`, {
-        method,
-        headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json'
-        },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) })
-    });
-    const result = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(result?.error || 'Не удалось выполнить операцию с резервными кодами.');
-    return result;
-}
-
-function renderRecoveryCodes(codes, reveal = false) {
-    if (!recoveryCodesList) return;
-    recoveryCodesList.replaceChildren();
-    for (const item of codes || []) {
-        const code = typeof item.code === 'string' ? item.code : '';
-        const masked = typeof item.masked === 'string'
-            ? item.masked
-            : code
-                ? `${code.slice(0, 2)}${'•'.repeat(Math.max(4, code.length - 2))}`
-                : '';
-        const line = document.createElement('li');
-        line.textContent = `${reveal && code ? code : masked}${item.used ? ' · использован' : ''}`;
-        recoveryCodesList.appendChild(line);
-    }
-}
-
-async function refreshRecoveryCodes(twoFactorEnabled = toggle2fa?.checked) {
-    if (!recoveryCodesStatus) return;
-    try {
-        const result = await recoveryCodesApi('/status');
-        recoveryCodesStatus.textContent = result.hasCodes
-            ? `Созданы ${new Date(result.createdAt).toLocaleDateString('ru-RU')}. Осталось активных кодов: ${result.remaining}.`
-            : twoFactorEnabled
-                ? 'Резервные коды ещё не созданы.'
-                : 'Сначала включите 2FA.';
-        recoveryCodesCreate.hidden = !twoFactorEnabled || Boolean(result.hasCodes);
-        recoveryCodesRequest.hidden = !result.hasCodes;
-        if (!result.hasCodes) {
-            displayedRecoveryCodes = null;
-            recoveryCodesList.replaceChildren();
-            recoveryCodesVisibility.hidden = true;
-        } else if (!displayedRecoveryCodes) {
-            renderRecoveryCodes(result.codes);
-        }
-    } catch (error) {
-        recoveryCodesStatus.textContent = error.message || 'Не удалось проверить резервные коды.';
-        recoveryCodesCreate.hidden = true;
-        recoveryCodesRequest.hidden = true;
-    }
-}
-
-async function createAndSaveRecoveryCodes() {
-    recoveryCodesCreate.disabled = true;
-    recoveryCodesRetry.disabled = true;
-    try {
-        if (!pendingRecoveryCodes) {
-            let { data, error } = await supabase.auth.mfa.recoveryCodes.generate({
-                friendlyName: 'Dr. DarSun backup codes'
-            });
-            if (error?.code === 'mfa_verified_factor_exists') {
-                if (!confirm('Найден существующий набор резервных кодов без зашифрованного архива. Создание нового набора сделает старые коды недействительными. Продолжить?')) {
-                    throw new Error('Создание нового набора отменено.');
-                }
-                ({ data, error } = await supabase.auth.mfa.recoveryCodes.regenerate());
-            }
-            if (error) throw error;
-            if (!Array.isArray(data?.codes) || !data.codes.length) throw new Error('Сервис 2FA не вернул резервные коды.');
-            pendingRecoveryCodes = data.codes;
-        }
-        await recoveryCodesApi('/register', 'POST', { codes: pendingRecoveryCodes });
-        pendingRecoveryCodes = null;
-        recoveryCodesRetry.hidden = true;
-        displayedRecoveryCodes = null;
-        recoveryCodesVisible = false;
-        recoveryCodesStatus.textContent = 'Резервные коды созданы и сохранены в зашифрованном виде.';
-        showToast('Резервные коды созданы.');
-        await refreshRecoveryCodes(true);
-    } catch (error) {
-        const saved = await recoveryCodesApi('/status').catch(() => null);
-        if (saved?.hasCodes) {
-            pendingRecoveryCodes = null;
-            recoveryCodesRetry.hidden = true;
-            displayedRecoveryCodes = null;
-            await refreshRecoveryCodes(true);
-            return;
-        }
-        recoveryCodesStatus.textContent = 'Не удалось сохранить коды. Оставьте страницу открытой и нажмите «Повторить сохранение».';
-        recoveryCodesRetry.hidden = !pendingRecoveryCodes;
-        showToast(error.message || 'Не удалось создать резервные коды.', 'error');
-    } finally {
-        recoveryCodesCreate.disabled = false;
-        recoveryCodesRetry.disabled = false;
-    }
-}
-
-recoveryCodesCreate?.addEventListener('click', createAndSaveRecoveryCodes);
-recoveryCodesRetry?.addEventListener('click', createAndSaveRecoveryCodes);
-recoveryCodesRequest?.addEventListener('click', async () => {
-    recoveryCodesRequest.disabled = true;
-    try {
-        await recoveryCodesApi('/request', 'POST', {});
-        recoveryCodesForm.hidden = false;
-        recoveryCodesInput.focus();
-        recoveryCodesStatus.textContent = 'Код отправлен на почту, указанную в аккаунте. Он действует 10 минут.';
-    } catch (error) {
-        recoveryCodesStatus.textContent = error.message;
-    } finally {
-        recoveryCodesRequest.disabled = false;
-    }
-});
-recoveryCodesForm?.addEventListener('submit', async event => {
-    event.preventDefault();
-    const submit = recoveryCodesForm.querySelector('button[type="submit"]');
-    submit.disabled = true;
-    try {
-        const result = await recoveryCodesApi('/reveal', 'POST', { code: recoveryCodesInput.value.trim() });
-        displayedRecoveryCodes = result.codes;
-        recoveryCodesVisible = false;
-        renderRecoveryCodes(displayedRecoveryCodes);
-        recoveryCodesVisibility.hidden = false;
-        recoveryCodesVisibility.textContent = 'Показать коды';
-        recoveryCodesStatus.textContent = 'Подтверждена почта. Полные коды скрыты; при необходимости нажмите «Показать коды».';
-        recoveryCodesInput.value = '';
-        recoveryCodesForm.hidden = true;
-    } catch (error) {
-        recoveryCodesStatus.textContent = error.message;
-    } finally {
-        submit.disabled = false;
-    }
-});
-recoveryCodesVisibility?.addEventListener('click', () => {
-    if (!displayedRecoveryCodes) return;
-    recoveryCodesVisible = !recoveryCodesVisible;
-    renderRecoveryCodes(displayedRecoveryCodes, recoveryCodesVisible);
-    recoveryCodesVisibility.textContent = recoveryCodesVisible ? 'Скрыть коды' : 'Показать коды';
-});
 
 if (toggle2fa) {
     let mfaBusy = false;
@@ -862,7 +465,6 @@ if (toggle2fa) {
             : pendingFactors.length
                 ? 'Есть незавершённая настройка — при включении она будет очищена.'
                 : 'Отключена';
-        await refreshRecoveryCodes(verifiedFactors.length > 0);
         return { factors, verifiedFactors, pendingFactors };
     }
 
@@ -886,25 +488,16 @@ if (toggle2fa) {
                 return;
             }
 
-            if (!enable && !confirm('Отключить двухфакторную защиту? Резервные коды станут недействительными и их зашифрованный архив будет удалён.')) {
+            if (!enable && !confirm('Отключить двухфакторную защиту?')) {
                 toggle2fa.checked = true;
                 return;
             }
 
             if (!enable) {
-                const { data: recoveryStatus, error: recoveryStatusError } = await supabase.auth.mfa.recoveryCodes.getStatus();
-                if (recoveryStatusError && !['mfa_factor_not_found', 'mfa_recovery_codes_enroll_not_enabled'].includes(recoveryStatusError.code)) {
-                    throw recoveryStatusError;
-                }
-                if (recoveryStatus?.total) {
-                    const { error } = await supabase.auth.mfa.recoveryCodes.unenroll();
-                    if (error) throw error;
-                }
                 for (const factor of [...verifiedFactors, ...pendingFactors]) {
                     const { error } = await supabase.auth.mfa.unenroll({ factorId: factor.id });
                     if (error) throw error;
                 }
-                await recoveryCodesApi('/', 'DELETE');
                 await syncTwoFactorStatus();
                 showToast('Двухфакторная защита отключена.');
                 return;
@@ -1020,11 +613,6 @@ if (toggle2fa) {
                     showToast('Код не подошёл. Проверьте время на телефоне и попробуйте ещё раз.', 'error');
                     code.focus();
                     return;
-                }
-                try {
-                    await createAndSaveRecoveryCodes();
-                } catch (recoveryError) {
-                    console.error('Recovery code setup failed:', recoveryError);
                 }
                 dialog.remove();
                 mfaSetupOpen = false;
