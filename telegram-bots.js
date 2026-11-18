@@ -40,15 +40,16 @@ function updateChatId(update) {
     return chat?.id === undefined ? '' : String(chat.id);
 }
 
+function configuredPanelChatIds(env) {
+    return [...new Set([env.M_CHAT_ID, env.PANEL_CHAT_ID]
+        .flatMap(value => String(value || '').split(','))
+        .map(value => value.trim())
+        .filter(Boolean))];
+}
+
 function ownerAllowed(role, chatId, env) {
     if (role === 'admin') return Boolean(env.MY_CHAT_ID) && chatId === env.MY_CHAT_ID;
-    if (role === 'panel') {
-        const panelChatIds = String(env.M_CHAT_ID || env.PANEL_CHAT_ID || '')
-            .split(',')
-            .map(value => value.trim())
-            .filter(Boolean);
-        return panelChatIds.includes(chatId);
-    }
+if (role === 'panel') return configuredPanelChatIds(env).includes(chatId);
     return true;
 }
 
@@ -896,8 +897,11 @@ async function handleCallback(config, bot, callback, chatId) {
                 })
             });
             setState('admin', chatId, {});
-            await bot.send(chatId, `Уведомление создано.\nПолучателей: ${result.sent}\nСрок показа: ${result.durationSeconds} сек.`, { reply_markup: menuKeyboard('admin') });
-            return;
+await bot.send(chatId, result.broadcast
+    ? `Публичное уведомление опубликовано для посетителей сайта.\nСрок показа: ${result.durationSeconds} сек.`
+    : `Уведомление создано.\nПолучателей: ${result.sent}\nСрок показа: ${result.durationSeconds} сек.`,
+    { reply_markup: menuKeyboard('admin') }
+);            return;
         }
         if (data === 'adm:maintenance') {
             const { enabled } = await bot.callApi('/admin/maintenance', chatId);
@@ -1428,7 +1432,7 @@ function startTelegramBots(options = {}) {
             console.warn('Telegram admin bot not started: MY_CHAT_ID is not configured.');
             continue;
         }
-        if (definition.role === 'panel' && !(env.M_CHAT_ID || env.PANEL_CHAT_ID)) {
+        if (definition.role === 'panel' && configuredPanelChatIds(env).length === 0) {
             console.warn('Telegram panel bot not started: M_CHAT_ID or PANEL_CHAT_ID is not configured.');
             continue;
         }

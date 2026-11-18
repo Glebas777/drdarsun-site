@@ -1,6 +1,10 @@
 const STATUS_URL = 'https://drdarsun-site-main.layero.app/api/site-status';
 const MAINTENANCE_URL = 'maintenance.html';
 
+import(new URL('site-toasts.js', document.currentScript.src).href).catch(error => {
+    console.error('Site notifications could not be loaded:', error);
+});
+
 if (!document.querySelector('[data-global-music-player]')) {
     const playerScript = document.createElement('script');
     playerScript.src = new URL('music-player.js', document.currentScript.src).href;

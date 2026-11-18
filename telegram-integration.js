@@ -133,9 +133,12 @@ function createTelegramIntegrationRouter(options = {}) {
     }
 
     function requireOwnerChat(req, res, next) {
-        const expectedChatIds = req.telegramBotRole === 'admin'
-            ? [env.MY_CHAT_ID]
-            : String(env.M_CHAT_ID || env.PANEL_CHAT_ID || '').split(',').map(value => value.trim()).filter(Boolean);
+const expectedChatIds = req.telegramBotRole === 'admin'
+    ? String(env.MY_CHAT_ID || '').split(',').map(value => value.trim()).filter(Boolean)
+    : [...new Set([env.M_CHAT_ID, env.PANEL_CHAT_ID]
+        .flatMap(value => String(value || '').split(','))
+        .map(value => value.trim())
+        .filter(Boolean))];
         const suppliedChatId = req.get('X-Telegram-Chat-Id') || '';
 
         if (!expectedChatIds.length || !isValidChatId(suppliedChatId) || !expectedChatIds.includes(suppliedChatId)) {
@@ -187,42 +190,67 @@ function createTelegramIntegrationRouter(options = {}) {
             return res.status(400).json({ error: 'Срок показа должен быть от 1 до 3600 секунд.' });
         }
 
-        const users = await getAdminUsersByEmail(target === 'all' ? '' : target);
-        const recipients = target === 'all'
-            ? users
-            : users.filter(user => user.email?.toLowerCase() === target);
-        if (target !== 'all' && recipients.length !== 1) {
-            return res.status(404).json({ error: 'Аккаунт с таким email не найден.' });
-        }
-        const userIds = [...new Set(recipients.map(user => user.id).filter(isUuid))];
-        if (userIds.length >= 10000) {
-            return res.status(413).json({ error: 'Слишком большая аудитория для одной отправки.' });
-        }
-        if (!userIds.length) return res.json({ sent: 0, durationSeconds });
+const expiresAt = new Date(Date.now() + durationSeconds * 1000).toISOString();
 
-        const expiresAt = new Date(Date.now() + durationSeconds * 1000).toISOString();
-        let sent = 0;
-        for (let offset = 0; offset < userIds.length; offset += 500) {
-            const batch = userIds.slice(offset, offset + 500);
-            await databaseRequest('site_toast_notifications', {
-                method: 'POST',
-                headers: { Prefer: 'return=minimal' },
-                body: JSON.stringify(batch.map(user_id => ({
-                    user_id,
-                    message,
-                    kind,
-                    expires_at: expiresAt
-                })))
-            });
-            sent += batch.length;
-        }
-        await writeTelegramAudit(req, 'toast.sent', 'toast', target === 'all' ? 'all' : target, {
+if (target === 'all') {
+    await databaseRequest(
+        `site_public_toasts?expires_at=lt.${encodeURIComponent(new Date().toISOString())}`,
+        { method: 'DELETE', headers: { Prefer: 'return=minimal' } }
+    );
+
+    await databaseRequest('site_public_toasts', {
+        method: 'POST',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({ message, kind, expires_at: expiresAt })
+    });
+
+    await writeTelegramAudit(req, 'toast.broadcast', 'toast', 'public', {
+        kind,
+        durationSeconds,
+        audience: 'all-visitors'
+    });
+
+    return res.json({ sent: 1, durationSeconds, broadcast: true });
+}
+
+// Если указан email, уведомление остаётся личным — только для этого аккаунта.
+const users = await getAdminUsersByEmail(target);
+const recipients = users.filter(user => user.email?.toLowerCase() === target);
+
+if (recipients.length !== 1) {
+    return res.status(404).json({ error: 'Аккаунт с таким email не найден.' });
+}
+
+const userIds = [...new Set(recipients.map(user => user.id).filter(isUuid))];
+if (userIds.length >= 10000) {
+    return res.status(413).json({ error: 'Слишком большая аудитория для одной отправки.' });
+}
+if (!userIds.length) return res.json({ sent: 0, durationSeconds });
+
+let sent = 0;
+for (let offset = 0; offset < userIds.length; offset += 500) {
+    const batch = userIds.slice(offset, offset + 500);
+    await databaseRequest('site_toast_notifications', {
+        method: 'POST',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify(batch.map(user_id => ({
+            user_id,
+            message,
             kind,
-            durationSeconds,
-            audience: target,
-            recipientCount: sent
-        });
-        res.json({ sent, durationSeconds });
+            expires_at: expiresAt
+        })))
+    });
+    sent += batch.length;
+}
+
+await writeTelegramAudit(req, 'toast.sent', 'toast', target, {
+    kind,
+    durationSeconds,
+    audience: target,
+    recipientCount: sent
+});
+
+res.json({ sent, durationSeconds });
     }));
 
     router.post('/admin/email/send', authenticateBot, allowRoles('admin'), requireOwnerChat, (req, res) => {
