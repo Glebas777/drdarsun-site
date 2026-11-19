@@ -1,9 +1,11 @@
 import { supabase } from './supabase-client.js';
 import { addToCart, updateCartCount } from './cart.js';
 import { toggleFavorite } from './favorites.js';
+import { SAMPLE_PRODUCTS } from './catalog-demo-products.js';
 
 const urlParams = new URLSearchParams(window.location.search);
 const productId = urlParams.get('id');
+const demoId = urlParams.get('demo');
 const OIL_COMPOSITION_PROFILES = [
     { match: ['олив', 'olive'], title: 'Оливковое масло', items: ['Олеиновая кислота обычно преобладает; в предоставленном учебном профиле указано около 71%.', 'Также присутствуют линолевая и пальмитиновая кислоты, фитостеролы и токоферолы.'] },
     { match: ['персик', 'peach'], title: 'Персиковое масло', items: ['В профиле обычно указывают олеиновую, линолевую, пальмитиновую и стеариновую кислоты.', 'Состав минорных веществ зависит от сырья и способа обработки.'] },
@@ -43,39 +45,109 @@ function renderOilComposition(product) {
 }
 
 async function loadProduct() {
-    const query = supabase.from('products').select('*');
-    const { data: product, error } = productId
-        ? await query.eq('id', productId).single()
-        : await query.limit(1).single();
-    if (error || !product) {
-        console.error('Product load failed:', error);
-        document.getElementById('product-name').textContent = 'Товар не найден';
-        document.getElementById('product-desc').textContent = 'Вернитесь в каталог и выберите доступный товар.';
-        document.getElementById('add-to-cart-btn').disabled = true;
+    if (demoId) {
+        let catalogState;
+        try {
+            const { data, error: stateError } = await supabase
+                .from('catalog_demo_state')
+                .select('retired')
+                .eq('id', 1)
+                .maybeSingle();
+            catalogState = data;
+            if (stateError) console.warn('Demo catalog retirement state is unavailable:', stateError.message);
+        } catch (stateError) {
+            console.warn('Demo catalog retirement state is unavailable:', stateError);
+        }
+        if (catalogState?.retired === true) {
+            showProductNotFound();
+            return;
+        }
+        const demoProduct = SAMPLE_PRODUCTS.find(product => product.id === demoId);
+        if (!demoProduct) {
+            showProductNotFound();
+            return;
+        }
+        renderProduct(demoProduct, true);
         return;
     }
 
+    const query = supabase.from('products').select('*');
+    let product;
+    let error;
+    try {
+        ({ data: product, error } = productId
+            ? await query.eq('id', productId).single()
+            : await query.limit(1).single());
+    } catch (loadError) {
+        error = loadError;
+    }
+    if (error || !product) {
+        console.error('Product load failed:', error);
+        showProductNotFound();
+        return;
+    }
+
+    await renderProduct(product);
+}
+
+function showProductNotFound() {
+    document.getElementById('product-name').textContent = 'Товар не найден';
+    document.getElementById('product-desc').textContent = 'Вернитесь в каталог и выберите доступный товар.';
+    document.getElementById('add-to-cart-btn').disabled = true;
+    document.getElementById('favorite-btn').disabled = true;
+}
+
+async function renderProduct(product, isDemo = false) {
     document.getElementById('product-name').textContent = product.name;
     document.getElementById('product-price').textContent = `${new Intl.NumberFormat('ru-RU').format(Number(product.price) || 0)} ₽`;
     document.getElementById('product-desc').textContent = product.description || '';
     document.getElementById('spec-volume').textContent = product.volume || 'Не указан';
+    document.getElementById('spec-pressing').textContent = product.pressing_type || 'Не указан';
+    document.getElementById('spec-shelf-life').textContent = Number.isSafeInteger(Number(product.shelf_life_months))
+        ? `${Number(product.shelf_life_months)} месяцев`
+        : 'Не указан';
+    document.getElementById('spec-packaging').textContent = product.packaging_type || 'Не указана';
     renderOilComposition(product);
-    
-    // Картинки (с заглушкой для п.5)
-    const mainImg = document.getElementById('main-img');
-    mainImg.src = product.image_url || 'assets/images/logo.png';
-    mainImg.alt = product.name || 'Товар Dr. DarSun';
 
-    document.getElementById('add-to-cart-btn').addEventListener('click', () => {
-        addToCart({
-            id: product.id,
-            name: product.name,
-            price: product.price,
-            image: product.image_url
-        });
+    const demoNote = document.getElementById('demo-product-note');
+    const addButton = document.getElementById('add-to-cart-btn');
+    const favoriteButton = document.getElementById('favorite-btn');
+    if (isDemo) {
+        document.querySelector('.product-kicker').textContent = 'ДЕМО-ПРИМЕР · НЕ ПРОДАЁТСЯ';
+        demoNote.hidden = false;
+        addButton.textContent = 'Только пример';
+        addButton.disabled = true;
+        addButton.title = 'Демонстрационные товары нельзя заказать';
+        favoriteButton.hidden = true;
+        document.querySelector('.product-reviews').hidden = true;
+    }
+
+    const mainImg = document.getElementById('main-img');
+    mainImg.alt = product.name || 'Товар Dr. DarSun';
+    const placeholderImage = 'assets/images/product-bottle-placeholder.png';
+    mainImg.addEventListener('error', () => {
+        if (mainImg.dataset.placeholderApplied) return;
+        mainImg.dataset.placeholderApplied = 'true';
+        mainImg.src = placeholderImage;
+    }, { once: true });
+    mainImg.src = product.image_url || placeholderImage;
+
+    if (isDemo) return;
+
+    addButton.addEventListener('click', async () => {
+        addButton.disabled = true;
+        try {
+            await addToCart({
+                id: product.id,
+                name: product.name,
+                price: product.price,
+                image: product.image_url || placeholderImage
+            });
+        } finally {
+            addButton.disabled = false;
+        }
     });
 
-    const favoriteButton = document.getElementById('favorite-btn');
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) {
         console.error('Favorite session lookup failed:', sessionError);

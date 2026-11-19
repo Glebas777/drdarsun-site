@@ -27,6 +27,7 @@ window.showToast = function(message, type = 'success', durationMs = 3000) {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 400);
     }, Math.max(1000, durationMs));
+    return toast;
 };
 
 // Функция выбора готовой аватарки (вызывается из HTML)
@@ -555,7 +556,11 @@ async function init() {
             document.getElementById('tab-' + tabId)?.classList.add('active');
         });
     });
-    const requestedTab = window.location.hash === '#settings' ? 'settings' : null;
+    const requestedTab = window.location.hash === '#settings'
+        ? 'settings'
+        : window.location.hash === '#security'
+            ? 'security'
+            : null;
     if (requestedTab) {
         document.querySelector(`.profile-nav-btn[data-tab="${requestedTab}"]`)?.click();
     }

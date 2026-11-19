@@ -69,7 +69,7 @@
                 <p><strong>Клиентский бот</strong> работает с каталогом и вашими заказами после привязки Telegram к профилю. Показывает товары, статус и состав заказа, а также уведомляет о смене статуса.</p>
                 <p><strong>Бот для кодов</strong> создаёт и принимает одноразовый код привязки. Он нужен для безопасного входа по Telegram и восстановления пароля в привязанном аккаунте.</p>
                 <p><strong>Бот-помощник</strong> отвечает на вопросы о товарах, доставке, аккаунте и помощи с подключением. При сложном вопросе создаёт обращение и передаёт переписку оператору.</p>
-                <p>Никому не сообщайте коды и пароли. Администраторские и панельные боты не публикуются на сайте и доступны только владельцам.</p>
+                <p>Выбирайте бота по задаче: каталог и заказ — клиентский, код для безопасной привязки — бот кодов, вопрос или проблема — бот-помощник. Никому не сообщайте одноразовые коды и пароли.</p>
                 <div class="telegram-info__links" id="about-telegram-bots" aria-live="polite">
                     <a href="https://t.me/darsunhelp" target="_blank" rel="noopener noreferrer">Бот поддержки · @darsunhelp</a>
                     <span>Ссылки на клиентского бота и бота привязки загрузятся, если боты доступны.</span>
@@ -81,13 +81,53 @@
             </div>
         </section>
 
+        <section class="telegram-learning" id="telegram-learning" aria-labelledby="telegram-learning-title">
+            <div class="telegram-learning__heading">
+                <p class="eyebrow">БЫСТРЫЙ СТАРТ</p>
+                <h2 id="telegram-learning-title">Обучение: клиентские Telegram-боты</h2>
+                <p>Это три разных помощника для покупателей: один экономит время при выборе и заказе, второй безопасно связывает Telegram с аккаунтом, третий помогает решить вопрос.</p>
+            </div>
+            <div class="telegram-learning__grid">
+                <article class="telegram-learning-card">
+                    <span class="telegram-learning-card__number">01</span>
+                    <h3>Клиентский бот — каталог и заказы</h3>
+                    <p>Нужен, чтобы быстро найти товар в Telegram и смотреть состав и статус заказов, не разыскивая их в переписке. После привязки аккаунта он также присылает выбранные вами уведомления об изменении статуса.</p>
+                    <div class="telegram-learning-card__links" id="telegram-learning-links" aria-live="polite">
+                        <span>Ссылка на клиентского бота появится здесь, когда он будет доступен.</span>
+                    </div>
+                </article>
+                <article class="telegram-learning-card">
+                    <span class="telegram-learning-card__number">02</span>
+                    <h3>Бот кодов — безопасная связь с аккаунтом</h3>
+                    <p>Он нужен для привязки Telegram к профилю, входа и восстановления доступа по одноразовому коду. Самостоятельно включите эту возможность в настройках профиля.</p>
+                    <p>Код действует ограниченное время и предназначен только для вас — не пересылайте его другим людям.</p>
+                    <a class="telegram-learning-card__action" href="profile.html#security">Перейти к настройке в профиле</a>
+                </article>
+                <article class="telegram-learning-card">
+                    <span class="telegram-learning-card__number">03</span>
+                    <h3>Бот-помощник — ответы и поддержка</h3>
+                    <p>Спросите о товарах, доставке или аккаунте. Если автоматического ответа недостаточно, бот поможет передать вопрос поддержке и продолжить переписку там же.</p>
+                    <a class="telegram-learning-card__action" href="mailto:drdarsunhelper@gmail.com">Написать в поддержку</a>
+                </article>
+            </div>
+            <details class="telegram-learning__faq">
+                <summary>Не приходит код или бот не отвечает?</summary>
+                <ol>
+                    <li>Убедитесь, что открыли именно бота кодов, а не клиентского бота.</li>
+                    <li>Создайте новый код в профиле: старый одноразовый код мог истечь.</li>
+                    <li>Проверьте, что написали боту в личном чате и нажали «Начать».</li>
+                    <li>Если проблема осталась, напишите в поддержку: <a href="mailto:drdarsunhelper@gmail.com">drdarsunhelper@gmail.com</a>.</li>
+                </ol>
+            </details>
+        </section>
+
         <section class="reviews-section" aria-labelledby="reviews-title">
             <div class="reviews-section__heading">
                 <div>
                     <p class="eyebrow">СЛОВА НАШИХ ПОКУПАТЕЛЕЙ</p>
                     <h2 id="reviews-title">Книга отзывов</h2>
                 </div>
-                <span class="reviews-section__note">Листайте стрелками или свайпом по свободному полю — текст и фото не перелистывают</span>
+                <span class="reviews-section__note">Перелистывайте только стрелками. Отзыв можно написать на странице «О книге».</span>
             </div>
 
             <div class="review-book-shell">
@@ -100,7 +140,7 @@
                             <span class="review-book__cover-title">О нас</span>
                             <span class="review-book__cover-subtitle">Книга добрых историй</span>
                             <span class="review-book__cover-author">Dr. DarSun</span>
-                            <span class="review-book__cover-prompt">Стрелки или свайп по странице</span>
+                            <span class="review-book__cover-prompt">Перелистывайте стрелками</span>
                             <span class="review-book__cover-spine" aria-hidden="true"></span>
                         </div>
                     </div>
@@ -110,7 +150,26 @@
                             <h3>О книге</h3>
                             <p class="review-form-card__hint">Здесь собраны истории покупателей Dr. DarSun. Отзывы проходят проверку перед публикацией.</p>
                             <img class="review-book__illustration" src="assets/images/sunflower2.png" alt="" loading="lazy">
-                            <p class="review-form-card__hint">Книга открыта для чтения. Новые отзывы сейчас не принимаются.</p>
+                            <p class="review-form-card__hint">Нам важно ваше мнение. Войдите в аккаунт, чтобы оставить отзыв; перед публикацией он пройдёт проверку.</p>
+                            <a class="btn btn--primary review-login-link" id="review-login-link" href="login.html?redirect=about.html%23reviews-title" hidden>Войти и написать отзыв</a>
+                            <form id="review-form" hidden>
+                                <label for="review-user-name">Как подписать отзыв</label>
+                                <input id="review-user-name" name="user_name" type="text" maxlength="60" autocomplete="name" required>
+                                <label for="review-rating">Ваша оценка</label>
+                                <select id="review-rating" name="rating" required>
+                                    <option value="5">5 — отлично</option>
+                                    <option value="4">4 — хорошо</option>
+                                    <option value="3">3 — нормально</option>
+                                    <option value="2">2 — не очень</option>
+                                    <option value="1">1 — плохо</option>
+                                </select>
+                                <label for="review-text">Ваш отзыв</label>
+                                <textarea id="review-text" name="review_text" rows="4" minlength="20" maxlength="2000" placeholder="Расскажите о своём опыте (от 20 символов)" required></textarea>
+                                <div class="review-form-card__actions">
+                                    <button class="btn btn--primary" id="review-submit" type="submit">Отправить на проверку</button>
+                                </div>
+                                <p class="review-form-card__hint" id="review-form-status" role="status" aria-live="polite"></p>
+                            </form>
                         </div>
                     </section>
 
@@ -182,12 +241,13 @@
             <div class="footer__col">
                 <h4>Покупателям</h4>
                 <a href="catalog.html">Каталог</a>
+                <a href="oil-catalog.html">Справочник масел</a>
                 <a href="delivery.html">Доставка</a>
                 <a href="about.html">О нас</a>
             </div>
             <div class="footer__col">
                 <h4>Контакты</h4>
-                <a href="mailto:info@drdarsun.ru">info@drdarsun.ru</a>
+                <a href="mailto:drdarsunhelper@gmail.com">drdarsunhelper@gmail.com</a>
                 <div class="socials">
                     <a href="https://vk.ru/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="ВКонтакте">
                         <img class="theme-asset-light" src="assets/images/vk.png" alt="ВКонтакте">

@@ -54,6 +54,54 @@ function createReviewsApi(options = {}) {
         return data;
     }
 
+    async function getAuthenticatedUser(authorization) {
+        if (!authorization.startsWith('Bearer ') || !supabaseUrl || !anonKey) return null;
+        const response = await request(`${supabaseUrl}/auth/v1/user`, {
+            headers: { apikey: anonKey, Authorization: authorization },
+            signal: AbortSignal.timeout(8000)
+        });
+        const user = await response.json().catch(() => null);
+        return response.ok && user?.id ? user : null;
+    }
+
+    router.post('/submit', async (req, res) => {
+        const authorization = req.get('Authorization') || '';
+        if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+            return res.status(503).json({ error: 'Отправка отзывов временно недоступна.' });
+        }
+        const rating = Number(req.body?.rating);
+        const reviewText = typeof req.body?.review_text === 'string' ? req.body.review_text.trim() : '';
+        const userName = typeof req.body?.user_name === 'string' ? req.body.user_name.trim() : '';
+        if (!Number.isInteger(rating) || rating < 1 || rating > 5 ||
+            reviewText.length < 20 || reviewText.length > 2000 ||
+            !userName || userName.length > 60 ||
+            /[\u0000-\u001f\u007f]/.test(userName) ||
+            /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(reviewText)) {
+            return res.status(400).json({ error: 'Укажите имя до 60 символов, оценку от 1 до 5 и отзыв от 20 до 2000 символов.' });
+        }
+
+        try {
+            const user = await getAuthenticatedUser(authorization);
+            if (!user) return res.status(401).json({ error: 'Войдите в аккаунт, чтобы оставить отзыв.' });
+            const [review] = await databaseRequest('brand_reviews?select=id,created_at', {
+                method: 'POST',
+                headers: { Prefer: 'return=representation' },
+                body: JSON.stringify({
+                    user_id: user.id,
+                    user_name: userName,
+                    rating,
+                    review_text: reviewText,
+                    status: 'pending'
+                })
+            });
+            if (!review?.id) throw new Error('Review submission was not saved.');
+            res.status(201).json({ success: true, review });
+        } catch (error) {
+            console.error('Review submission failed:', error);
+            res.status(503).json({ error: 'Не удалось отправить отзыв. Попробуйте позже.' });
+        }
+    });
+
     router.get('/moderation', requireModerator, async (req, res) => {
         try {
             const reviews = await databaseRequest(

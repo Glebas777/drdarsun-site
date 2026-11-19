@@ -1,4 +1,5 @@
 (() => {
+    if (document.querySelector('.music-player__toggle')) return;
     const scriptUrl = document.currentScript?.src || new URL('./js/music-player.js', window.location.href).href;
     const styleUrl = new URL('../css/music-player.css', scriptUrl);
     if (!document.querySelector(`link[href="${styleUrl.href}"]`)) {
@@ -18,12 +19,18 @@
     const trackIndexKey = 'drdarsun-music-track-v1';
     const stateKey = 'drdarsun-music-state-v1';
     const volumeKey = 'drdarsun-music-volume-v1';
-    let trackIndex = 0;
-    let shouldResume = false;
     const miniHiddenKey = 'drdarsun-music-mini-hidden-v1';
+    let trackIndex = 0;
+    let pendingSeek = null;
+    let playAfterLoad = false;
+    let lastSavedAt = 0;
+    let returnFocusTo = null;
 
     try {
-        trackIndex = Math.max(0, Math.min(tracks.length - 1, Number(sessionStorage.getItem(trackIndexKey) || 0)));
+        const savedTrackIndex = Number(sessionStorage.getItem(trackIndexKey) || 0);
+        trackIndex = Number.isInteger(savedTrackIndex)
+            ? Math.max(0, Math.min(tracks.length - 1, savedTrackIndex))
+            : 0;
     } catch (error) {
         console.warn('Music track preference is unavailable:', error);
     }
@@ -76,18 +83,20 @@
         try {
             sessionStorage.setItem(trackIndexKey, String(trackIndex));
             sessionStorage.setItem(stateKey, JSON.stringify({
-                currentTime: Number.isFinite(audio.currentTime) ? audio.currentTime : 0,
-                playing: shouldResume || (!audio.paused && !audio.ended)
+                currentTime: Number.isFinite(audio.currentTime) ? audio.currentTime : 0
             }));
         } catch (error) {
             console.warn('Music player state could not be saved:', error);
         }
     }
 
-    function syncTrack({ preserveTime = false } = {}) {
+    function syncTrack({ autoPlay = false, seekTo = null } = {}) {
         const track = tracks[trackIndex];
-        const wasPlaying = !audio.paused && !audio.ended;
-        audio.src = new URL(`../music/${track.file}`, scriptUrl).href;
+        audio.pause();
+        pendingSeek = Number.isFinite(seekTo) && seekTo > 0 ? seekTo : null;
+        playAfterLoad = autoPlay;
+        audio.src = new URL(`../music/${encodeURIComponent(track.file)}`, scriptUrl).href;
+        audio.load();
         mini.dataset.accent = track.accent;
         modal.dataset.accent = track.accent;
         mini.querySelector('.music-player__mini-title').textContent = track.title;
@@ -96,8 +105,16 @@
         modal.querySelectorAll('[data-track-title]').forEach(element => { element.textContent = track.title; });
         modal.querySelectorAll('[data-track-artist]').forEach(element => { element.textContent = track.artist; });
         modal.querySelectorAll('.music-modal__track').forEach((element, index) => element.classList.toggle('is-active', index === trackIndex));
-        if (!preserveTime) saveState();
-        if (wasPlaying || shouldResume) audio.play().catch(() => {});
+        if ('mediaSession' in navigator && 'MediaMetadata' in window) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: track.title,
+                artist: track.artist,
+                album: 'Dr. DarSun'
+            });
+        }
+        modal.querySelector('.music-modal__status').textContent = 'Загрузка трека…';
+        updateProgress();
+        saveState();
     }
 
     function updatePlayback() {
@@ -108,6 +125,9 @@
         modal.querySelector('.music-modal__play').textContent = isPlaying ? 'Ⅱ' : '▶';
         mini.querySelector('.music-player__play').setAttribute('aria-label', isPlaying ? 'Приостановить' : 'Воспроизвести');
         modal.querySelector('.music-modal__play').setAttribute('aria-label', isPlaying ? 'Приостановить' : 'Воспроизвести');
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+        }
     }
 
     function updateProgress() {
@@ -115,29 +135,52 @@
         const value = duration > 0 ? Math.round(audio.currentTime / duration * 1000) : 0;
         mini.querySelector('.music-player__seek').value = String(value);
         modal.querySelector('.music-modal__seek').value = String(value);
+        mini.querySelector('.music-player__seek').disabled = duration <= 0;
+        modal.querySelector('.music-modal__seek').disabled = duration <= 0;
         modal.querySelector('.music-modal__time').textContent = `${formatTime(audio.currentTime)} / ${formatTime(duration)}`;
-        saveState();
+        const now = Date.now();
+        if (now - lastSavedAt > 5000) {
+            lastSavedAt = now;
+            saveState();
+        }
     }
 
     async function togglePlayback() {
         if (audio.paused) {
             try {
+                modal.querySelector('.music-modal__status').textContent = '';
                 await audio.play();
-                shouldResume = true;
-            } catch {
-                modal.querySelector('.music-modal__status').textContent = 'Нажмите для продолжения';
+            } catch (error) {
+                modal.querySelector('.music-modal__status').textContent = error.name === 'NotAllowedError'
+                    ? 'Разрешите воспроизведение нажатием на кнопку.'
+                    : 'Не удалось запустить трек. Выберите другой или повторите попытку.';
+                console.warn('Music playback could not start:', error);
             }
         } else {
             audio.pause();
-            shouldResume = false;
         }
         updatePlayback();
         saveState();
     }
 
+    async function playCurrentTrack() {
+        try {
+            modal.querySelector('.music-modal__status').textContent = '';
+            await audio.play();
+            playAfterLoad = false;
+        } catch (error) {
+            playAfterLoad = false;
+            modal.querySelector('.music-modal__status').textContent = error.name === 'NotAllowedError'
+                ? 'Нажмите «Воспроизвести», чтобы продолжить.'
+                : 'Не удалось запустить трек. Выберите другой или повторите попытку.';
+            console.warn('Music playback could not start:', error);
+        }
+        updatePlayback();
+    }
+
     function changeTrack(direction) {
         trackIndex = (trackIndex + direction + tracks.length) % tracks.length;
-        syncTrack();
+        syncTrack({ autoPlay: true });
     }
 
     function setSeek(value) {
@@ -147,17 +190,18 @@
     }
 
     function setModalOpen(open) {
+        if (open && modal.hidden) returnFocusTo = document.activeElement;
         modal.hidden = !open;
         modal.setAttribute('aria-hidden', String(!open));
+        toggle.setAttribute('aria-expanded', String(open));
         document.body.classList.toggle('music-modal-open', open);
         if (open) {
             modal.querySelector('.music-modal__close').focus({ preventScroll: true });
         } else {
-            audio.pause();
-            shouldResume = false;
             saveState();
             updatePlayback();
-            toggle.focus({ preventScroll: true });
+            if (returnFocusTo instanceof HTMLElement) returnFocusTo.focus({ preventScroll: true });
+            returnFocusTo = null;
         }
     }
 
@@ -195,27 +239,28 @@
     document.body.appendChild(audio);
     document.body.classList.add('has-music-player');
 
+    let saved = {};
     try {
         const miniHidden = localStorage.getItem(miniHiddenKey) === 'true';
         setMiniHidden(miniHidden);
-        const saved = JSON.parse(sessionStorage.getItem(stateKey) || '{}');
-        audio.volume = Number(localStorage.getItem(volumeKey) ?? 0.65);
+        saved = JSON.parse(sessionStorage.getItem(stateKey) || '{}') || {};
+        const savedVolume = Number(localStorage.getItem(volumeKey) ?? 0.65);
+        audio.volume = Number.isFinite(savedVolume) ? Math.min(1, Math.max(0, savedVolume)) : 0.65;
         modal.querySelector('.music-modal__volume input').value = String(audio.volume);
-        syncTrack({ preserveTime: true });
         audio.addEventListener('loadedmetadata', () => {
-            if (Number.isFinite(saved.currentTime) && saved.currentTime > 0 && saved.currentTime < audio.duration) audio.currentTime = saved.currentTime;
-            updateProgress();
-            if (saved.playing) {
-                shouldResume = true;
-                audio.play().then(updatePlayback).catch(() => {
-                    modal.querySelector('.music-modal__status').textContent = 'Нажмите для продолжения';
-                });
+            if (Number.isFinite(pendingSeek) && pendingSeek > 0 && pendingSeek < audio.duration) {
+                audio.currentTime = pendingSeek;
             }
-        }, { once: true });
+            pendingSeek = null;
+            updateProgress();
+            modal.querySelector('.music-modal__status').textContent = '';
+            if (playAfterLoad) void playCurrentTrack();
+        });
     } catch (error) {
         console.warn('Music state is unavailable:', error);
-        syncTrack();
+        audio.volume = 0.65;
     }
+    syncTrack({ seekTo: saved.currentTime });
 
     toggle.addEventListener('click', () => setModalOpen(true));
     mini.querySelector('.music-player__mini-cover').addEventListener('click', () => setModalOpen(true));
@@ -238,16 +283,6 @@
     mini.querySelector('.music-player__mini-hide').addEventListener('click', () => setMiniHidden(true));
     modal.querySelector('.music-modal__mini-toggle').addEventListener('click', () => {
         setMiniHidden(!(mini.dataset.hidden === 'true'));
-        audio.pause();
-        shouldResume = false;
-        saveState();
-        updatePlayback();
-    });
-    modal.querySelector('.music-modal__mini-toggle').addEventListener('click', () => {
-        audio.pause();
-        shouldResume = false;
-        saveState();
-        updatePlayback();
     });
     modal.querySelector('.music-modal__next').addEventListener('click', () => changeTrack(1));
     mini.querySelector('.music-player__seek').addEventListener('input', event => setSeek(event.target.value));
@@ -258,19 +293,58 @@
     });
     modal.querySelectorAll('.music-modal__track').forEach(button => button.addEventListener('click', () => {
         trackIndex = Number(button.dataset.trackIndex);
-        shouldResume = true;
-        syncTrack();
+        syncTrack({ autoPlay: true });
     }));
 
     document.addEventListener('keydown', event => {
-        if (event.key === 'Escape' && !modal.hidden) setModalOpen(false);
+        if (modal.hidden) return;
+        if (event.key === 'Escape') {
+            setModalOpen(false);
+            return;
+        }
+        if (event.key !== 'Tab') return;
+        const focusable = [...modal.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]')]
+            .filter(element => element.getClientRects().length > 0);
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
     });
     audio.addEventListener('timeupdate', updateProgress);
     audio.addEventListener('play', updatePlayback);
     audio.addEventListener('pause', updatePlayback);
     audio.addEventListener('ended', () => changeTrack(1));
-    audio.addEventListener('error', () => { modal.querySelector('.music-modal__status').textContent = 'Аудио недоступно'; });
+    audio.addEventListener('canplay', () => {
+        if (!playAfterLoad) modal.querySelector('.music-modal__status').textContent = '';
+    });
+    audio.addEventListener('error', () => {
+        playAfterLoad = false;
+        pendingSeek = null;
+        modal.querySelector('.music-modal__status').textContent = 'Трек не загрузился. Выберите другой или проверьте соединение.';
+        updatePlayback();
+    });
     window.addEventListener('pagehide', saveState);
 
-    syncTrack({ preserveTime: true });
+    if ('mediaSession' in navigator) {
+        for (const [action, handler] of [
+            ['play', () => { void togglePlayback(); }],
+            ['pause', () => audio.pause()],
+            ['previoustrack', () => changeTrack(-1)],
+            ['nexttrack', () => changeTrack(1)]
+        ]) {
+            try {
+                navigator.mediaSession.setActionHandler(action, handler);
+            } catch (error) {
+                console.warn(`Music media action ${action} is unavailable:`, error);
+            }
+        }
+    }
+
+    syncTrack({ seekTo: saved.currentTime });
 })();

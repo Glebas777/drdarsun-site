@@ -1,16 +1,15 @@
-import { supabase } from './supabase-client.js';
+function notify(message, type = 'success') {
+    if (typeof window.showToast === 'function') {
+        window.showToast(message, type);
+    } else {
+        window.alert(message);
+    }
+}
 
 export async function addToCart(product) {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-        alert('Войдите в аккаунт, чтобы добавить товар в корзину.');
-        window.location.href = 'login.html';
-        return;
-    }
-
     const price = Number(product.price);
     if (product.id == null || !Number.isFinite(price) || price < 0 || typeof product.name !== 'string') {
-        alert('Не удалось добавить товар: данные товара некорректны.');
+        notify('Не удалось добавить товар: данные товара некорректны.', 'error');
         return;
     }
 
@@ -22,6 +21,10 @@ export async function addToCart(product) {
             Number.isFinite(Number(item.price)) && Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0
         );
         const existing = cart.find(item => String(item.id) === String(product.id));
+        if (existing && Number(existing.quantity) >= 99) {
+            notify('В заказ можно добавить не более 99 единиц одного товара.', 'error');
+            return;
+        }
         if (existing) existing.quantity = Number(existing.quantity) + 1;
         else cart.push({
             id: String(product.id),
@@ -31,11 +34,11 @@ export async function addToCart(product) {
             quantity: 1
         });
         localStorage.setItem('cart', JSON.stringify(cart));
-        alert('Товар добавлен в корзину!');
         await updateCartCount();
+        notify('Товар добавлен в корзину.');
     } catch (error) {
         console.error('Cart item could not be saved:', error);
-        alert('Не удалось сохранить корзину. Проверьте свободное место в браузере.');
+        notify('Не удалось сохранить корзину. Проверьте свободное место в браузере.', 'error');
     }
 }
 

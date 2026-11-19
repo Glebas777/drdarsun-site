@@ -2,6 +2,13 @@ const express = require('express');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const {
+    OIL_TYPES,
+    PACKAGING_TYPES,
+    PRESSING_TYPES,
+    SHELF_LIFE_MONTHS,
+    VOLUME_OPTIONS
+} = require('./oil-product-options');
 
 const BOT_TOKEN_ENV = {
     client: 'CLIENT_BOT_TOKEN',
@@ -750,7 +757,7 @@ function createTelegramIntegrationRouter(options = {}) {
         const offset = Math.max(0, Math.min(100000, Number.parseInt(req.query.offset, 10) || 0));
         const status = ORDER_STATUSES.includes(req.query.status) ? req.query.status : '';
         const statusFilter = status ? `&status=eq.${status}` : '';
-        const orders = await databaseRequest(`orders?select=id,items,total,status,created_at&order=created_at.desc&limit=11&offset=${offset}${statusFilter}`);
+        const orders = await databaseRequest(`orders?select=id,items,total,status,created_at,customer_name,customer_email,delivery_address&order=created_at.desc&limit=11&offset=${offset}${statusFilter}`);
         res.json({ orders: orders.slice(0, 10), status, offset, hasMore: orders.length > 10 });
     }));
 
@@ -852,29 +859,68 @@ function createTelegramIntegrationRouter(options = {}) {
     }));
 
     router.get('/panel/products', authenticateBot, allowRoles('panel'), requireOwnerChat, withErrors('Telegram product lookup failed', async (req, res) => {
-        const products = await databaseRequest('products?select=id,name,price,description,category,image_url&order=name.asc&limit=200');
-        res.json({ products });
+        const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 8));
+        const offset = Math.min(100000, Math.max(0, Number.parseInt(req.query.offset, 10) || 0));
+        const rows = await databaseRequest(`products?select=id,name,price,description,category,image_url,volume,packaging_type,pressing_type,shelf_life_months&order=name.asc,id.asc&limit=${limit + 1}&offset=${offset}`);
+        res.json({ products: rows.slice(0, limit), hasMore: rows.length > limit, offset });
     }));
+
+    router.get('/panel/oil-types', authenticateBot, allowRoles('panel'), requireOwnerChat, (_req, res) => {
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({
+            oils: OIL_TYPES,
+            packagingTypes: PACKAGING_TYPES,
+            pressingTypes: PRESSING_TYPES,
+            shelfLifeMonths: SHELF_LIFE_MONTHS,
+            volumes: VOLUME_OPTIONS
+        });
+    });
 
     router.post('/panel/products', authenticateBot, allowRoles('panel'), requireOwnerChat, withErrors('Telegram product creation failed', async (req, res) => {
         const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
         const category = typeof req.body?.category === 'string' ? req.body.category.trim() : '';
         const description = typeof req.body?.description === 'string' ? req.body.description.trim() : '';
         const imageUrl = typeof req.body?.image_url === 'string' ? req.body.image_url.trim() : '';
+        const volume = Number(req.body?.volume);
+        const packagingType = typeof req.body?.packaging_type === 'string' ? req.body.packaging_type : '';
+        const pressingType = typeof req.body?.pressing_type === 'string' ? req.body.pressing_type : '';
+        const shelfLifeMonths = Number(req.body?.shelf_life_months);
         const price = Number(req.body?.price);
-        if (!name || name.length > 160 || !category || category.length > 80 || description.length > 2000 || imageUrl.length > 2000 || !Number.isFinite(price) || price < 0 || price > 10000000) {
-            return res.status(400).json({ error: 'Проверьте название, категорию, описание и цену товара.' });
+        const oil = OIL_TYPES.find(candidate => candidate.id === req.body?.oil_id);
+        if (!oil || !name || name.length > 160 || !category || category.length > 80 ||
+            description.length > 2000 || /[\u0000-\u001f\u007f]/.test(name + category + description) ||
+            imageUrl.length > 2000 || (imageUrl && !/^(?:https?:\/\/\S+|assets\/images\/oils\/[a-z-]+\.svg)$/i.test(imageUrl)) ||
+            !Number.isSafeInteger(volume) || volume < 10 || volume > 5000 ||
+            name !== `${oil.name} · ${volume} мл` || category !== oil.category ||
+            !PACKAGING_TYPES.includes(packagingType) ||
+            !PRESSING_TYPES.includes(pressingType) || !SHELF_LIFE_MONTHS.includes(shelfLifeMonths) ||
+            !Number.isFinite(price) || price <= 0 || price > 10000000) {
+            return res.status(400).json({ error: 'Проверьте масло, объём, упаковку, отжим, срок хранения и цену.' });
         }
-        const [product] = await databaseRequest('products?select=id,name,price,description,category,image_url', {
+        const [product] = await databaseRequest('products?select=id,name,price,description,category,image_url,volume,packaging_type,pressing_type,shelf_life_months', {
             method: 'POST',
             headers: { Prefer: 'return=representation' },
-            body: JSON.stringify({ name, category, description, price, image_url: imageUrl })
+            body: JSON.stringify({
+                name,
+                category,
+                description,
+                price,
+                image_url: imageUrl || oil.image_url,
+                volume: `${volume} мл`,
+                packaging_type: packagingType,
+                pressing_type: pressingType,
+                shelf_life_months: shelfLifeMonths
+            })
         });
         if (!product) throw new Error('Product was not created.');
         await writeTelegramAudit(req, 'product.created', 'product', product.id, {
             name: product.name,
             category: product.category,
-            price: product.price
+            price: product.price,
+            volume: product.volume,
+            packaging_type: product.packaging_type,
+            pressing_type: product.pressing_type,
+            shelf_life_months: product.shelf_life_months
         });
         res.status(201).json({ product });
     }));
@@ -902,7 +948,7 @@ function createTelegramIntegrationRouter(options = {}) {
             update.price = price;
         }
         if (!Object.keys(update).length) return res.status(400).json({ error: 'Нет полей для изменения.' });
-        const [product] = await databaseRequest(`products?id=eq.${encodeURIComponent(productId)}&select=id,name,price,description,category,image_url`, {
+        const [product] = await databaseRequest(`products?id=eq.${encodeURIComponent(productId)}&select=id,name,price,description,category,image_url,volume,packaging_type,pressing_type,shelf_life_months`, {
             method: 'PATCH',
             headers: { Prefer: 'return=representation' },
             body: JSON.stringify(update)

@@ -1,6 +1,7 @@
 import { supabase } from './supabase-client.js';
-import { addToCart } from './cart.js';
+import { addToCart, updateCartCount } from './cart.js';
 import { getFavoriteIds, toggleFavorite } from './favorites.js';
+import { SAMPLE_PRODUCTS } from './catalog-demo-products.js';
 
 const grid = document.getElementById('product-grid');
 const filtersSidebar = document.getElementById('filters-sidebar');
@@ -14,6 +15,7 @@ const priceValue = document.getElementById('price-value');
 const sortSelect = document.getElementById('sort-select');
 const searchInput = document.getElementById('catalog-search');
 const resultCount = document.getElementById('catalog-result-count');
+const demoNotice = document.getElementById('catalog-demo-notice');
 
 let allProducts = [];
 let filteredProducts = [];
@@ -36,7 +38,8 @@ document.addEventListener('keydown', (event) => {
 });
 
 function getSelectedCategories() {
-    return Array.from(document.querySelectorAll('.filter-category:checked')).map(input => input.value);
+    const selected = Array.from(document.querySelectorAll('.filter-category:checked')).map(input => input.value);
+    return selected.includes('all') ? [] : selected;
 }
 
 function applyFilters() {
@@ -61,24 +64,29 @@ function applyFilters() {
 
 function createProductCard(product, index) {
     const card = document.createElement('article');
-    card.className = 'product-card';
+    card.className = product.isDemo ? 'product-card product-card--demo' : 'product-card';
     card.tabIndex = 0;
-    card.setAttribute('aria-label', `Открыть товар: ${product.name}`);
+    card.setAttribute('role', 'link');
+    card.setAttribute('aria-label', product.isDemo ? `Открыть пример товара: ${product.name}` : `Открыть товар: ${product.name}`);
     card.style.setProperty('--card-index', String(index));
 
     const media = document.createElement('div');
     media.className = 'product-card__img';
-    if (product.tag) {
+    if (product.tag || product.isDemo) {
         const tag = document.createElement('span');
         tag.className = 'product-tag';
-        tag.textContent = product.tag;
+        tag.textContent = product.isDemo ? 'ПРИМЕР' : product.tag;
         media.appendChild(tag);
     }
 
     const favoriteButton = document.createElement('button');
     favoriteButton.className = 'favorite-toggle';
     favoriteButton.type = 'button';
-    favoriteButton.setAttribute('aria-label', favoriteIds.has(String(product.id)) ? 'Убрать из избранного' : 'Добавить в избранное');
+    favoriteButton.disabled = Boolean(product.isDemo);
+    if (product.isDemo) favoriteButton.title = 'Примеры нельзя добавить в избранное';
+    favoriteButton.setAttribute('aria-label', product.isDemo
+        ? 'Избранное недоступно для примеров'
+        : favoriteIds.has(String(product.id)) ? 'Убрать из избранного' : 'Добавить в избранное');
     favoriteButton.setAttribute('aria-pressed', String(favoriteIds.has(String(product.id))));
     favoriteButton.classList.toggle('is-favorite', favoriteIds.has(String(product.id)));
     favoriteButton.textContent = favoriteIds.has(String(product.id)) ? '♥' : '♡';
@@ -111,14 +119,19 @@ function createProductCard(product, index) {
         image.alt = product.name || 'Изображение товара';
         image.loading = 'lazy';
         image.decoding = 'async';
-        image.addEventListener('error', () => image.remove(), { once: true });
+        image.addEventListener('error', () => {
+            image.className = 'product-card__placeholder';
+            image.alt = '';
+            image.src = 'assets/images/product-bottle-placeholder.png';
+        }, { once: true });
         media.appendChild(image);
     } else {
         media.classList.add('product-card__img--empty');
-        const visual = document.createElement('span');
-        visual.className = 'product-card__visual';
-        visual.setAttribute('aria-hidden', 'true');
-        visual.textContent = 'D';
+        const visual = document.createElement('img');
+        visual.className = 'product-card__placeholder';
+        visual.src = 'assets/images/product-bottle-placeholder.png';
+        visual.alt = '';
+        visual.loading = 'lazy';
         media.appendChild(visual);
     }
 
@@ -149,9 +162,14 @@ function createProductCard(product, index) {
     const addButton = document.createElement('button');
     addButton.className = 'add-to-cart-btn';
     addButton.type = 'button';
-    addButton.textContent = 'В корзину';
+    addButton.textContent = product.isDemo ? 'Пример' : 'В корзину';
     addButton.disabled = !Number.isFinite(numericPrice) || numericPrice < 0;
-    if (addButton.disabled) addButton.title = 'Цена товара не указана';
+    if (product.isDemo) {
+        addButton.disabled = true;
+        addButton.title = 'Это пример карточки, заказ недоступен';
+    } else if (addButton.disabled) {
+        addButton.title = 'Цена товара не указана';
+    }
     addButton.addEventListener('click', async (event) => {
         event.stopPropagation();
         await addToCart({
@@ -169,7 +187,8 @@ function createProductCard(product, index) {
     card.append(media, info);
 
     const openProduct = () => {
-        window.location.href = `product.html?id=${encodeURIComponent(product.id)}`;
+        const parameter = product.isDemo ? `demo=${encodeURIComponent(product.id)}` : `id=${encodeURIComponent(product.id)}`;
+        window.location.href = `product.html?${parameter}`;
     };
     card.addEventListener('click', openProduct);
     card.addEventListener('keydown', (event) => {
@@ -272,21 +291,24 @@ function renderCategories(products) {
         categoryFilters.appendChild(label);
     });
 
-    categoryFilters.addEventListener('change', (event) => {
-        const changedInput = event.target;
-        if (!(changedInput instanceof HTMLInputElement)) return;
-        const allInput = categoryFilters.querySelector('[value="all"]');
-        if (changedInput.value === 'all' && changedInput.checked) {
-            categoryFilters.querySelectorAll('.filter-category:not([value="all"])').forEach(input => {
-                input.checked = false;
-            });
-        } else if (changedInput.value !== 'all' && changedInput.checked) {
-            allInput.checked = false;
-        } else if (!categoryFilters.querySelector('.filter-category:checked')) {
-            allInput.checked = true;
-        }
-        applyFilters();
-    });
+    if (categoryFilters.dataset.listenerAttached !== 'true') {
+        categoryFilters.dataset.listenerAttached = 'true';
+        categoryFilters.addEventListener('change', (event) => {
+            const changedInput = event.target;
+            if (!(changedInput instanceof HTMLInputElement)) return;
+            const allInput = categoryFilters.querySelector('[value="all"]');
+            if (changedInput.value === 'all' && changedInput.checked) {
+                categoryFilters.querySelectorAll('.filter-category:not([value="all"])').forEach(input => {
+                    input.checked = false;
+                });
+            } else if (changedInput.value !== 'all' && changedInput.checked) {
+                allInput.checked = false;
+            } else if (!categoryFilters.querySelector('.filter-category:checked')) {
+                allInput.checked = true;
+            }
+            applyFilters();
+        });
+    }
 }
 
 priceRange?.addEventListener('input', () => {
@@ -303,39 +325,60 @@ async function loadProducts() {
     grid.setAttribute('aria-busy', 'true');
     grid.innerHTML = '<div class="catalog-loading" aria-label="Загрузка каталога"><span></span><span></span><span></span></div>';
 
-    const { data, error } = await supabase.from('products').select('*');
-    if (error) {
-        grid.setAttribute('aria-busy', 'false');
-        if (resultCount) resultCount.textContent = 'Каталог недоступен';
-        grid.replaceChildren();
-        const errorState = document.createElement('section');
-        errorState.className = 'catalog-no-results';
-        const title = document.createElement('h2');
-        title.textContent = 'Не удалось загрузить каталог';
-        const message = document.createElement('p');
-        message.textContent = 'Проверьте соединение и попробуйте ещё раз.';
-        const retry = document.createElement('button');
-        retry.type = 'button';
-        retry.className = 'btn btn--primary';
-        retry.textContent = 'Попробовать снова';
-        retry.addEventListener('click', loadProducts);
-        errorState.append(title, message, retry);
-        grid.appendChild(errorState);
-        console.error('Catalog load error:', error);
-        return;
+    let data;
+    let error;
+    try {
+        ({ data, error } = await supabase.from('products').select('*'));
+    } catch (loadError) {
+        error = loadError;
     }
 
-    allProducts = (data || []).filter(product => product && product.id != null);
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) {
-        console.error('Favorite session lookup failed:', sessionError);
-    } else if (sessionData.session) {
-        favoriteUserId = sessionData.session.user.id;
-        try {
-            favoriteIds = await getFavoriteIds(favoriteUserId);
-        } catch (error) {
-            console.error('Favorite list load failed:', error);
+    const realProducts = (data || []).filter(product => product && product.id != null);
+    let demosRetired = realProducts.length > 0;
+    try {
+        const { data: catalogState, error: stateError } = await supabase
+            .from('catalog_demo_state')
+            .select('retired')
+            .eq('id', 1)
+            .maybeSingle();
+        if (stateError) {
+            console.warn('Demo catalog retirement state is unavailable:', stateError.message);
+        } else {
+            demosRetired = catalogState?.retired === true || demosRetired;
         }
+    } catch (stateError) {
+        console.warn('Demo catalog retirement state is unavailable:', stateError);
+    }
+    const usingDemoProducts = !demosRetired && (Boolean(error) || realProducts.length === 0);
+    allProducts = demosRetired ? realProducts : [...realProducts, ...SAMPLE_PRODUCTS];
+    if (demoNotice) {
+        demoNotice.hidden = demosRetired;
+        demoNotice.textContent = demosRetired
+            ? ''
+            : error
+                ? 'Не удалось загрузить реальные товары. Ниже показаны 3 демо-примера; они не продаются.'
+                : usingDemoProducts
+                    ? 'Реальные товары пока не опубликованы. Ниже показаны 3 демо-примера; они не продаются.'
+                    : 'Внизу каталога — 3 демо-примера. Они нужны для показа оформления и недоступны для заказа.';
+    }
+    if (error) console.error('Catalog load error:', error);
+
+    favoriteUserId = null;
+    favoriteIds = new Set();
+    try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+            console.error('Favorite session lookup failed:', sessionError);
+        } else if (!usingDemoProducts && sessionData.session) {
+            favoriteUserId = sessionData.session.user.id;
+            try {
+                favoriteIds = await getFavoriteIds(favoriteUserId);
+            } catch (error) {
+                console.error('Favorite list load failed:', error);
+            }
+        }
+    } catch (error) {
+        console.error('Favorite session lookup failed:', error);
     }
     const maxPrice = Math.max(1000, ...allProducts.map(product => Number(product.price)).filter(Number.isFinite));
     if (priceRange) {
@@ -349,8 +392,9 @@ async function loadProducts() {
     applyFilters();
 }
 
-// Каталог подгружается только из базы данных; демо-товары не подставляются.
+// Demo products remain visible only until the first real product is published.
 loadProducts();
+updateCartCount();
 
 // Чат каталога использует тот же серверный endpoint, что и чат на главной.
 const botToggle = document.getElementById('catalog-bot-toggle');

@@ -39,7 +39,7 @@
         </nav>
 <div class="header__actions">
     <button class="theme-toggle" id="theme-toggle"></button>
-    <a href="cart.html" class="icon-btn">🛒</a>
+    <a href="cart.html" class="icon-btn" aria-label="Корзина"><span aria-hidden="true">🛒</span><span class="cart-count" data-cart-count hidden></span></a>
     <div id="auth-buttons"></div> 
     <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
 </div>
@@ -68,6 +68,7 @@
             <div class="product-info">
                 <p class="product-kicker">МАСЛО ПРЕССОВАННОЕ</p>
                 <h1 id="product-name">Загрузка...</h1>
+                <p class="demo-product-note" id="demo-product-note" hidden>Демонстрационная карточка для знакомства с каталогом. Этот товар нельзя добавить в корзину.</p>
                 <div class="product-price" id="product-price">...</div>
                 <p class="product-desc" id="product-desc"></p>
                 <div class="product-actions">
@@ -76,9 +77,9 @@
                 </div>
                 <div class="specs">
                     <div class="spec-row"><span>Объём</span><span id="spec-volume">...</span></div>
-                    <div class="spec-row"><span>Тип отжима</span><span>Холодный</span></div>
-                    <div class="spec-row"><span>Срок годности</span><span>6 месяцев</span></div>
-                    <div class="spec-row"><span>Упаковка</span><span>Темное стекло</span></div>
+                    <div class="spec-row"><span>Тип отжима</span><span id="spec-pressing">—</span></div>
+                    <div class="spec-row"><span>Срок хранения</span><span id="spec-shelf-life">—</span></div>
+                    <div class="spec-row"><span>Упаковка</span><span id="spec-packaging">—</span></div>
                 </div>
                 <p class="product-trust-note"><span aria-hidden="true">✦</span> Бережное производство и внимание к каждой детали</p>
             </div>
@@ -107,12 +108,13 @@
             <div class="footer__col">
                 <h4>Покупателям</h4>
                 <a href="catalog.html">Каталог</a>
+                <a href="oil-catalog.html">Справочник масел</a>
                 <a href="delivery.html">Доставка</a>
                 <a href="about.html">О нас</a>
             </div>
             <div class="footer__col">
                 <h4>Контакты</h4>
-                <a href="mailto:info@drdarsun.ru">info@drdarsun.ru</a>
+                <a href="mailto:drdarsunhelper@gmail.com">drdarsunhelper@gmail.com</a>
                 <div class="socials">
                     <a href="https://vk.ru/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="ВКонтакте"><img class="theme-asset-light" src="assets/images/vk.png" alt="ВКонтакте"><img class="theme-asset-dark" src="assets/images/vk_dark.png" alt=""></a>
                     <a href="https://t.me/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="Telegram"><img class="theme-asset-light" src="assets/images/telegram.png" alt="Telegram"><img class="theme-asset-dark" src="assets/images/telegram_dark.png" alt=""></a>

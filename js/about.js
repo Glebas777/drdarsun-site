@@ -7,19 +7,15 @@ const bookPageStatus = document.getElementById('review-book-page-status');
 const reviewList = document.getElementById('brand-review-list');
 const moderationSection = document.getElementById('review-moderation');
 const moderationList = document.getElementById('review-moderation-list');
+const reviewForm = document.getElementById('review-form');
+const reviewLoginLink = document.getElementById('review-login-link');
+const reviewNameInput = document.getElementById('review-user-name');
+const reviewFormStatus = document.getElementById('review-form-status');
+const reviewSubmitButton = document.getElementById('review-submit');
 const REVIEWS_API = 'https://drdarsun-site-main.layero.app/api/reviews';
 
 let currentSession = null;
 let moderationRequest = false;
-
-function isPageSwipeSurface(target) {
-    if (!(target instanceof Element) || !target.closest('.review-book__page')) return false;
-    return !target.closest([
-        'a', 'button', 'input', 'select', 'textarea', 'label', 'img', 'video', 'audio',
-        '[contenteditable="true"]', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-        'span', 'strong', 'em', 'small', 'time', '.review-entry', '.review-moderation-item'
-    ].join(','));
-}
 
 function initializeBook() {
     if (!reviewBook) return;
@@ -36,21 +32,6 @@ function initializeBook() {
             nextBookButton.disabled = currentPage === pages.length - 1;
             bookPageStatus.textContent = pageNames[currentPage] || `Страница ${currentPage + 1}`;
         };
-        let fallbackPointerStart = null;
-        reviewBook.addEventListener('pointerdown', event => {
-            if (!isPageSwipeSurface(event.target)) return;
-            if (event.pointerType === 'mouse' || event.button !== 0 || !event.isPrimary) return;
-            fallbackPointerStart = { id: event.pointerId, x: event.clientX, y: event.clientY };
-        }, true);
-        document.addEventListener('pointerup', event => {
-            if (!fallbackPointerStart || event.pointerId !== fallbackPointerStart.id) return;
-            const deltaX = event.clientX - fallbackPointerStart.x;
-            const deltaY = event.clientY - fallbackPointerStart.y;
-            fallbackPointerStart = null;
-            if (Math.abs(deltaX) < 48 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) return;
-            showFallbackPage(currentPage + (deltaX < 0 ? 1 : -1));
-        });
-        document.addEventListener('pointercancel', () => { fallbackPointerStart = null; });
         previousBookButton?.addEventListener('click', () => showFallbackPage(currentPage - 1));
         nextBookButton?.addEventListener('click', () => showFallbackPage(currentPage + 1));
         showFallbackPage(0);
@@ -73,8 +54,7 @@ function initializeBook() {
         drawShadow: true,
         maxShadowOpacity: 0.38,
         flippingTime: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 450 : 850,
-        startPage: 0,
-        disableFlipByClick: true
+        startPage: 0
     });
     let previousPage = 0;
 
@@ -100,22 +80,6 @@ function initializeBook() {
     });
     pageFlip.on('changeOrientation', updateBookControls);
     pageFlip.on('init', updateBookControls);
-    let pointerStart = null;
-    reviewBook.addEventListener('pointerdown', event => {
-        if (!isPageSwipeSurface(event.target)) return;
-        if (event.pointerType === 'mouse' || event.button !== 0 || !event.isPrimary) return;
-        pointerStart = { id: event.pointerId, x: event.clientX, y: event.clientY };
-    }, true);
-    document.addEventListener('pointerup', event => {
-        if (!pointerStart || event.pointerId !== pointerStart.id) return;
-        const deltaX = event.clientX - pointerStart.x;
-        const deltaY = event.clientY - pointerStart.y;
-        pointerStart = null;
-        if (Math.abs(deltaX) < 48 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) return;
-        if (deltaX < 0) pageFlip.flipNext();
-        else pageFlip.flipPrev();
-    });
-    document.addEventListener('pointercancel', () => { pointerStart = null; });
     pageFlip.loadFromHTML(pages);
     previousBookButton?.addEventListener('click', () => pageFlip.flipPrev());
     nextBookButton?.addEventListener('click', () => pageFlip.flipNext());
@@ -241,11 +205,60 @@ async function moderateReview(id, status, button) {
     }
 }
 
+function updateReviewForm(session) {
+    const isSignedIn = Boolean(session?.access_token);
+    if (reviewForm) reviewForm.hidden = !isSignedIn;
+    if (reviewLoginLink) {
+        reviewLoginLink.hidden = isSignedIn;
+        reviewLoginLink.href = `login.html?redirect=${encodeURIComponent('about.html#reviews-title')}`;
+    }
+    if (isSignedIn && reviewNameInput && !reviewNameInput.value) {
+        const metadata = session.user?.user_metadata || {};
+        reviewNameInput.value = metadata.full_name || metadata.name || session.user?.email?.split('@')[0] || '';
+    }
+}
+
+async function submitReview(event) {
+    event.preventDefault();
+    if (!currentSession?.access_token || !reviewForm || !reviewSubmitButton) return;
+    reviewSubmitButton.disabled = true;
+    if (reviewFormStatus) reviewFormStatus.textContent = '';
+    try {
+        const formData = new FormData(reviewForm);
+        const response = await fetch(`${REVIEWS_API}/submit`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${currentSession.access_token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                user_name: formData.get('user_name'),
+                rating: Number(formData.get('rating')),
+                review_text: formData.get('review_text')
+            })
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(result?.error || 'Не удалось отправить отзыв.');
+        const submittedName = reviewNameInput.value;
+        reviewForm.reset();
+        reviewNameInput.value = submittedName;
+        if (reviewFormStatus) reviewFormStatus.textContent = 'Спасибо! Отзыв отправлен на проверку и появится в книге после публикации.';
+        window.showToast?.('Отзыв отправлен на проверку.', 'success');
+    } catch (error) {
+        if (reviewFormStatus) reviewFormStatus.textContent = error.message || 'Не удалось отправить отзыв. Попробуйте позже.';
+        window.showToast?.(error.message || 'Не удалось отправить отзыв.', 'error');
+    } finally {
+        reviewSubmitButton.disabled = false;
+    }
+}
+
 async function initializeReviews() {
     try {
         const sessionResult = await supabase.auth.getSession();
         if (sessionResult.error) throw sessionResult.error;
         currentSession = sessionResult.data.session;
+        updateReviewForm(currentSession);
+        reviewForm?.addEventListener('submit', submitReview);
         await loadPublishedReviews();
         await loadModerationQueue();
     } catch (error) {

@@ -96,9 +96,9 @@ function retryDelaySeconds(message, response) {
 export async function consumeQueue(batch, env, fetchImpl = fetch) {
     for (const message of batch.messages) {
         const { role, update } = message.body || {};
-        const isAdminQueue = batch.queue === 'drdarsun-telegram-admin';
+        const workerRole = env.WORKER_ROLE || '';
         const validRole = Object.hasOwn(BOT_ROLES, role) &&
-            (isAdminQueue ? role === 'admin' : role !== 'admin');
+            (!workerRole || workerRole === role);
         if (!validRole || !Number.isSafeInteger(update?.update_id) || update.update_id < 0) {
             console.error('Discarding invalid Telegram queue message.', { queue: batch.queue });
             message.ack();
@@ -155,7 +155,8 @@ export function repairAdminWebhook(env, fetchImpl = fetch) {
 
 export async function repairTelegramWebhooks(env, fetchImpl = fetch) {
     const results = [];
-    for (const role of BOT_ROLE_ORDER) {
+    const rolesToRepair = env.WORKER_ROLE ? [env.WORKER_ROLE] : BOT_ROLE_ORDER;
+    for (const role of rolesToRepair) {
         if (!env[BOT_ROLES[role].token]) {
             results.push({ role, configured: false });
             continue;
@@ -177,6 +178,10 @@ async function manageWebhooks(request, env, fetchImpl, action) {
     if (!adminSecret || !constantTimeEqual(suppliedSecret, adminSecret)) {
         return jsonResponse(401, { error: 'Unauthorized.' });
     }
+    const workerRole = env.WORKER_ROLE || '';
+    if (workerRole && !Object.hasOwn(BOT_ROLES, workerRole)) {
+        return jsonResponse(503, { error: 'Invalid isolated worker role.' });
+    }
 
     let publicUrl = null;
     if (action === 'register') {
@@ -192,7 +197,8 @@ async function manageWebhooks(request, env, fetchImpl, action) {
     }
 
     const tokenRoles = new Map();
-    for (const role of BOT_ROLE_ORDER) {
+    const rolesToManage = workerRole ? [workerRole] : BOT_ROLE_ORDER;
+    for (const role of rolesToManage) {
         const config = BOT_ROLES[role];
         const token = env[config.token];
         if (token) tokenRoles.set(token, [...(tokenRoles.get(token) || []), role]);
@@ -206,7 +212,7 @@ async function manageWebhooks(request, env, fetchImpl, action) {
     }
 
     const results = [];
-    for (const role of BOT_ROLE_ORDER) {
+    for (const role of rolesToManage) {
         const config = BOT_ROLES[role];
         const token = env[config.token];
         if (!token) {
@@ -244,7 +250,9 @@ async function manageWebhooks(request, env, fetchImpl, action) {
 }
 
 function workerDiagnostics(env) {
-    const roles = Object.fromEntries(BOT_ROLE_ORDER.map(role => {
+    const workerRole = env.WORKER_ROLE || '';
+    const roleNames = workerRole ? [workerRole] : BOT_ROLE_ORDER;
+    const roles = Object.fromEntries(roleNames.map(role => {
         const config = BOT_ROLES[role];
         const tokenConfigured = Boolean(env[config.token]);
         const webhookSecretValid = TELEGRAM_SECRET_PATTERN.test(env[config.webhookSecret] || '');
@@ -254,20 +262,26 @@ function workerDiagnostics(env) {
             webhookSecretValid
         }];
     }));
-    const queues = {
-        admin: typeof env.ADMIN_UPDATES?.send === 'function',
-        general: typeof env.BOT_UPDATES?.send === 'function'
-    };
+    const queues = workerRole
+        ? { isolated: typeof env.UPDATES?.send === 'function' }
+        : {
+            admin: typeof env.ADMIN_UPDATES?.send === 'function',
+            general: typeof env.BOT_UPDATES?.send === 'function'
+        };
     const backend = Boolean(configuredLayeroUrl(env)) &&
         typeof env.TELEGRAM_WORKER_SHARED_SECRET === 'string' &&
         env.TELEGRAM_WORKER_SHARED_SECRET.length >= 32;
-    const publicUrl = Boolean(expectedWebhookUrl(env, 'admin'));
-    const enabledBotsReady = BOT_ROLE_ORDER.every(role =>
-        !env[BOT_ROLES[role].token] || roles[role].configured
-    );
+    const publicUrl = Boolean(expectedWebhookUrl(env, workerRole || 'admin'));
+    const enabledBotsReady = workerRole
+        ? Boolean(roles[workerRole]?.configured)
+        : BOT_ROLE_ORDER.every(role =>
+            !env[BOT_ROLES[role].token] || roles[role]?.configured
+        );
     return {
-        ok: backend && publicUrl && queues.admin && queues.general &&
-            roles.admin.configured && enabledBotsReady,
+        ok: backend && publicUrl &&
+            (workerRole ? queues.isolated : queues.admin && queues.general) &&
+            (workerRole ? roles[workerRole].configured : roles.admin.configured) &&
+            enabledBotsReady,
         backend,
         publicUrl,
         queues,
@@ -278,6 +292,12 @@ function workerDiagnostics(env) {
 export function createHandler(env, fetchImpl = fetch) {
     return async function handleRequest(request) {
         const url = new URL(request.url);
+        if (env.WORKER_ROLE && /^\/telegram\/[^/]+$/.test(url.pathname)) {
+            const requestedRole = url.pathname.split('/').pop();
+            if (requestedRole !== env.WORKER_ROLE) {
+                return jsonResponse(404, { error: 'This Worker handles a different bot role.' });
+            }
+        }
         if (url.pathname === '/admin/health') {
             if (request.method !== 'GET') return jsonResponse(405, { error: 'Method not allowed.' });
             const adminSecret = env.WEBHOOK_ADMIN_SECRET || '';
@@ -326,7 +346,7 @@ export function createHandler(env, fetchImpl = fetch) {
             return jsonResponse(400, { error: 'Invalid Telegram update ID.' });
         }
 
-        const updateQueue = role === 'admin' ? env.ADMIN_UPDATES : env.BOT_UPDATES;
+        const updateQueue = env.UPDATES || (role === 'admin' ? env.ADMIN_UPDATES : env.BOT_UPDATES);
         const queuePayloadBytes = encoder.encode(JSON.stringify({ role, update })).byteLength;
         if (updateQueue && typeof updateQueue.send === 'function' &&
             queuePayloadBytes <= MAX_QUEUE_MESSAGE_BYTES) {

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="Каталог растительных масел с кратким описанием состава, получения и хранения.">
+    <title>Каталог масел | Dr. DarSun</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/oils.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container header__inner">
+            <a href="index.html" class="logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
+            <nav class="nav" aria-label="Основная навигация">
+                <a href="index.html">Главная</a>
+                <a href="catalog.html">Каталог</a>
+                <a href="about.html">О нас</a>
+                <a href="scientists-about-oils.html">Учёные о маслах</a>
+                <a href="oil-catalog.html" aria-current="page">Масла</a>
+                <a href="delivery.html">Доставка</a>
+            </nav>
+            <div class="header__actions">
+                <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Переключить тему"></button>
+                <a href="cart.html" class="icon-btn" aria-label="Корзина">Корзина</a>
+                <div id="auth-buttons"></div>
+                <button class="burger" id="burger-btn" type="button" aria-label="Открыть меню"><span></span><span></span><span></span></button>
+            </div>
+        </div>
+        <nav class="mobile-menu" id="mobile-menu" aria-label="Мобильная навигация">
+            <button class="mobile-close" id="mobile-close-btn" type="button" aria-label="Закрыть меню">Закрыть</button>
+            <a href="index.html">Главная</a>
+            <a href="catalog.html">Каталог</a>
+            <a href="about.html">О нас</a>
+            <a href="scientists-about-oils.html">Учёные о маслах</a>
+            <a href="oil-catalog.html" aria-current="page">Масла</a>
+            <a href="delivery.html">Доставка</a>
+        </nav>
+    </header>
+
+    <main class="oil-catalog">
+        <section class="oil-catalog__hero container">
+            <div class="oil-catalog__hero-copy">
+                <p class="eyebrow">СПРАВОЧНИК · 14 масел</p>
+                <h1>Каждое масло —<br><span>свой характер</span></h1>
+                <p>Состав, способ получения, особенности хранения и типичные различия. Никаких медицинских обещаний — только ясная справочная информация.</p>
+            </div>
+            <div class="oil-catalog__hero-art">
+                <div class="oil-catalog__orbit orbit-one"></div>
+                <div class="oil-catalog__orbit orbit-two"></div>
+                <figure>
+                    <img src="assets/images/almonds.png" alt="Миндаль" loading="eager">
+                    <figcaption>Иллюстрация: <a href="https://commons.wikimedia.org/wiki/File:Bowl_of_chopped_almonds_no_bg.png" target="_blank" rel="noopener noreferrer">Douglas P Perkins</a>, <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 3.0</a>.</figcaption>
+                </figure>
+            </div>
+        </section>
+
+        <section class="oil-catalog__body container">
+            <div class="oil-catalog__toolbar">
+                <label>
+                    <span>Поиск масла</span>
+                    <input id="oil-search" type="search" placeholder="Например, миндальное" autocomplete="off">
+                </label>
+                <div id="oil-count" class="oil-catalog__count" aria-live="polite"></div>
+            </div>
+
+            <div class="oil-catalog__grid" id="oil-grid">
+                <article class="oil-card" data-oil="оливковое mediterranean олеиновая" id="olive">
+                    <div class="oil-card__top"><span class="oil-card__number">01</span><span class="oil-card__tag">Средиземноморье</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/oils/olive.svg" alt="Оливки на ветви" loading="lazy"></figure>
+                    <h2>Оливковое масло</h2>
+                    <p class="oil-card__lead">Яркий мононенасыщенный профиль и широкая вариативность вкуса в зависимости от сорта и степени созревания оливок.</p>
+                    <dl><div><dt>Ключевые кислоты</dt><dd>Олеиновая, линолевая, пальмитиновая</dd></div><div><dt>Получение</dt><dd>Механическое прессование мякоти плода</dd></div></dl>
+                    <details><summary>Подробнее об масле</summary><p>В нерафинированном масле могут сохраняться фенольные соединения и токоферолы. Вкус меняется от травянистого и зелёного до мягкого и сливочного. Для точной характеристики конкретного образца важны сорт оливок, способ измельчения пасты, температура и длительность хранения.</p><p>При выборе смотрят на категорию продукта, урожай, дату розлива и условия хранения. Надпись «extra virgin» относится к определённым стандартам качества и не заменяет сведения о происхождении и партии.</p></details>
+                </article>
+
+                <article class="oil-card oil-card--warm" data-oil="персиковое косточка олеиновая" id="peach">
+                    <div class="oil-card__top"><span class="oil-card__number">02</span><span class="oil-card__tag">Косточковые</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/oils/peach.svg" alt="Персик и косточка" loading="lazy"></figure>
+                    <h2>Персиковое масло</h2>
+                    <p class="oil-card__lead">Масло из косточек персика с типичным сочетанием олеиновой и линолевой жирных кислот.</p>
+                    <dl><div><dt>Ключевые кислоты</dt><dd>Олеиновая, линолевая, пальмитиновая</dd></div><div><dt>Получение</dt><dd>Холодное прессование или экстрагирование</dd></div></dl>
+                    <details><summary>Подробнее об масле</summary><p>Конкретный состав зависит от сорта персика и технологии. В косметических и технических применениях разделяют рафинированное и нерафинированное масло. Пищевое применение допустимо только при наличии соответствующей маркировки и разрешённых нормативов партии.</p><p>Проверяйте, из какой части сырья сделано масло, как оно очищено и для какого способа применения предназначено. Один и тот же бытовой термин на этикетках разных продуктов не гарантирует одинаковую технологию.</p></details>
+                </article>
+
+                <article class="oil-card oil-card--gold" data-oil="подсолнечное linoleic linoleвая" id="sunflower">
+                    <div class="oil-card__top"><span class="oil-card__number">03</span><span class="oil-card__tag">Семена</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/oils/sunflower.svg" alt="Подсолнух и семена" loading="lazy"></figure>
+                    <h2>Подсолнечное масло</h2>
+                    <p class="oil-card__lead">Один из самых распространённых типов растительного масла с несколькими сортовыми профилями.</p>
+                    <dl><div><dt>Ключевые кислоты</dt><dd>Линолевая или олеиновая</dd></div><div><dt>Типы</dt><dd>Линолевый и высокоолеиновый</dd></div></dl>
+                    <details><summary>Подробнее об масле</summary><p>Обычный профиль подсолнечного масла часто содержит заметную долю линолевой кислоты. У высокоолеиновых сортов преобладает олеиновая. Конкретный тип и результаты анализа важнее обобщённой категории на этикетке.</p><p>Для разных задач выбирают масла с учётом их вкуса, обработки и заявленного назначения. Слова «холодный отжим» описывают этап производства, но сами по себе не подтверждают свежесть или качество партии.</p></details>
+                </article>
+
+                <article class="oil-card oil-card--almond" data-oil="миндальное almond орехи олеиновая" id="almond">
+                    <div class="oil-card__top"><span class="oil-card__number">04</span><span class="oil-card__tag">Ореховые</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/oils/almond.svg" alt="Миндаль на ветке" loading="lazy"></figure>
+                    <h2>Миндальное масло</h2>
+                    <p class="oil-card__lead">Масло с нежным ореховым характером и заметной долей мононенасыщенных жиров.</p>
+                    <dl><div><dt>Ключевые кислоты</dt><dd>Олеиновая, линолевая, пальмитиновая</dd></div><div><dt>Типично содержит</dt><dd>Токоферолы и минорные липиды</dd></div></dl>
+                    <details open><summary>Подробнее об масле</summary><p>Миндальное масло получают из ядра плода миндаля холодным отжимом или иным технологическим способом. Нерафинированный продукт сохраняет больше аромата и чувствительнее к свету, теплу и кислороду. Он относится к продуктам с потенциальной ореховой аллергенностью.</p><p>Для хранения подойдут закрытая непрозрачная упаковка и прохладное место вдали от нагревательных приборов. Обращайте внимание на вид сырья, степень очистки, назначение продукта и предупреждение об аллергенах: масло для наружного применения нельзя автоматически считать пищевым.</p></details>
+                </article>
+
+                <article class="oil-card" data-oil="виноградной косточки виноград" id="grape">
+                    <div class="oil-card__top"><span class="oil-card__number">05</span><span class="oil-card__tag">Из семян</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/oils/grape.svg" alt="Гроздь винограда" loading="lazy"></figure>
+                    <h2>Масло виноградной косточки</h2>
+                    <p class="oil-card__lead">Лёгкое масло семян винограда с типично высоким содержанием линолевой кислоты.</p>
+                    <dl><div><dt>Ключевые кислоты</dt><dd>Линолевая, олеиновая</dd></div><div><dt>Особенность</dt><dd>Высокая доля полиненасыщенности</dd></div></dl>
+                    <details><summary>Подробнее об масле</summary><p>Качество зависит от сорта винограда, влажности и срока хранения семян до обработки. Масло чувствительно к нагреву, свету и кислороду; в технических и кулинарных применениях учитывайте температуру и способ получения.</p><p>Семена дают сравнительно небольшой выход масла, поэтому на рынке представлены продукты разной степени очистки. Уточняйте пищевое или косметическое назначение, а также условия хранения после вскрытия.</p></details>
+                </article>
+
+                <article class="oil-card" data-oil="авокадо avocado мякоть семя" id="avocado">
+                    <div class="oil-card__top"><span class="oil-card__number">06</span><span class="oil-card__tag">Тропики</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/oils/avocado.svg" alt="Разрезанный плод авокадо" loading="lazy"></figure>
+                    <h2>Масло авокадо</h2>
+                    <p class="oil-card__lead">Масло мякоти плода с заметной долей олеиновой кислоты и выраженным зелёным профилем.</p>
+                    <dl><div><dt>Ключевые кислоты</dt><dd>Олеиновая, линолевая, пальмитиновая</dd></div><div><dt>Источники</dt><dd>Мякоть плода или семя</dd></div></dl>
+                    <details><summary>Подробнее об масле</summary><p>Состав масла из мякоти нельзя переносить на масло из семени. Нерафинированные образцы могут сохранять хлорофилл и пигменты мякоти. Для конкретной партии полезны цвет, аромат, дата производства и лабораторные показатели.</p><p>В карточке товара важно отдельно указать часть плода, способ получения и рафинацию. Эти сведения помогают отличить пищевое масло от сырья для косметических составов.</p></details>
+                </article>
+
+                <article class="oil-card" data-oil="жожоба косметическое воск" id="jojoba">
+                    <div class="oil-card__top"><span class="oil-card__number">07</span><span class="oil-card__tag">Косметическое</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/oils/jojoba.svg" alt="Ветвь жожоба с плодами" loading="lazy"></figure>
+                    <h2>Масло жожоба</h2>
+                    <p class="oil-card__lead">Не триацилглицеринное масло, а жидкий восковой эфир с высокой устойчивостью к окислению.</p>
+                    <dl><div><dt>Основной состав</dt><dd>Жидкие восковые эфиры</dd></div><div><dt>Применение</dt><dd>Косметика и уход за кожей</dd></div></dl>
+                    <details><summary>Подробнее об масле</summary><p>В отличие от большинства растительных масел, жожоба состоит преимущественно из эфиров длинноцепочечных жирных кислот и спиртов. Поэтому её не следует приравнивать к пищевым триацилглицериновым маслам. Косметические продукты нужно выбирать с учётом маркировки.</p><p>В косметике жожоба используют как самостоятельный ингредиент или основу смеси. Перед использованием готового средства ориентируются на инструкцию производителя и индивидуальную переносимость.</p></details>
+                </article>
+
+                <article class="oil-card oil-card--warm" data-oil="какао твёрдое стеариновая" id="cacao">
+                    <div class="oil-card__top"><span class="oil-card__number">08</span><span class="oil-card__tag">Твёрдые жиры</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/oils/cacao.svg" alt="Какао-бобы и плод какао" loading="lazy"></figure>
+                    <h2>Масло какао</h2>
+                    <p class="oil-card__lead">Твёрдый растительный жир с характерным узким диапазоном плавления и высокой долей насыщенных кислот.</p>
+                    <dl><div><dt>Ключевые кислоты</dt><dd>Стеариновая, олеиновая, пальмитиновая</dd></div><div><dt>Форма</dt><dd>Твёрдая при комнатной температуре</dd></div></dl>
+                    <details><summary>Подробнее об масле</summary><p>Соотношение жировых фаз определяет твёрдость и плавление масла какао. Термостатическая обработка и полиморфизм кристаллов особенно важны в кондитерских технологиях.</p><p>Аромат и оттенок зависят в том числе от подготовки бобов. В составе готового продукта могут быть смеси и добавки, поэтому проверяйте полный перечень ингредиентов и область применения.</p></details>
+                </article>
+
+                <article class="oil-card" data-oil="кокосовое лауриновая тропическое" id="coconut">
+                    <div class="oil-card__top"><span class="oil-card__number">09</span><span class="oil-card__tag">Тропическое</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/oils/coconut.svg" alt="Кокос и пальмовые листья" loading="lazy"></figure>
+                    <h2>Кокосовое масло</h2>
+                    <p class="oil-card__lead">Растительный жир с высокой долей среднецепочечных и насыщенных жирных кислот.</p>
+                    <dl><div><dt>Ключевые кислоты</dt><dd>Лауриновая, миристиновая</dd></div><div><dt>Особенность</dt><dd>Быстрое твёрдение при охлаждении</dd></div></dl>
+                    <details><summary>Подробнее об масле</summary><p>Каприловая и каприновая кислоты в меньших долях также входят в типичный профиль. Температура плавления зависит от фракции и обработки. Продукт может называться рафинированным или нерафинированным в зависимости от технологии.</p><p>Твёрдое состояние в прохладной комнате и прозрачность в тепле могут быть естественным изменением консистенции. Сверяйте состав и назначение, поскольку свойства фракционированных продуктов отличаются.</p></details>
+                </article>
+
+                <article class="oil-card" data-oil="зародышей пшеницы wheat germ" id="wheat">
+                    <div class="oil-card__top"><span class="oil-card__number">10</span><span class="oil-card__tag">Зародыши</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/oils/wheat.svg" alt="Колосья пшеницы" loading="lazy"></figure>
+                    <h2>Масло зародышей пшеницы</h2>
+                    <p class="oil-card__lead">Насыщенное минорными компонентами масло с высокой долей ненасыщенных кислот.</p>
+                    <dl><div><dt>Ключевые кислоты</dt><dd>Линолевая, олеиновая, пальмитиновая</dd></div><div><dt>Минорные компоненты</dt><dd>Токоферолы и фосфолипиды</dd></div></dl>
+                    <details><summary>Подробнее об масле</summary><p>Нерафинированное масло может отличаться цветом и запахом. Профиль конкретной партии зависит от сорта пшеницы, свежести сырья и технологии очистки. Масло чувствительно к окислению и требует бережного хранения.</p><p>Из-за особенностей сырья и ограниченного выхода продукт часто продаётся в небольших упаковках. Ищите на этикетке способ получения, дату розлива и рекомендации после открытия.</p></details>
+                </article>
+
+                <article class="oil-card oil-card--warm" data-oil="макадамии macadamia пальмитолеиновая" id="macadamia">
+                    <div class="oil-card__top"><span class="oil-card__number">11</span><span class="oil-card__tag">Ореховые</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/oils/macadamia.svg" alt="Орехи макадамии" loading="lazy"></figure>
+                    <h2>Масло макадамии</h2>
+                    <p class="oil-card__lead">Ореховое масло с высоким содержанием мононенасыщенных жирных кислот.</p>
+                    <dl><div><dt>Ключевые кислоты</dt><dd>Олеиновая, пальмитолеиновая</dd></div><div><dt>Формат</dt><dd>Косметическое и пищевое</dd></div></dl>
+                    <details><summary>Подробнее об масле</summary><p>Пальмитолеиновая кислота заметно отличает профиль макадамии от многих обычных растительных масел. Маркировка партии должна точно указывать область применения и способ получения.</p><p>Ореховое сырьё требует аккуратного указания аллергенов. Для сравнения продуктов учитывают степень очистки и то, предназначено ли масло для еды или косметического использования.</p></details>
+                </article>
+
+                <article class="oil-card" data-oil="грецкого ореха omega омега" id="walnut">
+                    <div class="oil-card__top"><span class="oil-card__number">12</span><span class="oil-card__tag">Omega-3 / Omega-6</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/oils/walnut.svg" alt="Грецкий орех" loading="lazy"></figure>
+                    <h2>Масло грецкого ореха</h2>
+                    <p class="oil-card__lead">Плодовый вкус и значительная доля полиненасыщенных жирных кислот делают масло особенно чувствительным к хранению.</p>
+                    <dl><div><dt>Ключевые кислоты</dt><dd>Линолевая, альфа-линоленовая</dd></div><div><dt>Хранение</dt><dd>Холодно, без света и кислорода</dd></div></dl>
+                    <details><summary>Подробнее об масле</summary><p>Полиненасыщенность влияет на вкус и скорость окисления. Масло лучше хранить в закрытой непрозрачной упаковке вдали от тепла. Оно относится к продуктам с высокой вероятностью ореховой сенсибилизации.</p><p>Вкус различается по сорту ореха и технологии прессования, а обработанное сырьё даёт более выраженный аромат. На этикетке ищите дату изготовления, условия хранения и предупреждения об аллергенах.</p></details>
+                </article>
+
+                <article class="oil-card oil-card--gold" data-oil="тыквенное pumpkin семена" id="pumpkin">
+                    <div class="oil-card__top"><span class="oil-card__number">13</span><span class="oil-card__tag">Семена тыквы</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/oils/pumpkin.svg" alt="Тыква и её семена" loading="lazy"></figure>
+                    <h2>Тыквенное масло</h2>
+                    <p class="oil-card__lead">Насыщенный зелёно-коричневый цвет, яркий аромат и типичное сочетание линолевой и олеиновой кислот.</p>
+                    <dl><div><dt>Ключевые кислоты</dt><dd>Линолевая, олеиновая</dd></div><div><dt>Минорные компоненты</dt><dd>Пигменты и фитоактивные фракции</dd></div></dl>
+                    <details><summary>Подробнее об масле</summary><p>Цвет и вкус зависят от сорта тыквы, степени обжарки семян и способа отжима. Нерафинированные образцы используют для ароматных холодных подач и строго по указаниям производителя.</p><p>Тёмный цвет сам по себе не определяет сорт или качество. Сравнивайте свежесть, состав и технологию, а после открытия следуйте рекомендациям на упаковке.</p></details>
+                </article>
+
+                <article class="oil-card oil-card--berry" data-oil="облепиховое sea buckthorn seed pulp" id="sea-buckthorn">
+                    <div class="oil-card__top"><span class="oil-card__number">14</span><span class="oil-card__tag">Плоды и семена</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/oils/sea-buckthorn.svg" alt="Ягоды облепихи на ветви" loading="lazy"></figure>
+                    <h2>Облепиховое масло</h2>
+                    <p class="oil-card__lead">Различается по сырью: масла мякоти плодов и семян имеют заметно отличающиеся цвет, состав и назначение.</p>
+                    <dl><div><dt>Семенное</dt><dd>Линолевая и альфа-линоленовая</dd></div><div><dt>Из мякоти</dt><dd>Пальмитолеиновая фракция и пигменты</dd></div></dl>
+                    <details><summary>Подробнее об масле</summary><p>Нельзя переносить свойства одной фракции на другую. Масло мякоти обычно ярче и плотнее по цвету, а семенное имеет иной жирнокислотный профиль. Способ производства и область применения всегда должны быть указаны на продукте.</p><p>В продаже встречаются чистые масла, смеси и экстракты. Уточняйте, из какого сырья сделан продукт и разрешено ли его пищевое применение: цвет не позволяет надёжно определить состав.</p></details>
+                </article>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container footer__inner">
+            <div class="footer__col">
+                <div class="footer__logo-group">
+                    <img src="assets/images/logo_full.png" alt="Dr. DarSun">
+                    <span class="footer__brand-text">Dr. DarSun</span>
+                </div>
+                <p class="footer__desc">Премиальные растительные масла. Сделано с душой.</p>
+            </div>
+            <div class="footer__col">
+                <h4>Покупателям</h4>
+                <a href="catalog.html">Каталог</a>
+                <a href="oil-catalog.html">Справочник масел</a>
+                <a href="delivery.html">Доставка</a>
+                <a href="about.html">О нас</a>
+            </div>
+            <div class="footer__col">
+                <h4>Контакты</h4>
+                <a href="mailto:drdarsunhelper@gmail.com">drdarsunhelper@gmail.com</a>
+                <div class="socials">
+                    <a href="https://vk.ru/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="ВКонтакте"><img class="theme-asset-light" src="assets/images/vk.png" alt="ВКонтакте"><img class="theme-asset-dark" src="assets/images/vk_dark.png" alt=""></a>
+                    <a href="https://t.me/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="Telegram"><img class="theme-asset-light" src="assets/images/telegram.png" alt="Telegram"><img class="theme-asset-dark" src="assets/images/telegram_dark.png" alt=""></a>
+                    <a href="https://www.instagram.com/drdarsun/" target="_blank" rel="noopener noreferrer" class="social-link">Instagram*</a>
+                </div>
+                <p class="social-disclaimer">* Instagram — продукт Meta, организации, деятельность которой запрещена на территории РФ. Аккаунт ведётся с соблюдением требований законодательства РФ.</p>
+            </div>
+        </div>
+        <div class="footer__bottom">
+            <div class="container">© 2026 Dr. DarSun. Все права защищены.</div>
+        </div>
+    </footer>
+
+    <script type="module" src="js/main.js"></script>
+    <script type="module" src="js/oil-catalog.js"></script>
+    <script src="js/burger.js"></script>
+    <script type="module" src="js/auth-header.js"></script>
+    <script src="js/site-status.js"></script>
+</body>
+</html>

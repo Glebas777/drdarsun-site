@@ -1,4 +1,5 @@
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const { VOLUME_OPTIONS } = require('./oil-product-options');
 
 const BOT_DEFINITIONS = [
     { role: 'client', tokenEnv: 'CLIENT_BOT_TOKEN', usernameEnv: 'CLIENT_BOT_USERNAME' },
@@ -200,6 +201,12 @@ function userFacingError(error) {
     return 'Не удалось выполнить действие. Проверьте ввод и попробуйте ещё раз.';
 }
 
+function isRetryableBotError(error) {
+    if (error?.retryable === true) return true;
+    const status = Number(error?.apiStatus ?? error?.telegramStatus);
+    return [408, 425, 429].includes(status) || status >= 500;
+}
+
 function formatOrders(orders) {
     if (!orders?.length) return 'Заказов пока нет.';
     return orders.slice(0, 10).map(order => {
@@ -211,18 +218,24 @@ function formatOrders(orders) {
     }).join('\n\n');
 }
 
-function createBotClient(config, env, request) {
+function createBotClient(config, env, request, processContext = null) {
     const token = env[config.tokenEnv];
     const apiBase = (env.BOT_API_BASE_URL || `http://127.0.0.1:${env.PORT || 3000}`).replace(/\/+$/, '');
     const baseTelegramUrl = `https://api.telegram.org/bot${token}`;
 
     async function telegram(method, body) {
-        const response = await request(`${baseTelegramUrl}/${method}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-            signal: body?.timeout ? AbortSignal.timeout((body.timeout + 10) * 1000) : undefined
-        });
+        let response;
+        try {
+            response = await request(`${baseTelegramUrl}/${method}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                signal: body?.timeout ? AbortSignal.timeout((body.timeout + 10) * 1000) : undefined
+            });
+        } catch (error) {
+            error.retryable = true;
+            throw error;
+        }
         const result = await response.json().catch(() => null);
         if (!response.ok || !result?.ok) {
             const error = new Error(`Telegram ${method} failed (${response.status}): ${safeText(result?.description || 'unknown error', 240)}`);
@@ -235,7 +248,11 @@ function createBotClient(config, env, request) {
     }
 
     async function callApi(path, chatId, init = {}) {
-        const response = await request(`${apiBase}/api/telegram${path}`, {
+        const method = String(init.method || 'GET').toUpperCase();
+        if (method !== 'GET' && processContext) processContext.sideEffectAttempted = true;
+        let response;
+        try {
+            response = await request(`${apiBase}/api/telegram${path}`, {
             ...init,
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -243,8 +260,12 @@ function createBotClient(config, env, request) {
                 'Content-Type': 'application/json',
                 ...(init.headers || {})
             },
-            signal: AbortSignal.timeout(15000)
-        });
+                signal: AbortSignal.timeout(15000)
+            });
+        } catch (error) {
+            error.retryable = true;
+            throw error;
+        }
         const result = await response.json().catch(() => null);
         if (!response.ok) {
             const error = new Error(`Backend ${response.status} at ${path}: ${safeText(result?.error || 'unknown error', 240)}`);
@@ -307,7 +328,7 @@ function getBotDefinition(role) {
     return BOT_DEFINITIONS.find(definition => definition.role === role);
 }
 
-function createBotForRole(role, env, request) {
+function createBotForRole(role, env, request, processContext) {
     const definition = getBotDefinition(role);
     const token = definition && typeof env[definition.tokenEnv] === 'string'
         ? env[definition.tokenEnv].trim()
@@ -324,18 +345,27 @@ function createBotForRole(role, env, request) {
     return createBotClient({ ...definition, tokenEnv: '__NORMALIZED_TOKEN' }, {
         ...env,
         __NORMALIZED_TOKEN: token
-    }, request);
+    }, request, processContext);
 }
 
 async function processTelegramUpdateNow(role, update, options = {}) {
     const env = options.env || process.env;
     const request = options.fetch || fetch;
     const config = { role };
-    const bot = createBotForRole(role, env, request);
+    const processContext = { sideEffectAttempted: false };
+    const bot = createBotForRole(role, env, request, processContext);
     if (!isPrivateUpdate(update)) return { ignored: true };
 
     const chatId = updateChatId(update);
-    if (!chatId || !ownerAllowed(role, chatId, env)) return { ignored: true };
+    if (!chatId) return { ignored: true };
+    if (!ownerAllowed(role, chatId, env)) {
+        if (role === 'panel') {
+            await bot.send(chatId, `Доступ к панели ограничен.\nВаш Telegram chat ID: ${chatId}\nДобавьте это значение в PANEL_CHAT_ID или M_CHAT_ID на сервере и перезапустите бота.`);
+        } else if (role === 'admin') {
+            await bot.send(chatId, `Админ-доступ ограничен.\nВаш Telegram chat ID: ${chatId}\nЗадайте значение MY_CHAT_ID на сервере.`);
+        }
+        return { ignored: true, reason: 'chat-not-allowed' };
+    }
     if (!allowChatUpdate(role, chatId)) {
         console.warn(`Telegram ${role} update throttled for chat ${chatId}.`);
         return { ignored: true, reason: 'rate-limited' };
@@ -348,6 +378,7 @@ async function processTelegramUpdateNow(role, update, options = {}) {
         }
     } catch (error) {
         console.error(`Telegram ${role} update failed:`, safeError(error, bot.token));
+        if (options.retryOnFailure && !processContext.sideEffectAttempted && isRetryableBotError(error)) throw error;
         try {
             await bot.send(chatId, userFacingError(error));
         } catch (notificationError) {
@@ -604,7 +635,7 @@ async function listOrders(bot, chatId, { status = '', offset = 0 } = {}) {
         return;
     }
     for (const order of result.orders.slice(0, 15)) {
-        const text = `Заказ ${safeText(order.id, 40)}\n${formatOrders([order])}\nПозиции: ${Array.isArray(order.items) ? order.items.map(item => `${safeText(item.name || item.product_id, 80)} × ${item.quantity || 1}`).join(', ') : '—'}`;
+        const text = `Заказ ${safeText(order.id, 40)}\n${formatOrders([order])}\nПокупатель: ${safeText(order.customer_name || '—', 100)}\nПочта: ${safeText(order.customer_email || '—', 180)}\nАдрес: ${safeText(order.delivery_address || '—', 300)}\nПозиции: ${Array.isArray(order.items) ? order.items.map(item => `${safeText(item.name || item.product_id, 80)} × ${item.quantity || 1}`).join(', ') : '—'}`;
         const buttons = ORDER_STATUSES.map(status => ({
             text: `${order.status === status ? '• ' : ''}${status}`,
             callback_data: `p:o:${result.orders.indexOf(order)}:${status}`
@@ -656,20 +687,40 @@ async function listAuditLog(bot, chatId, offset = 0) {
     });
 }
 
-async function listProducts(bot, chatId) {
-    const { products = [] } = await bot.callApi('/panel/products', chatId);
+const PANEL_PRODUCTS_PAGE_SIZE = 8;
+
+async function listProducts(bot, chatId, offset = 0) {
+    const { products = [], hasMore = false } = await bot.callApi(`/panel/products?limit=${PANEL_PRODUCTS_PAGE_SIZE}&offset=${offset}`, chatId);
     if (!products.length) {
         await bot.send(chatId, 'Товаров нет.', { reply_markup: menuKeyboard('panel') });
         return;
     }
-    setState('panel', chatId, { products: products.slice(0, 30) });
-    for (let index = 0; index < Math.min(30, products.length); index++) {
-        const product = products[index];
-        await bot.send(chatId,
-            `${safeText(product.name, 120)}\n${safeText(product.category, 80)} · ${Number(product.price)} ₽\n${safeText(product.description, 700)}`,
-            { reply_markup: inline([[{ text: 'Изменить', callback_data: `p:pe:${index}` }]]) }
-        );
-    }
+    const pageProducts = products.slice(offset, offset + PANEL_PRODUCTS_PAGE_SIZE);
+    setState('panel', chatId, {
+        flow: 'products-list',
+        products: pageProducts,
+        offset,
+        hasNext: hasMore
+    });
+    const rows = pageProducts.map((product, index) => {
+        const details = [
+            `${safeText(product.volume, 30)} · ${safeText(product.packaging_type, 40)}`,
+            `${safeText(product.pressing_type, 40)} · ${Number(product.shelf_life_months) || '—'} мес.`,
+            `${Number(product.price)} ₽`
+        ].filter(Boolean).join('\n');
+        return `${safeText(product.name, 100)}\n${safeText(product.category, 60)} · ${details}`;
+    });
+    const buttons = pageProducts.map((_, index) => [{
+        text: `Изменить ${index + 1}`,
+        callback_data: `p:pe:${index}`
+    }]);
+    const navigation = [];
+    if (offset > 0) navigation.push({ text: 'Назад', callback_data: 'p:products:prev' });
+    if (hasMore) navigation.push({ text: 'Дальше', callback_data: 'p:products:next' });
+    if (navigation.length) buttons.push(navigation);
+    await bot.send(chatId, `Товары · страница ${Math.floor(offset / PANEL_PRODUCTS_PAGE_SIZE) + 1}\n\n${rows.join('\n\n')}`, {
+        reply_markup: inline(buttons)
+    });
 }
 
 async function startNewOrder(bot, chatId) {
@@ -678,8 +729,27 @@ async function startNewOrder(bot, chatId) {
 }
 
 async function startNewProduct(bot, chatId) {
-    setState('panel', chatId, { flow: 'new-product-name', product: {} });
-    await bot.send(chatId, 'Введите название товара. Для отмены отправьте /cancel.');
+    const options = await bot.callApi('/panel/oil-types', chatId);
+    const oils = Array.isArray(options.oils) ? options.oils : [];
+    if (!oils.length) {
+        await bot.send(chatId, 'Не удалось загрузить список масел. Попробуйте позже.');
+        return;
+    }
+    setState('panel', chatId, { flow: 'new-product-oil', oils, options });
+    const rows = [];
+    for (let index = 0; index < oils.length; index += 2) {
+        rows.push(oils.slice(index, index + 2).map((oil, offset) => ({
+            text: safeText(oil.name, 28),
+            callback_data: `p:oil:${index + offset}`
+        })));
+    }
+    await bot.send(chatId, 'Выберите масло из справочника. Настройки товара можно отменить командой /cancel.', {
+        reply_markup: inline(rows)
+    });
+}
+
+function productPreview(product) {
+    return `Проверьте товар перед публикацией:\n\n${safeText(product.name, 160)}\n${safeText(product.category, 80)} · ${Number(product.price)} ₽\nОбъём: ${product.volume} мл\nУпаковка: ${safeText(product.packaging_type, 60)}\nОтжим: ${safeText(product.pressing_type, 60)}\nСрок хранения: ${product.shelf_life_months} мес.\n\n${safeText(product.description, 700) || 'Описание не добавлено.'}\n\nИзображение: ${safeText(product.image_url, 300)}`;
 }
 
 async function processPanelText(bot, chatId, text) {
@@ -698,7 +768,7 @@ async function processPanelText(bot, chatId, text) {
             await bot.send(chatId, 'Похоже, это не UUID. Проверьте и отправьте ещё раз или /cancel.');
             return;
         }
-        const { products = [] } = await bot.callApi('/panel/products', chatId);
+        const { products = [] } = await bot.callApi('/panel/products?limit=20', chatId);
         state = { flow: 'new-order-products', userId: text, products: products.slice(0, 20), items: [] };
         setState('panel', chatId, state);
         if (!state.products.length) {
@@ -718,54 +788,61 @@ async function processPanelText(bot, chatId, text) {
             return;
         }
         const product = state.products[state.selectedProductIndex];
-        state.items.push({ product_id: product.id, quantity });
+        state.items.push({ product_id: product.id, product_name: product.name, quantity });
         delete state.flow;
         delete state.selectedProductIndex;
         setState('panel', chatId, state);
         await bot.send(chatId, `${safeText(product.name, 100)} × ${quantity} добавлено. Возвращайтесь к списку товаров и нажмите «Готово».`);
         return;
     }
-    if (state.flow.startsWith('new-product-')) {
-        const key = state.flow.slice('new-product-'.length);
+    if (state.flow === 'new-product-volume-custom') {
+        const volume = Number(text);
+        if (!Number.isSafeInteger(volume) || volume < 10 || volume > 5000) {
+            await bot.send(chatId, 'Введите целый объём от 10 до 5000 мл.');
+            return;
+        }
+        state.product.volume = volume;
+        state.product.name = `${state.product.oil_name} · ${volume} мл`;
+        state.flow = 'new-product-price';
+        setState('panel', chatId, state);
+        await bot.send(chatId, 'Введите цену товара в рублях (от 1 до 10 000 000).');
+        return;
+    }
+    if (state.flow === 'new-product-price' || state.flow === 'new-product-description' || state.flow === 'new-product-image') {
         const product = { ...state.product };
-        if (key === 'name' || key === 'category' || key === 'description') {
-            if (text.length > (key === 'description' ? 2000 : key === 'name' ? 160 : 80)) {
-                await bot.send(chatId, 'Слишком длинное значение. Попробуйте ещё раз.');
-                return;
-            }
-            product[key] = text;
-        } else if (key === 'price') {
+        if (state.flow === 'new-product-price') {
             const price = Number(text.replace(',', '.'));
-            if (!Number.isFinite(price) || price < 0 || price > 10000000) {
-                await bot.send(chatId, 'Введите цену числом от 0 до 10 000 000.');
+            if (!Number.isFinite(price) || price <= 0 || price > 10000000) {
+                await bot.send(chatId, 'Введите цену числом больше 0 и не выше 10 000 000.');
                 return;
             }
             product.price = price;
-        } else if (key === 'image') {
-            if (text !== '/skip' && !/^https?:\/\/\S+$/i.test(text)) {
-                await bot.send(chatId, 'Отправьте ссылку https://… или /skip.');
-                return;
-            }
-            product.image_url = text === '/skip' ? '' : text;
-        }
-        const sequence = ['name', 'category', 'price', 'description', 'image'];
-        const position = sequence.indexOf(key);
-        const next = sequence[position + 1];
-        if (next) {
             state.product = product;
-            state.flow = `new-product-${next}`;
+            state.flow = 'new-product-description';
             setState('panel', chatId, state);
-            const prompts = {
-                category: 'Введите категорию.',
-                price: 'Введите цену в рублях.',
-                description: 'Введите описание.',
-                image: 'Отправьте URL изображения или /skip.'
-            };
-            await bot.send(chatId, prompts[next]);
+            await bot.send(chatId, 'Отправьте описание товара до 2000 символов или /skip.');
             return;
         }
-        setState('panel', chatId, { flow: 'confirm-new-product', product });
-        await bot.send(chatId, `Проверьте товар перед публикацией:\n\n${safeText(product.name, 160)}\n${safeText(product.category, 80)} · ${Number(product.price)} ₽\n\n${safeText(product.description, 700)}\n\nИзображение: ${product.image_url ? safeText(product.image_url, 300) : 'не задано'}`, {
+        if (state.flow === 'new-product-description') {
+            if (text.length > 2000) {
+                await bot.send(chatId, 'Описание слишком длинное. Максимум 2000 символов.');
+                return;
+            }
+            product.description = text === '/skip' ? '' : text;
+            state.product = product;
+            state.flow = 'new-product-image';
+            setState('panel', chatId, state);
+            await bot.send(chatId, 'Отправьте URL фото товара или /skip, чтобы использовать иллюстрацию выбранного масла.');
+            return;
+        }
+        if (text !== '/skip' && !/^https?:\/\/\S+$/i.test(text)) {
+            await bot.send(chatId, 'Отправьте ссылку https://… или /skip.');
+            return;
+        }
+        if (text !== '/skip') product.image_url = text;
+        state.product = product;
+        setState('panel', chatId, { ...state, flow: 'confirm-new-product', product });
+        await bot.send(chatId, productPreview(product), {
             reply_markup: inline([[{ text: 'Опубликовать', callback_data: 'p:product:create:confirm' }, { text: 'Отмена', callback_data: 'p:product:create:cancel' }]])
         });
         return;
@@ -1026,6 +1103,104 @@ async function handleCallback(config, bot, callback, chatId) {
         return;
     }
     if (config.role === 'panel') {
+        if (data === 'p:products:next' || data === 'p:products:prev') {
+            const state = getState('panel', chatId);
+            if (state.flow !== 'products-list') return;
+            if (data.endsWith('next') && state.hasNext !== true) return;
+            if (data.endsWith('prev') && state.offset < PANEL_PRODUCTS_PAGE_SIZE) return;
+            const offset = Math.max(0, state.offset + (data.endsWith('next') ? PANEL_PRODUCTS_PAGE_SIZE : -PANEL_PRODUCTS_PAGE_SIZE));
+            await listProducts(bot, chatId, offset);
+            return;
+        }
+        const oilMatch = /^p:oil:(\d{1,2})$/.exec(data);
+        if (oilMatch) {
+            const state = getState('panel', chatId);
+            const oil = state.flow === 'new-product-oil' ? state.oils?.[Number(oilMatch[1])] : null;
+            if (!oil) return;
+            const product = {
+                oil_id: oil.id,
+                name: oil.name,
+                category: oil.category,
+                image_url: oil.image_url,
+                oil_name: oil.name,
+                description: ''
+            };
+            const nextState = { ...state, flow: 'new-product-packaging', product };
+            setState('panel', chatId, nextState);
+            const rows = nextState.options.packagingTypes.map((option, index) => [{
+                text: option,
+                callback_data: `p:product:packaging:${index}`
+            }]);
+            await bot.editCallbackMessage(callback, `Выбрано: ${safeText(oil.name, 100)}.`);
+            await bot.send(chatId, 'Выберите тип упаковки:', { reply_markup: inline(rows) });
+            return;
+        }
+        const productOptionMatch = /^p:product:(packaging|pressing|shelf-life|volume):(\d+|custom)$/.exec(data);
+        if (productOptionMatch) {
+            const state = getState('panel', chatId);
+            const [, step, rawValue] = productOptionMatch;
+            const flowByStep = {
+                packaging: 'new-product-packaging',
+                pressing: 'new-product-pressing',
+                'shelf-life': 'new-product-shelf-life',
+                volume: 'new-product-volume'
+            };
+            if (state.flow !== flowByStep[step]) return;
+            if (step === 'volume' && rawValue === 'custom') {
+                setState('panel', chatId, { ...state, flow: 'new-product-volume-custom' });
+                await bot.editCallbackMessage(callback, 'Укажите объём вручную.');
+                await bot.send(chatId, 'Введите целый объём от 10 до 5000 мл. Для отмены отправьте /cancel.');
+                return;
+            }
+            const optionsByStep = {
+                packaging: state.options?.packagingTypes,
+                pressing: state.options?.pressingTypes,
+                'shelf-life': state.options?.shelfLifeMonths,
+                volume: state.options?.volumes
+            };
+            const option = optionsByStep[step]?.[Number(rawValue)];
+            if (option === undefined) return;
+            const product = { ...state.product };
+            const propertyByStep = {
+                packaging: 'packaging_type',
+                pressing: 'pressing_type',
+                'shelf-life': 'shelf_life_months',
+                volume: 'volume'
+            };
+            product[propertyByStep[step]] = option;
+            if (step === 'volume') {
+                product.name = `${product.oil_name} · ${option} мл`;
+                setState('panel', chatId, { ...state, product, flow: 'new-product-price' });
+                await bot.editCallbackMessage(callback, `Объём: ${option} мл.`);
+                await bot.send(chatId, 'Введите цену товара в рублях (от 1 до 10 000 000).');
+                return;
+            }
+            const nextStep = {
+                packaging: 'pressing',
+                pressing: 'shelf-life',
+                'shelf-life': 'volume'
+            }[step];
+            setState('panel', chatId, { ...state, product, flow: flowByStep[nextStep] });
+            const choices = {
+                pressing: state.options.pressingTypes,
+                'shelf-life': state.options.shelfLifeMonths,
+                volume: state.options.volumes
+            }[nextStep];
+            const buttonStep = nextStep === 'shelf-life' ? 'shelf-life' : nextStep;
+            const rows = choices.map((value, index) => [{
+                text: nextStep === 'shelf-life' ? `${value} мес.` : nextStep === 'volume' ? `${value} мл` : value,
+                callback_data: `p:product:${buttonStep}:${index}`
+            }]);
+            if (nextStep === 'volume') rows.push([{ text: 'Другой объём', callback_data: 'p:product:volume:custom' }]);
+            const selectedLabel = step === 'shelf-life' ? `${option} мес.` : option;
+            await bot.editCallbackMessage(callback, `${step === 'shelf-life' ? 'Срок хранения' : 'Выбрано'}: ${safeText(selectedLabel, 80)}.`);
+            await bot.send(chatId, nextStep === 'pressing'
+                ? 'Выберите способ обработки / отжима:'
+                : nextStep === 'shelf-life'
+                    ? 'Выберите срок хранения по маркировке вашего продукта:'
+                    : 'Выберите объём или укажите свой:', { reply_markup: inline(rows) });
+            return;
+        }
         if (data === 'p:audit:next' || data === 'p:audit:prev') {
             const state = getState('panel', chatId);
             if (state.flow !== 'audit-list') return;
@@ -1066,11 +1241,18 @@ async function handleCallback(config, bot, callback, chatId) {
         if (data === 'p:product:create:confirm') {
             const state = getState('panel', chatId);
             if (state.flow !== 'confirm-new-product') return;
-            const result = await bot.callApi('/panel/products', chatId, {
-                method: 'POST',
-                body: JSON.stringify(state.product)
-            });
-            setState('panel', chatId, {});
+            setState('panel', chatId, { ...state, flow: 'creating-new-product' });
+            let result;
+            try {
+                result = await bot.callApi('/panel/products', chatId, {
+                    method: 'POST',
+                    body: JSON.stringify(state.product)
+                });
+            } catch (error) {
+                setState('panel', chatId, { ...state, flow: 'confirm-new-product' });
+                throw error;
+            }
+            setState('panel', chatId, { flow: 'panel-home' });
             await bot.editCallbackMessage(callback, `Товар опубликован: ${safeText(result.product.name, 160)} · ${Number(result.product.price)} ₽`);
             return;
         }
@@ -1091,11 +1273,7 @@ async function handleCallback(config, bot, callback, chatId) {
                 await bot.send(chatId, 'Добавьте хотя бы один товар, прежде чем продолжить.');
                 return;
             }
-            const { products = [] } = await bot.callApi('/panel/products', chatId);
-            const rows = state.items.map(item => {
-                const product = products.find(candidate => String(candidate.id) === String(item.product_id));
-                return `${safeText(product?.name || item.product_id, 100)} × ${item.quantity}`;
-            });
+            const rows = state.items.map(item => `${safeText(item.product_name || item.product_id, 100)} × ${item.quantity}`);
             setState('panel', chatId, { ...state, flow: 'confirm-order' });
             await bot.send(chatId, `Подтвердите новый заказ:\n\n${rows.join('\n')}`, {
                 reply_markup: inline([[{ text: '✅ Создать заказ', callback_data: 'p:confirm' }, { text: 'Отмена', callback_data: 'p:cancel' }]])
@@ -1471,6 +1649,8 @@ async function handleMessage(config, bot, message) {
             await listAuditLog(bot, chatId);
         } else if (text === '/help') {
             await bot.send(chatId, 'Команды: /orders [pending|processing|shipped|delivered|cancelled], /neworder, /products, /newproduct, /history. Изменения требуют подтверждения; /cancel отменяет текущий ввод.');
+        } else if (text === '/cancel' || text === '/skip') {
+            await processPanelText(bot, chatId, text);
         } else {
             if (text.startsWith('/')) {
                 await bot.send(chatId, 'Не знаю эту команду. Отправьте /help или выберите действие в меню.', {

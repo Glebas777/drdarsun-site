@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">
+  <rect width="640" height="360" rx="28" fill="#e9eee2"/><circle cx="500" cy="90" r="115" fill="#f8f6e9"/>
+  <path d="M92 310C193 245 245 174 291 72M206 310C296 226 343 159 386 53" fill="none" stroke="#667957" stroke-width="8" stroke-linecap="round"/>
+  <g fill="#81975e"><ellipse cx="176" cy="229" rx="52" ry="20" transform="rotate(-36 176 229)"/><ellipse cx="232" cy="177" rx="46" ry="18" transform="rotate(-42 232 177)"/><ellipse cx="283" cy="116" rx="48" ry="18" transform="rotate(-53 283 116)"/><ellipse cx="319" cy="226" rx="54" ry="20" transform="rotate(-43 319 226)"/><ellipse cx="369" cy="157" rx="50" ry="18" transform="rotate(-57 369 157)"/></g>
+  <g fill="#596b45"><ellipse cx="147" cy="267" rx="18" ry="25" transform="rotate(-24 147 267)"/><ellipse cx="273" cy="244" rx="18" ry="25" transform="rotate(-24 273 244)"/><ellipse cx="399" cy="249" rx="18" ry="25" transform="rotate(-24 399 249)"/></g>
+  <path d="M485 233c35-21 73-3 78 35 4 33-21 56-55 52-28-3-50-30-42-57 3-13 9-22 19-30Z" fill="#bc8b48"/><path d="M500 244c25-10 48 7 47 30-1 19-14 31-31 31-22 0-35-20-27-40" fill="#6d814c"/>
+</svg>

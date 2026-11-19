@@ -22,11 +22,12 @@
                 <a href="catalog.html" class="active">Каталог</a>
                 <a href="about.html">О нас</a>
                 <a href="delivery.html">Доставка</a>
+                <a href="oil-catalog.html">Масла</a>
                 <a href="index.html#news">Новости</a>
             </nav>
 <div class="header__actions">
     <button class="theme-toggle" id="theme-toggle"></button>
-    <a href="cart.html" class="icon-btn">🛒</a>
+    <a href="cart.html" class="icon-btn" aria-label="Корзина"><span aria-hidden="true">🛒</span><span class="cart-count" data-cart-count hidden></span></a>
     <div id="auth-buttons"></div>
     <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
 </div>
@@ -36,19 +37,23 @@
             <a href="index.html">Главная</a>
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
-                <a href="scientists-about-oils.html">Учёные о маслах</a>
             <a href="scientists-about-oils.html">Учёные о маслах</a>
+            <a href="oil-catalog.html">Справочник масел</a>
             <a href="delivery.html">Доставка</a>
             <a href="index.html#news">Новости</a>
         </div>
     </header>
 
     <main class="container catalog-main">
+        <canvas class="catalog-seed-rain" id="catalog-seed-rain" aria-hidden="true"></canvas>
         <section class="catalog-intro">
             <p class="eyebrow">МАГАЗИН DR. DARSUN</p>
             <h1>Каталог</h1>
             <p>Натуральные масла и продукты собственного производства.</p>
+            <a class="catalog-intro__guide" href="oil-catalog.html">Изучить масла в справочнике <span aria-hidden="true">↗</span></a>
         </section>
+
+        <p class="catalog-demo-notice" id="catalog-demo-notice" role="status" hidden></p>
 
         <section class="catalog-toolbar" aria-label="Поиск и управление каталогом">
             <label class="catalog-search">
@@ -116,12 +121,13 @@
             <div class="footer__col">
                 <h4>Покупателям</h4>
                 <a href="catalog.html">Каталог</a>
+                <a href="oil-catalog.html">Справочник масел</a>
                 <a href="delivery.html">Доставка</a>
                 <a href="about.html">О нас</a>
             </div>
             <div class="footer__col">
                 <h4>Контакты</h4>
-                <a href="mailto:info@drdarsun.ru">info@drdarsun.ru</a>
+                <a href="mailto:drdarsunhelper@gmail.com">drdarsunhelper@gmail.com</a>
                 <div class="socials">
                     <a href="https://vk.ru/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="ВКонтакте"><img class="theme-asset-light" src="assets/images/vk.png" alt="ВКонтакте"><img class="theme-asset-dark" src="assets/images/vk_dark.png" alt=""></a>
                     <a href="https://t.me/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="Telegram"><img class="theme-asset-light" src="assets/images/telegram.png" alt="Telegram"><img class="theme-asset-dark" src="assets/images/telegram_dark.png" alt=""></a>
@@ -156,6 +162,7 @@
 
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/catalog.js"></script>
+    <script type="module" src="js/catalog-seed-rain.js"></script>
     <script src="js/burger.js"></script>
     <script type="module" src="js/auth-header.js"></script>
     <script src="js/preloader.js"></script>

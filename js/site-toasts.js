@@ -7,6 +7,14 @@ let privateUserId;
 let publicPollTimer;
 let privatePollTimer;
 
+function removeExpiredRenderedToasts() {
+    const now = Date.now();
+    document.querySelectorAll('.toast[data-expires-at]').forEach(toast => {
+        const expiresAt = Number(toast.dataset.expiresAt);
+        if (Number.isFinite(expiresAt) && expiresAt <= now) toast.remove();
+    });
+}
+
 function showSiteToast(notification, { privateNotification = false } = {}) {
     if (!notification?.id || shownToastIds.has(notification.id)) return;
     const expiresAt = new Date(notification.expires_at).getTime();
@@ -15,7 +23,11 @@ function showSiteToast(notification, { privateNotification = false } = {}) {
     shownToastIds.add(notification.id);
 
     if (typeof window.showToast === 'function') {
-        window.showToast(notification.message, notification.kind, durationMs);
+        const toast = window.showToast(notification.message, notification.kind, durationMs);
+        if (toast instanceof HTMLElement) {
+            toast.dataset.toastId = notification.id;
+            toast.dataset.expiresAt = String(expiresAt);
+        }
     } else {
         let container = document.querySelector('.toast-container');
         if (!container) {
@@ -25,8 +37,10 @@ function showSiteToast(notification, { privateNotification = false } = {}) {
         }
         const toast = document.createElement('div');
         toast.className = `toast ${notification.kind}`;
+        toast.dataset.expiresAt = String(expiresAt);
         toast.textContent = notification.message;
         container.appendChild(toast);
+        toast.dataset.toastId = notification.id;
         container.scrollTop = container.scrollHeight;
         requestAnimationFrame(() => toast.classList.add('show'));
         window.setTimeout(() => {
@@ -34,6 +48,7 @@ function showSiteToast(notification, { privateNotification = false } = {}) {
             window.setTimeout(() => toast.remove(), 400);
         }, Math.max(1000, durationMs));
     }
+    window.setTimeout(() => shownToastIds.delete(notification.id), durationMs);
 
     if (privateNotification) {
         supabase.from('site_toast_notifications')
@@ -54,6 +69,18 @@ async function startPublicToasts() {
             schema: 'public',
             table: 'site_public_toasts'
         }, payload => showSiteToast(payload.new))
+        .on('postgres_changes', {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'site_public_toasts'
+        }, payload => {
+            const id = payload.old?.id;
+            if (id) {
+                shownToastIds.delete(id);
+                document.querySelectorAll('.toast[data-toast-id]')
+                    .forEach(toast => { if (toast.dataset.toastId === id) toast.remove(); });
+            }
+        })
         .subscribe(status => {
             if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
                 console.warn('Public site notifications are unavailable:', status);
@@ -61,12 +88,32 @@ async function startPublicToasts() {
         });
 
     const loadActivePublicToasts = async () => {
-        const { data, error } = await supabase
-        .from('site_public_toasts')
-        .select('id,message,kind,expires_at')
-        .gt('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: true })
-        .limit(20);
+        let data = null;
+        let error = null;
+        const result = await supabase
+            .from('site_public_toasts')
+            .select('id,message,kind,expires_at')
+            .gt('expires_at', new Date().toISOString())
+            .order('created_at', { ascending: true })
+            .limit(20);
+        data = result.data;
+        error = result.error;
+
+        if (error) {
+            try {
+                const response = await fetch('https://drdarsun-site-main.layero.app/api/public-toasts', {
+                    cache: 'no-store',
+                    signal: AbortSignal.timeout(4000)
+                });
+                if (response.ok) {
+                    const fallback = await response.json();
+                    data = Array.isArray(fallback.notifications) ? fallback.notifications : [];
+                    error = null;
+                }
+            } catch (fallbackError) {
+                console.warn('Public site notifications could not be loaded:', fallbackError.message);
+            }
+        }
         if (error) {
             console.warn('Public site notifications could not be loaded:', error.message);
             return;
@@ -75,7 +122,10 @@ async function startPublicToasts() {
     };
 
     await loadActivePublicToasts();
-    publicPollTimer = window.setInterval(loadActivePublicToasts, 15000);
+    publicPollTimer = window.setInterval(() => {
+        removeExpiredRenderedToasts();
+        void loadActivePublicToasts();
+    }, 15000);
 }
 
 async function startPrivateToasts(session) {
@@ -126,7 +176,10 @@ async function startPrivateToasts(session) {
     };
 
     await loadActivePrivateToasts();
-    privatePollTimer = window.setInterval(loadActivePrivateToasts, 15000);
+    privatePollTimer = window.setInterval(() => {
+        removeExpiredRenderedToasts();
+        void loadActivePrivateToasts();
+    }, 15000);
 }
 
 startPublicToasts().catch(error => {

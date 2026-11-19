@@ -8,6 +8,7 @@ const BOT_PURPOSES = {
 async function loadTelegramBots() {
     const containers = [
         document.getElementById('about-telegram-bots'),
+        document.getElementById('telegram-learning-links'),
         document.getElementById('news-telegram-bots')
     ].filter(Boolean);
     if (!containers.length) return;
@@ -40,6 +41,21 @@ async function loadTelegramBots() {
                     const item = document.createElement('li');
                     item.textContent = 'Ссылки на Telegram-ботов появятся здесь, когда боты будут доступны.';
                     container.appendChild(item);
+                }
+            } else if (container.id === 'telegram-learning-links') {
+                const clientBot = bots.find(bot => bot.role === 'client');
+                if (clientBot) {
+                    const link = document.createElement('a');
+                    link.href = clientBot.url;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.textContent = `Открыть клиентского бота · @${clientBot.username}`;
+                    container.appendChild(link);
+                }
+                if (!clientBot) {
+                    const message = document.createElement('span');
+                    message.textContent = 'Ссылка на клиентского бота появится здесь, когда он будет доступен.';
+                    container.appendChild(message);
                 }
             } else {
                 for (const bot of bots) {

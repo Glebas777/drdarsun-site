@@ -1,4 +1,5 @@
 import { supabase } from './supabase-client.js';
+import { updateCartCount } from './cart.js';
 
 const cartItems = document.getElementById('cart-items');
 const checkoutButton = document.getElementById('checkout-btn');
@@ -49,8 +50,14 @@ function writeCart(cart) {
 }
 
 function setImageSource(image, source) {
+    const placeholder = 'assets/images/product-bottle-placeholder.png';
+    image.addEventListener('error', () => {
+        if (image.dataset.placeholderApplied) return;
+        image.dataset.placeholderApplied = 'true';
+        image.src = placeholder;
+    }, { once: true });
     if (typeof source !== 'string' || !source.trim()) {
-        image.src = 'assets/images/logo.png';
+        image.src = placeholder;
         return;
     }
     try {
@@ -59,7 +66,7 @@ function setImageSource(image, source) {
         image.src = url.href;
     } catch (error) {
         console.warn('Cart item image URL ignored:', error);
-        image.src = 'assets/images/logo.png';
+        image.src = placeholder;
     }
 }
 
@@ -102,6 +109,7 @@ function createCartItem(item) {
     increment.dataset.itemId = item.id;
     increment.setAttribute('aria-label', `Увеличить количество: ${item.name}`);
     increment.textContent = '+';
+    increment.disabled = item.quantity >= 99;
     quantity.append(decrement, count, increment);
 
     const remove = document.createElement('button');
@@ -192,9 +200,19 @@ checkoutButton?.addEventListener('click', async () => {
     }
     if (!cart.length) return showToast('Сначала добавьте товары в корзину.', 'error');
 
-    const { data: { session }, error } = await supabase.auth.getSession();
+    let session;
+    let error;
+    try {
+        ({ data: { session }, error } = await supabase.auth.getSession());
+    } catch (sessionError) {
+        console.error('Checkout session lookup failed:', sessionError);
+        return showToast('Не удалось проверить вход. Обновите страницу и попробуйте снова.', 'error');
+    }
     if (error) return showToast('Не удалось проверить вход: ' + error.message, 'error');
-    if (!session) return showToast('Войдите в аккаунт, чтобы оформить заказ.', 'error');
+    if (!session) {
+        window.location.href = `login.html?redirect=${encodeURIComponent('cart.html')}`;
+        return;
+    }
 
     const emailInput = document.getElementById('order-email');
     emailInput.value = session.user.email || '';
@@ -209,9 +227,62 @@ checkoutButton?.addEventListener('click', async () => {
     document.getElementById('order-name').focus();
 });
 
-checkoutForm?.addEventListener('submit', (event) => {
+checkoutForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    showToast('Оплата временно недоступна. Скоро мы всё запустим.', 'error');
+    if (!checkoutForm.reportValidity()) return;
+
+    const submitButton = checkoutForm.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.textContent = 'Отправляем…';
+    try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw new Error('Не удалось проверить вход. Обновите страницу и попробуйте снова.');
+        if (!session) {
+            window.location.href = `login.html?redirect=${encodeURIComponent('cart.html')}`;
+            return;
+        }
+
+        const orderResponse = await fetch('https://drdarsun-site-main.layero.app/api/orders', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({
+                customer_name: document.getElementById('order-name').value.trim(),
+                delivery_address: document.getElementById('order-address').value.trim(),
+                items: readCart().map(item => ({ id: item.id, quantity: item.quantity }))
+            })
+        });
+        const result = await orderResponse.json().catch(() => null);
+        if (!orderResponse.ok) throw new Error(result?.error || 'Не удалось отправить заказ. Попробуйте позже.');
+        if (!result?.order?.id) throw new Error('Заказ не подтверждён сервером. Проверьте раздел заказов профиля.');
+
+        localStorage.removeItem('cart');
+        renderCart();
+        await updateCartCount();
+        const confirmation = document.createElement('section');
+        confirmation.className = 'order-confirmation';
+        confirmation.setAttribute('role', 'status');
+        const title = document.createElement('h2');
+        title.textContent = 'Заявка на заказ отправлена';
+        const message = document.createElement('p');
+        message.textContent = `Заказ №${result.order.id} сохранён в профиле. Наличие, доставку и способ оплаты можно уточнить через поддержку.`;
+        const link = document.createElement('a');
+        link.className = 'btn btn--primary';
+        link.href = 'profile.html';
+        link.textContent = 'Перейти в профиль';
+        confirmation.append(title, message, link);
+        cartItems.replaceChildren(confirmation);
+        checkoutButton.hidden = true;
+        checkoutForm.hidden = true;
+    } catch (error) {
+        console.error('Order submission failed:', error);
+        showToast(error.message || 'Не удалось отправить заказ. Попробуйте позже.', 'error');
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Отправить заказ';
+    }
 });
 
 renderCart();

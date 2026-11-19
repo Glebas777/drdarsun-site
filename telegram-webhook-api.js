@@ -89,7 +89,7 @@ function createTelegramWebhookApi(options = {}) {
             }
 
             stage = 'process-bot-update';
-            await processUpdate(role, update, { env, fetch: request });
+            await processUpdate(role, update, { env, fetch: request, retryOnFailure: true });
 
             if (chatId && message?.chat?.type === 'private') {
                 stage = 'save-conversation-state';

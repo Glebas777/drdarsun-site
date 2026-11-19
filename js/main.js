@@ -80,4 +80,5 @@ window.showToast = function(message, type = 'success', durationMs = 3500) {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 400);
     }, Math.max(1000, durationMs));
+    return toast;
 };

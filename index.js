@@ -72,10 +72,38 @@ async function getSiteMaintenanceSettings() {
     maintenanceCache = {
         enabled: settings[0]?.value?.enabled === true,
         mode: ['planned', 'emergency'].includes(savedMode) ? savedMode : 'planned',
-        expiresAt: Date.now() + 5000
+        expiresAt: Date.now() + 3000
     };
     return maintenanceCache;
 }
+
+app.get('/api/public-toasts', async (req, res) => {
+    const supabaseUrl = process.env.SUPABASE_URL?.replace(/\/$/, '');
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceRoleKey) {
+        return res.status(503).json({ error: 'Публичные уведомления временно недоступны.' });
+    }
+    try {
+        const response = await fetch(`${supabaseUrl}/rest/v1/site_public_toasts?select=id,message,kind,expires_at&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&order=created_at.asc&limit=20`, {
+            headers: {
+                apikey: serviceRoleKey,
+                Authorization: `Bearer ${serviceRoleKey}`,
+                'Content-Type': 'application/json'
+            },
+            signal: AbortSignal.timeout(5000)
+        });
+        const result = await response.json().catch(() => []);
+        if (!response.ok) {
+            console.error('Public toast lookup failed:', response.status);
+            return res.status(502).json({ error: 'Не удалось загрузить публичные уведомления.' });
+        }
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({ notifications: Array.isArray(result) ? result : [] });
+    } catch (error) {
+        console.error('Public toast lookup request failed:', error?.message || 'Unknown error');
+        res.status(503).json({ error: 'Публичные уведомления временно недоступны.' });
+    }
+});
 
 app.get('/api/site-status', async (req, res) => {
     try {
@@ -90,8 +118,11 @@ app.get('/api/site-status', async (req, res) => {
 
 app.use(async (req, res, next) => {
     if (req.path === '/' || req.path === '/api/site-status' ||
-        req.path === '/api/telegram/admin/maintenance' ||
-        req.path.startsWith('/api/telegram/webhook/')) return next();
+        req.path === '/api/public-toasts' ||
+        req.path.startsWith('/api/telegram/') ||
+        req.path.startsWith('/rest/v1/site_public_toasts') ||
+        req.path.startsWith('/rest/v1/site_toast_notifications') ||
+        req.path.startsWith('/realtime/v1/websocket')) return next();
     try {
         const settings = await getSiteMaintenanceSettings();
         if (!settings.enabled) return next();
@@ -108,6 +139,125 @@ app.use(async (req, res, next) => {
     } catch (error) {
         console.error('Maintenance gate could not verify site state:', error);
         res.status(503).json({ error: 'Сервис временно недоступен. Попробуйте позже.' });
+    }
+});
+
+app.post('/api/orders', async (req, res) => {
+    const accessToken = (req.get('Authorization') || '').match(/^Bearer\s+(.+)$/i)?.[1];
+    if (!accessToken || accessToken.length > 4096) {
+        return res.status(401).json({ error: 'Войдите в аккаунт, чтобы оформить заказ.' });
+    }
+
+    const supabaseUrl = process.env.SUPABASE_URL?.replace(/\/$/, '');
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceRoleKey) {
+        console.error('Order creation is unavailable: Supabase configuration is incomplete.');
+        return res.status(503).json({ error: 'Оформление заказа временно недоступно.' });
+    }
+
+    const customerName = typeof req.body?.customer_name === 'string' ? req.body.customer_name.trim() : '';
+    const deliveryAddress = typeof req.body?.delivery_address === 'string' ? req.body.delivery_address.trim() : '';
+    const requestedItems = req.body?.items;
+    if (customerName.length < 2 || customerName.length > 100 || /[\u0000-\u001f]/.test(customerName)) {
+        return res.status(400).json({ error: 'Укажите имя длиной от 2 до 100 символов.' });
+    }
+    if (deliveryAddress.length < 5 || deliveryAddress.length > 300 || /[\u0000-\u001f]/.test(deliveryAddress)) {
+        return res.status(400).json({ error: 'Укажите адрес доставки длиной от 5 до 300 символов.' });
+    }
+    if (!Array.isArray(requestedItems) || requestedItems.length < 1 || requestedItems.length > 20) {
+        return res.status(400).json({ error: 'В заказе должно быть от 1 до 20 товарных позиций.' });
+    }
+
+    const quantities = new Map();
+    for (const item of requestedItems) {
+        const id = item?.id == null ? '' : String(item.id);
+        const quantity = Number(item?.quantity);
+        if (!/^[A-Za-z0-9_-]{1,120}$/.test(id) || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 99) {
+            return res.status(400).json({ error: 'Проверьте товары и количество: от 1 до 99 единиц на позицию.' });
+        }
+        quantities.set(id, (quantities.get(id) || 0) + quantity);
+        if (quantities.get(id) > 99) return res.status(400).json({ error: 'Количество одного товара не может превышать 99.' });
+    }
+
+    try {
+        const apiKey = process.env.SUPABASE_ANON_KEY || serviceRoleKey;
+        const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+            headers: { apikey: apiKey, Authorization: `Bearer ${accessToken}` },
+            signal: AbortSignal.timeout(8000)
+        });
+        if (userResponse.status === 401 || userResponse.status === 403) {
+            return res.status(401).json({ error: 'Сессия истекла. Войдите заново и повторите попытку.' });
+        }
+        if (!userResponse.ok) {
+            console.error('Order user verification failed:', userResponse.status);
+            return res.status(502).json({ error: 'Не удалось проверить вход. Попробуйте позже.' });
+        }
+        const user = await userResponse.json();
+        if (typeof user?.id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id)) {
+            return res.status(401).json({ error: 'Не удалось подтвердить аккаунт. Войдите заново.' });
+        }
+        if (typeof user.email !== 'string' || user.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.email)) {
+            return res.status(400).json({ error: 'В аккаунте не указан корректный адрес почты.' });
+        }
+
+        const productQuery = new URLSearchParams({
+            select: 'id,name,price',
+            id: `in.(${[...quantities.keys()].join(',')})`
+        });
+        const productsResponse = await fetch(`${supabaseUrl}/rest/v1/products?${productQuery}`, {
+            headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` },
+            signal: AbortSignal.timeout(8000)
+        });
+        const products = await productsResponse.json().catch(() => null);
+        if (!productsResponse.ok || !Array.isArray(products)) {
+            console.error('Order product lookup failed:', productsResponse.status);
+            return res.status(502).json({ error: 'Не удалось проверить каталог. Попробуйте позже.' });
+        }
+        if (products.length !== quantities.size) {
+            return res.status(409).json({ error: 'Один из товаров больше недоступен. Обновите каталог и корзину.' });
+        }
+
+        const items = products.map(product => {
+            const price = Number(product.price);
+            if (!Number.isFinite(price) || price < 0 || typeof product.name !== 'string') {
+                throw new Error('A product has invalid order data.');
+            }
+            return { product_id: product.id, name: product.name.slice(0, 200), price, quantity: quantities.get(String(product.id)) };
+        });
+        const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        if (!Number.isSafeInteger(Math.round(total * 100))) {
+            return res.status(400).json({ error: 'Сумма заказа слишком велика.' });
+        }
+
+        const orderResponse = await fetch(`${supabaseUrl}/rest/v1/orders?select=id,total,status,created_at`, {
+            method: 'POST',
+            headers: {
+                apikey: serviceRoleKey,
+                Authorization: `Bearer ${serviceRoleKey}`,
+                'Content-Type': 'application/json',
+                Prefer: 'return=representation'
+            },
+            body: JSON.stringify({
+                user_id: user.id,
+                customer_name: customerName,
+                customer_email: user.email,
+                delivery_address: deliveryAddress,
+                payment_method: 'upon_confirmation',
+                items,
+                total,
+                status: 'pending'
+            }),
+            signal: AbortSignal.timeout(10000)
+        });
+        const orderResult = await orderResponse.json().catch(() => null);
+        if (!orderResponse.ok || !Array.isArray(orderResult) || !orderResult[0]) {
+            console.error('Order insert failed:', orderResponse.status, orderResult?.code || 'Unknown database error');
+            return res.status(502).json({ error: 'Не удалось сохранить заказ. Попробуйте позже или обратитесь в поддержку.' });
+        }
+        res.status(201).json({ order: orderResult[0] });
+    } catch (error) {
+        console.error('Order creation failed:', error?.message || 'Unknown error');
+        res.status(502).json({ error: 'Не удалось оформить заказ из-за временной ошибки. Попробуйте позже.' });
     }
 });
 
