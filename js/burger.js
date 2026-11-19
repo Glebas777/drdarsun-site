@@ -2,6 +2,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const burgerBtn = document.getElementById('burger-btn');
     const mobileMenu = document.getElementById('mobile-menu');
     if (burgerBtn && mobileMenu) {
+        const desktopNav = document.querySelector('.header .nav');
+        if (desktopNav) {
+            const oilUrl = new URL('oil-catalog.html', window.location.href).href;
+            let oilLink = [...desktopNav.querySelectorAll('a')].find(link => link.href === oilUrl);
+            if (!oilLink) {
+                oilLink = document.createElement('a');
+                oilLink.href = 'oil-catalog.html';
+                oilLink.textContent = 'Масла';
+                const scientistsUrl = new URL('scientists-about-oils.html', window.location.href).href;
+                const scientistsLink = [...desktopNav.querySelectorAll('a')].find(link => link.href === scientistsUrl);
+                scientistsLink ? scientistsLink.after(oilLink) : desktopNav.appendChild(oilLink);
+            }
+
+            const closeButton = mobileMenu.querySelector('#mobile-close-btn, .mobile-close');
+            const accountLink = mobileMenu.querySelector('[data-mobile-account]');
+            const links = [...desktopNav.querySelectorAll('a')].map(link => link.cloneNode(true));
+            mobileMenu.replaceChildren(
+                ...(closeButton ? [closeButton] : []),
+                ...links,
+                ...(accountLink ? [accountLink] : [])
+            );
+        }
         document.body.appendChild(mobileMenu);
         mobileMenu.setAttribute('role', 'navigation');
         mobileMenu.setAttribute('aria-label', 'Мобильная навигация');

@@ -124,6 +124,7 @@ async function init() {
 
     const telegramLinkStatus = document.getElementById('telegram-link-status');
     const telegramLinkStart = document.getElementById('telegram-link-start');
+    const telegramLinkCheck = document.getElementById('telegram-link-check');
     const telegramLinkRemove = document.getElementById('telegram-link-remove');
     const telegramLinkCode = document.getElementById('telegram-link-code');
     const telegramLinkCodeValue = document.getElementById('telegram-link-code-value');
@@ -133,6 +134,8 @@ async function init() {
     const telegramApiBase = 'https://drdarsun-site-main.layero.app/api/telegram';
     const telegramApiUrl = `${telegramApiBase}/link`;
     let publicTelegramBots = [];
+    let publicTelegramBotsLoaded = false;
+    let telegramRefreshInProgress = false;
     const telegramBotPurposes = {
         client: 'Каталог, поиск товаров, заказы и уведомления',
         auth: 'Одноразовые коды для привязки и входа',
@@ -184,6 +187,7 @@ async function init() {
     }
 
     async function loadPublicTelegramBots() {
+        if (publicTelegramBotsLoaded) return;
         const response = await fetch(`${telegramApiBase}/public-bots`, { cache: 'no-store' });
         const result = await response.json().catch(() => null);
         if (!response.ok) throw new Error(result?.error || 'Не удалось получить ссылки на Telegram-ботов.');
@@ -195,6 +199,7 @@ async function init() {
                 /^https:\/\/t\.me\/[A-Za-z0-9_]+$/.test(bot.url)
             )
             : [];
+        publicTelegramBotsLoaded = true;
         renderTelegramBotLinks(telegramLinkCodeValue?.textContent || '');
     }
 
@@ -304,17 +309,51 @@ async function init() {
             console.error('Telegram link status check failed:', error);
         }
         let telegramStatusRefresh;
+        let telegramCheckCooldown;
+        let telegramCheckSeconds = 0;
+        telegramLinkCheck?.addEventListener('click', async () => {
+            if (telegramCheckSeconds > 0 || telegramRefreshInProgress) return;
+            telegramRefreshInProgress = true;
+            telegramLinkCheck.disabled = true;
+            telegramLinkCheck.textContent = 'Проверяем…';
+            try {
+                await refreshTelegramLink();
+            } catch (error) {
+                telegramLinkStatus.textContent = error.message || 'Не удалось проверить подключение Telegram.';
+                console.error('Telegram manual status check failed:', error);
+            } finally {
+                telegramRefreshInProgress = false;
+                telegramCheckSeconds = 5;
+                telegramLinkCheck.textContent = `Проверить снова через ${telegramCheckSeconds} с`;
+                telegramCheckCooldown = window.setInterval(() => {
+                    telegramCheckSeconds -= 1;
+                    if (telegramCheckSeconds <= 0) {
+                        window.clearInterval(telegramCheckCooldown);
+                        telegramLinkCheck.disabled = false;
+                        telegramLinkCheck.textContent = 'Проверить связь';
+                    } else {
+                        telegramLinkCheck.textContent = `Проверить снова через ${telegramCheckSeconds} с`;
+                    }
+                }, 1000);
+            }
+        });
         const refreshVisibleTelegramStatus = () => {
-            if (document.visibilityState !== 'visible') return;
+            if (document.visibilityState !== 'visible' || telegramRefreshInProgress) return;
+            telegramRefreshInProgress = true;
             refreshTelegramLink().catch(error => {
                 telegramLinkStatus.textContent = 'Не удалось проверить подключение Telegram.';
                 console.error('Telegram link refresh failed:', error);
+            }).finally(() => {
+                telegramRefreshInProgress = false;
             });
         };
         document.addEventListener('visibilitychange', refreshVisibleTelegramStatus);
         window.addEventListener('focus', refreshVisibleTelegramStatus);
-        telegramStatusRefresh = window.setInterval(refreshVisibleTelegramStatus, 10000);
-        window.addEventListener('pagehide', () => window.clearInterval(telegramStatusRefresh), { once: true });
+        telegramStatusRefresh = window.setInterval(refreshVisibleTelegramStatus, 5000);
+        window.addEventListener('pagehide', () => {
+            window.clearInterval(telegramStatusRefresh);
+            window.clearInterval(telegramCheckCooldown);
+        }, { once: true });
     }
 
     // 2. АВАТАРКА
@@ -954,6 +993,28 @@ if (toggle2fa) {
             }
 
             if (!enable) {
+                if (verifiedFactors.length) {
+                    const { data: assurance, error: assuranceError } =
+                        await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+                    if (assuranceError) throw assuranceError;
+                    if (assurance?.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2') {
+                        const factor = verifiedFactors[0];
+                        const code = window.prompt('Введите текущий шестизначный код из приложения, чтобы отключить 2FA:');
+                        if (code === null) {
+                            toggle2fa.checked = true;
+                            return;
+                        }
+                        if (!/^\d{6}$/.test(code.trim())) {
+                            throw new Error('Для отключения 2FA нужен корректный шестизначный код.');
+                        }
+                        const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
+                            factorId: factor.id,
+                            code: code.trim()
+                        });
+                        if (verifyError) throw verifyError;
+                    }
+                }
+
                 const { data: recoveryStatus, error: recoveryStatusError } = await supabase.auth.mfa.recoveryCodes.getStatus();
                 if (recoveryStatusError && !['mfa_factor_not_found', 'mfa_recovery_codes_enroll_not_enabled'].includes(recoveryStatusError.code)) {
                     throw recoveryStatusError;
@@ -1208,12 +1269,21 @@ if (passkeyButton && passkeysList) {
         if (!newEmail || newEmail === session.user.email?.toLowerCase()) {
             return showToast('Укажите новый адрес почты.', 'error');
         }
-        const { error } = await supabase.auth.updateUser({ email: newEmail });
-        if (error) {
-            showToast('Не удалось изменить почту: ' + error.message, 'error');
-            return;
+        const submitButton = e.currentTarget.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        try {
+            const emailRedirectTo = new URL('/auth/confirm.html', window.location.origin).href;
+            const { error } = await supabase.auth.updateUser(
+                { email: newEmail },
+                { emailRedirectTo }
+            );
+            if (error) throw error;
+            showToast('Письмо для подтверждения отправлено. Откройте ссылку из письма, чтобы завершить смену почты.');
+        } catch (error) {
+            showToast('Не удалось изменить почту: ' + (error.message || 'попробуйте позже.'), 'error');
+        } finally {
+            submitButton.disabled = false;
         }
-        showToast('Письмо для подтверждения отправлено на новый адрес.');
     });
 
 const newPasswordInput = document.getElementById('new-password');

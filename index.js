@@ -300,6 +300,9 @@ app.post('/api/delete-account', async (req, res) => {
 
     try {
         const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+            method: 'GET',
+            cache: 'no-store',
+            signal: AbortSignal.timeout(15000),
             headers: {
                 apikey: apiKey,
                 Authorization: `Bearer ${accessToken}`
@@ -320,6 +323,7 @@ app.post('/api/delete-account', async (req, res) => {
 
         const deleteResponse = await fetch(`${supabaseUrl}/auth/v1/admin/users/${encodeURIComponent(user.id)}`, {
             method: 'DELETE',
+            signal: AbortSignal.timeout(15000),
             headers: {
                 apikey: serviceRoleKey,
                 Authorization: `Bearer ${serviceRoleKey}`

@@ -1387,15 +1387,16 @@ async function handleMessage(config, bot, message) {
                 config.role === 'client'
                     ? 'Добро пожаловать! Здесь можно посмотреть каталог, проверить заказы и связать аккаунт сайта.'
                     : 'Бот привязки аккаунта Dr. DarSun. Отправьте одноразовый код из профиля командой /link КОД.',
-                {
-                    reply_markup: config.role === 'client' && botUsernames.has('support')
-                        ? inline([[{
-                            text: `Перейти к помощнику · @${botUsernames.get('support')}`,
-                            url: `https://t.me/${botUsernames.get('support')}`
-                        }]])
-                        : menuKeyboard(config.role)
-                }
+                { reply_markup: menuKeyboard(config.role) }
             );
+            if (config.role === 'client' && botUsernames.has('support')) {
+                await bot.send(chatId, 'Нужна помощь? Напишите помощнику:', {
+                    reply_markup: inline([[{
+                        text: `Перейти к помощнику · @${botUsernames.get('support')}`,
+                        url: `https://t.me/${botUsernames.get('support')}`
+                    }]])
+                });
+            }
             return;
         }
         if (config.role === 'auth' && text === '🔗 Связать аккаунт') {

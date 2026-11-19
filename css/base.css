@@ -1453,3 +1453,57 @@ body.snake-open { overflow: hidden; }
     .product-card__footer { align-items: center; flex-direction: row; }
     .add-to-cart-btn { min-width: 0; min-height: 38px; padding-inline: 10px; font-size: 10px; }
 }
+
+/* Final responsive alignment and footer consistency. */
+img, video, canvas, svg { max-width: 100%; }
+.footer__inner,
+.footer__col { min-width: 0; }
+.footer__col a { overflow-wrap: anywhere; }
+.footer__bottom { overflow-wrap: anywhere; }
+
+@media (max-width: 768px) {
+    .footer { margin-top: 40px; padding: 34px 0 max(20px, env(safe-area-inset-bottom)); }
+    .footer__inner {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 24px 16px;
+        margin-bottom: 28px;
+        text-align: center;
+    }
+    .footer__col:first-child {
+        grid-column: 1 / -1;
+        display: grid;
+        justify-items: center;
+    }
+    .footer__logo-group { justify-content: center; }
+    .footer__desc { max-width: 36ch; margin-inline: auto; }
+    .footer__col h4 { margin-bottom: 12px; }
+    .footer__col a { width: auto; margin: 0 auto 9px; }
+    .socials { justify-content: center; flex-wrap: wrap; }
+    .footer__bottom { padding-top: 16px; text-align: center; }
+    .cart-page__heading { text-align: center; }
+    .cart-page__heading > * { margin-inline: auto; }
+    .oil-catalog__hero-copy { text-align: center; }
+    .oil-catalog__hero-copy > p:last-child { margin-inline: auto; }
+    .oils-intro { text-align: center; }
+    .oils-intro__lead { margin-inline: auto; }
+    .oils-intro__art { justify-items: center; }
+    .product-actions { align-items: stretch; }
+    .settings-form,
+    .profile-content > .tab-title { margin-inline: auto; }
+}
+
+@media (max-width: 480px) {
+    .container { width: calc(100% - 32px); }
+    .footer__inner { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+    .footer__col:first-child { grid-column: auto; }
+    .footer__col { display: grid; justify-items: center; }
+    .footer__col h4 { text-align: center; }
+    .footer__col a { text-align: center; }
+    .socials { justify-content: center; }
+    .feature-card { align-items: flex-start; }
+    .cart-page__heading h1,
+    .cart-page__heading p { text-align: center; }
+    .product-actions { flex-wrap: wrap; }
+    .product-actions #add-to-cart-btn { min-width: 0; }
+    .settings-form { width: 100%; }
+}

@@ -44,18 +44,19 @@
                 console.warn('OAuth state could not be checked:', storageError);
             }
 
+            const isOAuthCallback = provider === 'google' || provider === 'yandex';
             const stateMatches = typeof state === 'string' &&
                 /^[a-f0-9]{64}$/i.test(state) &&
                 storedState?.value === state &&
                 Number.isFinite(storedState?.expiresAt) &&
                 storedState.expiresAt > Date.now();
-            if (!stateMatches) {
+            if (isOAuthCallback && !stateMatches) {
                 document.getElementById('status').textContent = 'Попытка входа устарела или не подтверждена. Начните вход заново.';
                 return;
             }
 
-            if (!token_hash || type !== 'magiclink') {
-                document.getElementById('status').textContent = 'Ссылка входа неполная или истекла. Вернитесь на страницу входа и запросите новую.';
+            if (!token_hash || !['magiclink', 'email_change'].includes(type)) {
+                document.getElementById('status').textContent = 'Ссылка подтверждения неполная или истекла. Запросите новое письмо.';
                 return;
             }
 
@@ -64,18 +65,31 @@
                 type
             });
 
-            if (error || !data?.session) {
-                document.getElementById('status').textContent = error?.message || 'Supabase не создал сессию. Запросите новую ссылку входа.';
+            if (error || (!data?.session && type !== 'email_change')) {
+                document.getElementById('status').textContent = error?.message || 'Не удалось подтвердить ссылку. Запросите новую.';
                 return;
             }
 
-            try {
-                localStorage.setItem('pending_device_registration', data.session.user.id);
-            } catch (storageError) {
-                console.warn('Pending device registration could not be saved:', storageError);
+            if (data?.session?.user?.id) {
+                try {
+                    localStorage.setItem('pending_device_registration', data.session.user.id);
+                } catch (storageError) {
+                    console.warn('Pending device registration could not be saved:', storageError);
+                }
             }
 
-            document.getElementById('status').textContent = 'Успех! Перенаправление...';
+            const title = document.getElementById('title');
+            const status = document.getElementById('status');
+            if (type === 'email_change') {
+                title.textContent = 'Почта подтверждена';
+                if (!data?.session) {
+                    status.textContent = 'Изменение почты подтверждено. Войдите в аккаунт с новым адресом.';
+                    return;
+                }
+                status.textContent = 'Изменение почты подтверждено. Возвращаем вас в профиль...';
+            } else {
+                status.textContent = 'Успех! Перенаправление...';
+            }
             window.location.href = 'https://drdarsun.ru/profile.html';
         }
 
