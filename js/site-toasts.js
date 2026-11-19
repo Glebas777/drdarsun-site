@@ -4,23 +4,31 @@ const shownToastIds = new Set();
 let publicToastChannel;
 let privateToastChannel;
 let privateUserId;
-let publicPollTimer;
-let privatePollTimer;
 
-function removeExpiredRenderedToasts() {
-    const now = Date.now();
-    document.querySelectorAll('.toast[data-expires-at]').forEach(toast => {
-        const expiresAt = Number(toast.dataset.expiresAt);
-        if (Number.isFinite(expiresAt) && expiresAt <= now) toast.remove();
-    });
+function wasToastShown(id) {
+    if (shownToastIds.has(id)) return true;
+    try {
+        const key = `drdarsun:site-toast:${id}`;
+        const expiresAt = Number(sessionStorage.getItem(key));
+        if (Number.isFinite(expiresAt) && expiresAt > Date.now()) return true;
+        if (expiresAt) sessionStorage.removeItem(key);
+    } catch (error) {
+        console.warn('Site notification display state could not be read:', error.message);
+    }
+    return false;
 }
 
-function showSiteToast(notification, { privateNotification = false } = {}) {
-    if (!notification?.id || shownToastIds.has(notification.id)) return;
+function showSiteToast(notification) {
+    if (!notification?.id || wasToastShown(notification.id)) return;
     const expiresAt = new Date(notification.expires_at).getTime();
     const durationMs = expiresAt - Date.now();
     if (!Number.isFinite(durationMs) || durationMs <= 0) return;
     shownToastIds.add(notification.id);
+    try {
+        sessionStorage.setItem(`drdarsun:site-toast:${notification.id}`, String(expiresAt));
+    } catch (error) {
+        console.warn('Site notification display state could not be saved:', error.message);
+    }
 
     if (typeof window.showToast === 'function') {
         const toast = window.showToast(notification.message, notification.kind, durationMs);
@@ -49,16 +57,6 @@ function showSiteToast(notification, { privateNotification = false } = {}) {
         }, Math.max(1000, durationMs));
     }
     window.setTimeout(() => shownToastIds.delete(notification.id), durationMs);
-
-    if (privateNotification) {
-        supabase.from('site_toast_notifications')
-            .update({ dismissed_at: new Date().toISOString() })
-            .eq('id', notification.id)
-            .is('dismissed_at', null)
-            .then(({ error }) => {
-                if (error) console.warn('Site notification acknowledgement failed:', error.message);
-            });
-    }
 }
 
 async function startPublicToasts() {
@@ -122,10 +120,6 @@ async function startPublicToasts() {
     };
 
     await loadActivePublicToasts();
-    publicPollTimer = window.setInterval(() => {
-        removeExpiredRenderedToasts();
-        void loadActivePublicToasts();
-    }, 15000);
 }
 
 async function startPrivateToasts(session) {
@@ -135,10 +129,6 @@ async function startPrivateToasts(session) {
     if (privateToastChannel) {
         await supabase.removeChannel(privateToastChannel);
         privateToastChannel = null;
-    }
-    if (privatePollTimer) {
-        window.clearInterval(privatePollTimer);
-        privatePollTimer = null;
     }
     privateUserId = userId;
     if (!userId) return;
@@ -150,7 +140,7 @@ async function startPrivateToasts(session) {
             schema: 'public',
             table: 'site_toast_notifications',
             filter: `user_id=eq.${userId}`
-        }, payload => showSiteToast(payload.new, { privateNotification: true }))
+        }, payload => showSiteToast(payload.new))
         .subscribe(status => {
             if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
                 console.warn('Personal site notifications are unavailable:', status);
@@ -170,16 +160,10 @@ async function startPrivateToasts(session) {
             console.warn('Personal site notifications could not be loaded:', error.message);
             return;
         }
-        (data || []).forEach(notification =>
-            showSiteToast(notification, { privateNotification: true })
-        );
+        (data || []).forEach(notification => showSiteToast(notification));
     };
 
     await loadActivePrivateToasts();
-    privatePollTimer = window.setInterval(() => {
-        removeExpiredRenderedToasts();
-        void loadActivePrivateToasts();
-    }, 15000);
 }
 
 startPublicToasts().catch(error => {

@@ -35,7 +35,9 @@ async function checkSiteStatus() {
 }
 
 checkSiteStatus();
-window.setInterval(checkSiteStatus, 3000);
+window.setInterval(() => {
+    if (document.visibilityState === 'visible') checkSiteStatus();
+}, 60000);
 window.addEventListener('pageshow', event => {
     if (event.persisted) checkSiteStatus();
 });
