@@ -43,13 +43,25 @@ current pricing and limits before enabling Queues.
 5. Check the Cloudflare Queue dashboard after a test `/start`: the admin message
    should appear in `drdarsun-telegram-admin`, then be acknowledged by its
    consumer. General bot messages use `drdarsun-telegram-bots`.
+6. To check deployment bindings and secret presence without exposing values, call
+   `GET /admin/health` with `Authorization: Bearer <WEBHOOK_ADMIN_SECRET>`.
+   It returns only booleans and bot role names; `200` means required Worker
+   configuration and queue bindings are present, while `503` identifies missing
+   pieces.
 
-The scheduled Worker checks the admin webhook every five minutes and restores it
-if Telegram reports a missing or incorrect URL. It never clears pending updates.
+The Layer0 server keeps long polling disabled unless `TELEGRAM_BOTS_ENABLED=true`
+is explicitly set. Leave it unset when using this webhook Worker; starting a
+polling process calls Telegram `deleteWebhook` and would take bots off the Worker.
+
+The scheduled Worker checks the admin webhook first, then checks every other
+configured bot webhook every five minutes. It restores missing or incorrect URLs
+without clearing pending updates.
 Cloudflare retries queued updates up to 100 times, then stores them in the
-admin-specific dead-letter queue instead of discarding them. If that queue is
+role-specific dead-letter queue instead of discarding them. If a DLQ is
 non-empty, inspect the first failing Layer0/Worker log before replaying messages;
 replay only after the underlying error is fixed to avoid a retry loop.
+Retry delay grows exponentially from 5 seconds to a 300-second cap, unless the
+backend provides a valid `Retry-After` header.
 
 If queues are not provisioned/bound, the Worker falls back to forwarding updates
 synchronously to Layer0. This preserves the previous behavior but does not give

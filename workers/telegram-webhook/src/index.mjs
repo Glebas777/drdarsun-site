@@ -5,6 +5,7 @@ const BOT_ROLES = {
     auth: { token: 'CODE_BOT_TOKEN', webhookSecret: 'AUTH_WEBHOOK_SECRET' },
     support: { token: 'HELP_BOT_TOKEN', webhookSecret: 'SUPPORT_WEBHOOK_SECRET' }
 };
+const BOT_ROLE_ORDER = ['admin', 'panel', 'client', 'auth', 'support'];
 
 const encoder = new TextEncoder();
 const MAX_UPDATE_BYTES = 256 * 1024;
@@ -88,7 +89,8 @@ async function forwardUpdateToLayero(role, update, env, fetchImpl) {
 function retryDelaySeconds(message, response) {
     const retryAfter = Number(response?.headers.get('Retry-After'));
     if (Number.isFinite(retryAfter) && retryAfter > 0) return Math.min(300, retryAfter);
-    return Math.min(300, Math.max(5, Number(message.attempts || 1) * 5));
+    const attempts = Math.max(1, Number(message.attempts) || 1);
+    return Math.min(300, 5 * (2 ** Math.min(attempts - 1, 6)));
 }
 
 export async function consumeQueue(batch, env, fetchImpl = fetch) {
@@ -118,18 +120,18 @@ export async function consumeQueue(batch, env, fetchImpl = fetch) {
     }
 }
 
-export async function repairAdminWebhook(env, fetchImpl = fetch) {
-    const token = env.ADMIN_BOT_TOKEN;
-    const webhookSecret = env.ADMIN_WEBHOOK_SECRET || '';
-    const webhookUrl = expectedWebhookUrl(env, 'admin');
+async function repairRoleWebhook(role, env, fetchImpl) {
+    const config = BOT_ROLES[role];
+    const token = env[config.token];
+    const webhookSecret = env[config.webhookSecret] || '';
+    const webhookUrl = expectedWebhookUrl(env, role);
     if (!token || !webhookUrl || !TELEGRAM_SECRET_PATTERN.test(webhookSecret)) {
-        throw new Error('Admin webhook recovery is not configured.');
+        throw new Error(`${role} webhook recovery is not configured.`);
     }
-
     const info = await telegramRequest(token, 'getWebhookInfo', {}, fetchImpl);
     if (info?.url === webhookUrl) {
         if (Number(info.pending_update_count) > 20) {
-            console.warn('Admin Telegram webhook has a pending update backlog.', {
+            console.warn(`Telegram ${role} webhook has a pending update backlog.`, {
                 pending: info.pending_update_count
             });
         }
@@ -143,8 +145,30 @@ export async function repairAdminWebhook(env, fetchImpl = fetch) {
         max_connections: 1,
         drop_pending_updates: false
     }, fetchImpl);
-    console.warn('Admin Telegram webhook was missing or incorrect and has been restored.');
+    console.warn(`Telegram ${role} webhook was missing or incorrect and has been restored.`);
     return { repaired: true, pending: Number(info?.pending_update_count) || 0 };
+}
+
+export function repairAdminWebhook(env, fetchImpl = fetch) {
+    return repairRoleWebhook('admin', env, fetchImpl);
+}
+
+export async function repairTelegramWebhooks(env, fetchImpl = fetch) {
+    const results = [];
+    for (const role of BOT_ROLE_ORDER) {
+        if (!env[BOT_ROLES[role].token]) {
+            results.push({ role, configured: false });
+            continue;
+        }
+        try {
+            const result = await repairRoleWebhook(role, env, fetchImpl);
+            results.push({ role, configured: true, ...result });
+        } catch (error) {
+            console.error(`Telegram ${role} webhook recovery check failed:`, error?.message || 'Unknown error');
+            results.push({ role, configured: true, error: error?.message || 'Unknown error' });
+        }
+    }
+    return results;
 }
 
 async function manageWebhooks(request, env, fetchImpl, action) {
@@ -168,7 +192,8 @@ async function manageWebhooks(request, env, fetchImpl, action) {
     }
 
     const tokenRoles = new Map();
-    for (const [role, config] of Object.entries(BOT_ROLES)) {
+    for (const role of BOT_ROLE_ORDER) {
+        const config = BOT_ROLES[role];
         const token = env[config.token];
         if (token) tokenRoles.set(token, [...(tokenRoles.get(token) || []), role]);
     }
@@ -181,7 +206,8 @@ async function manageWebhooks(request, env, fetchImpl, action) {
     }
 
     const results = [];
-    for (const [role, config] of Object.entries(BOT_ROLES)) {
+    for (const role of BOT_ROLE_ORDER) {
+        const config = BOT_ROLES[role];
         const token = env[config.token];
         if (!token) {
             results.push({ role, configured: false, success: false });
@@ -217,9 +243,52 @@ async function manageWebhooks(request, env, fetchImpl, action) {
     return jsonResponse(failed ? 502 : 200, { action, results });
 }
 
+function workerDiagnostics(env) {
+    const roles = Object.fromEntries(BOT_ROLE_ORDER.map(role => {
+        const config = BOT_ROLES[role];
+        const tokenConfigured = Boolean(env[config.token]);
+        const webhookSecretValid = TELEGRAM_SECRET_PATTERN.test(env[config.webhookSecret] || '');
+        return [role, {
+            configured: tokenConfigured && webhookSecretValid,
+            tokenConfigured,
+            webhookSecretValid
+        }];
+    }));
+    const queues = {
+        admin: typeof env.ADMIN_UPDATES?.send === 'function',
+        general: typeof env.BOT_UPDATES?.send === 'function'
+    };
+    const backend = Boolean(configuredLayeroUrl(env)) &&
+        typeof env.TELEGRAM_WORKER_SHARED_SECRET === 'string' &&
+        env.TELEGRAM_WORKER_SHARED_SECRET.length >= 32;
+    const publicUrl = Boolean(expectedWebhookUrl(env, 'admin'));
+    const enabledBotsReady = BOT_ROLE_ORDER.every(role =>
+        !env[BOT_ROLES[role].token] || roles[role].configured
+    );
+    return {
+        ok: backend && publicUrl && queues.admin && queues.general &&
+            roles.admin.configured && enabledBotsReady,
+        backend,
+        publicUrl,
+        queues,
+        bots: roles
+    };
+}
+
 export function createHandler(env, fetchImpl = fetch) {
     return async function handleRequest(request) {
         const url = new URL(request.url);
+        if (url.pathname === '/admin/health') {
+            if (request.method !== 'GET') return jsonResponse(405, { error: 'Method not allowed.' });
+            const adminSecret = env.WEBHOOK_ADMIN_SECRET || '';
+            const suppliedSecret = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') || '';
+            if (!adminSecret || !constantTimeEqual(suppliedSecret, adminSecret)) {
+                return jsonResponse(401, { error: 'Unauthorized.' });
+            }
+            const diagnostics = workerDiagnostics(env);
+            return jsonResponse(diagnostics.ok ? 200 : 503, diagnostics);
+        }
+
         if (url.pathname === '/admin/register-webhooks' || url.pathname === '/admin/remove-webhooks') {
             if (request.method !== 'POST') return jsonResponse(405, { error: 'Method not allowed.' });
             const action = url.pathname.endsWith('/register-webhooks') ? 'register' : 'remove';
@@ -297,8 +366,8 @@ export default {
         return consumeQueue(batch, env);
     },
     scheduled(_controller, env, context) {
-        context.waitUntil(repairAdminWebhook(env).catch(error => {
-            console.error('Admin Telegram webhook recovery check failed:', error?.message || 'Unknown error');
+        context.waitUntil(repairTelegramWebhooks(env).catch(error => {
+            console.error('Telegram webhook recovery check failed:', error?.message || 'Unknown error');
         }));
     }
 };

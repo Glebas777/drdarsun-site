@@ -736,8 +736,8 @@ app.all('*', async (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    if (process.env.TELEGRAM_BOTS_ENABLED === 'false') {
-        console.log('Telegram polling is disabled for this web process; run the dedicated Telegram worker.');
+    if (process.env.TELEGRAM_BOTS_ENABLED !== 'true') {
+        console.log('Telegram polling is disabled; webhook delivery is managed by the Cloudflare Worker.');
         return;
     }
     try {
