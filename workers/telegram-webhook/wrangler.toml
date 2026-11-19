@@ -4,3 +4,31 @@ compatibility_date = "2026-11-18"
 
 [vars]
 LAYER0_API_BASE_URL = "https://drdarsun-site-main.layero.app"
+TELEGRAM_WORKER_PUBLIC_URL = "https://drdarsun-telegram-webhook.turgleb7.workers.dev"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[[queues.producers]]
+queue = "drdarsun-telegram-admin"
+binding = "ADMIN_UPDATES"
+
+[[queues.producers]]
+queue = "drdarsun-telegram-bots"
+binding = "BOT_UPDATES"
+
+[[queues.consumers]]
+queue = "drdarsun-telegram-admin"
+max_batch_size = 1
+max_batch_timeout = 1
+max_retries = 100
+max_concurrency = 1
+dead_letter_queue = "drdarsun-telegram-admin-dlq"
+
+[[queues.consumers]]
+queue = "drdarsun-telegram-bots"
+max_batch_size = 1
+max_batch_timeout = 1
+max_retries = 100
+max_concurrency = 1
+dead_letter_queue = "drdarsun-telegram-bots-dlq"

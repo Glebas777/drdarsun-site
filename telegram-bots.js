@@ -15,6 +15,9 @@ const MAINTENANCE_MODE_LABELS = {
 };
 const states = new Map();
 const updateQueues = new Map();
+const updateRateLimits = new Map();
+const telegramSendQueues = new Map();
+const telegramLastSendAt = new Map();
 const histories = new Map();
 const assistantUsage = new Map();
 const supportUsage = new Map();
@@ -43,6 +46,25 @@ function isPrivateUpdate(update) {
 function updateChatId(update) {
     const chat = update.message?.chat || update.callback_query?.message?.chat;
     return chat?.id === undefined ? '' : String(chat.id);
+}
+
+function allowChatUpdate(role, chatId) {
+    const now = Date.now();
+    const key = stateKey(role, chatId);
+    const recent = (updateRateLimits.get(key) || []).filter(timestamp => now - timestamp < 5000);
+    if (recent.length >= 4) {
+        updateRateLimits.set(key, recent);
+        return false;
+    }
+    recent.push(now);
+    updateRateLimits.set(key, recent);
+
+    if (updateRateLimits.size > 10000) {
+        for (const [candidate, timestamps] of updateRateLimits) {
+            if (!timestamps.some(timestamp => now - timestamp < 5000)) updateRateLimits.delete(candidate);
+        }
+    }
+    return true;
 }
 
 function configuredPanelChatIds(env) {
@@ -236,12 +258,31 @@ function createBotClient(config, env, request) {
     async function send(chatId, text, options = {}) {
         const value = String(text || '').trim() || 'Не удалось подготовить ответ.';
         for (let start = 0; start < value.length; start += 3900) {
-            await telegram('sendMessage', {
+            const payload = {
                 chat_id: chatId,
                 text: value.slice(start, start + 3900),
                 disable_web_page_preview: true,
                 ...options
+            };
+            const key = `${config.role}:${chatId}`;
+            const previous = telegramSendQueues.get(key) || Promise.resolve();
+            const current = previous.catch(() => {}).then(async () => {
+                const elapsed = Date.now() - (telegramLastSendAt.get(key) || 0);
+                if (elapsed < 1100) {
+                    await new Promise(resolve => setTimeout(resolve, 1100 - elapsed));
+                }
+                try {
+                    return await telegram('sendMessage', payload);
+                } finally {
+                    telegramLastSendAt.set(key, Date.now());
+                }
             });
+            telegramSendQueues.set(key, current);
+            try {
+                await current;
+            } finally {
+                if (telegramSendQueues.get(key) === current) telegramSendQueues.delete(key);
+            }
         }
     }
 
@@ -295,6 +336,10 @@ async function processTelegramUpdateNow(role, update, options = {}) {
 
     const chatId = updateChatId(update);
     if (!chatId || !ownerAllowed(role, chatId, env)) return { ignored: true };
+    if (!allowChatUpdate(role, chatId)) {
+        console.warn(`Telegram ${role} update throttled for chat ${chatId}.`);
+        return { ignored: true, reason: 'rate-limited' };
+    }
     try {
         if (update.callback_query) {
             await handleCallback(config, bot, update.callback_query, chatId);
@@ -303,7 +348,11 @@ async function processTelegramUpdateNow(role, update, options = {}) {
         }
     } catch (error) {
         console.error(`Telegram ${role} update failed:`, safeError(error, bot.token));
-        await bot.send(chatId, userFacingError(error));
+        try {
+            await bot.send(chatId, userFacingError(error));
+        } catch (notificationError) {
+            console.error(`Telegram ${role} error notification failed:`, safeError(notificationError, bot.token));
+        }
     }
     return { processed: true };
 }

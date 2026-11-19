@@ -8,6 +8,7 @@ const BOT_ROLES = {
 
 const encoder = new TextEncoder();
 const MAX_UPDATE_BYTES = 256 * 1024;
+const MAX_QUEUE_MESSAGE_BYTES = 120 * 1024;
 const TELEGRAM_SECRET_PATTERN = /^[A-Za-z0-9_-]{1,256}$/;
 
 function jsonResponse(status, body) {
@@ -42,6 +43,17 @@ function configuredLayeroUrl(env) {
     }
 }
 
+function expectedWebhookUrl(env, role) {
+    try {
+        const url = new URL(env.TELEGRAM_WORKER_PUBLIC_URL);
+        if (url.protocol !== 'https:' || url.pathname !== '/' ||
+            url.search || url.hash || url.username || url.password) return null;
+        return new URL(`/telegram/${role}`, url).toString();
+    } catch {
+        return null;
+    }
+}
+
 async function telegramRequest(token, method, payload, fetchImpl) {
     const response = await fetchImpl(`https://api.telegram.org/bot${token}/${method}`, {
         method: 'POST',
@@ -54,6 +66,85 @@ async function telegramRequest(token, method, payload, fetchImpl) {
         throw new Error(`Telegram ${method} failed with status ${response.status}.`);
     }
     return result.result;
+}
+
+async function forwardUpdateToLayero(role, update, env, fetchImpl) {
+    const backendUrl = configuredLayeroUrl(env);
+    const sharedSecret = env.TELEGRAM_WORKER_SHARED_SECRET || '';
+    if (!backendUrl || sharedSecret.length < 32) {
+        throw new Error('Webhook backend is not configured.');
+    }
+    return fetchImpl(new URL(`/api/telegram/webhook/${role}`, backendUrl), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-Worker-Secret': sharedSecret
+        },
+        body: typeof update === 'string' ? update : JSON.stringify(update),
+        signal: AbortSignal.timeout(25000)
+    });
+}
+
+function retryDelaySeconds(message, response) {
+    const retryAfter = Number(response?.headers.get('Retry-After'));
+    if (Number.isFinite(retryAfter) && retryAfter > 0) return Math.min(300, retryAfter);
+    return Math.min(300, Math.max(5, Number(message.attempts || 1) * 5));
+}
+
+export async function consumeQueue(batch, env, fetchImpl = fetch) {
+    for (const message of batch.messages) {
+        const { role, update } = message.body || {};
+        const isAdminQueue = batch.queue === 'drdarsun-telegram-admin';
+        const validRole = Object.hasOwn(BOT_ROLES, role) &&
+            (isAdminQueue ? role === 'admin' : role !== 'admin');
+        if (!validRole || !Number.isSafeInteger(update?.update_id) || update.update_id < 0) {
+            console.error('Discarding invalid Telegram queue message.', { queue: batch.queue });
+            message.ack();
+            continue;
+        }
+
+        try {
+            const response = await forwardUpdateToLayero(role, update, env, fetchImpl);
+            if (response.ok) {
+                message.ack();
+                continue;
+            }
+            console.error(`Queued Layero update returned ${response.status} for ${role}.`);
+            message.retry({ delaySeconds: retryDelaySeconds(message, response) });
+        } catch (error) {
+            console.error(`Queued Layero update failed for ${role}:`, error?.name || 'RequestError');
+            message.retry({ delaySeconds: retryDelaySeconds(message) });
+        }
+    }
+}
+
+export async function repairAdminWebhook(env, fetchImpl = fetch) {
+    const token = env.ADMIN_BOT_TOKEN;
+    const webhookSecret = env.ADMIN_WEBHOOK_SECRET || '';
+    const webhookUrl = expectedWebhookUrl(env, 'admin');
+    if (!token || !webhookUrl || !TELEGRAM_SECRET_PATTERN.test(webhookSecret)) {
+        throw new Error('Admin webhook recovery is not configured.');
+    }
+
+    const info = await telegramRequest(token, 'getWebhookInfo', {}, fetchImpl);
+    if (info?.url === webhookUrl) {
+        if (Number(info.pending_update_count) > 20) {
+            console.warn('Admin Telegram webhook has a pending update backlog.', {
+                pending: info.pending_update_count
+            });
+        }
+        return { repaired: false, pending: Number(info.pending_update_count) || 0 };
+    }
+
+    await telegramRequest(token, 'setWebhook', {
+        url: webhookUrl,
+        secret_token: webhookSecret,
+        allowed_updates: ['message', 'callback_query'],
+        max_connections: 1,
+        drop_pending_updates: false
+    }, fetchImpl);
+    console.warn('Admin Telegram webhook was missing or incorrect and has been restored.');
+    return { repaired: true, pending: Number(info?.pending_update_count) || 0 };
 }
 
 async function manageWebhooks(request, env, fetchImpl, action) {
@@ -166,25 +257,24 @@ export function createHandler(env, fetchImpl = fetch) {
             return jsonResponse(400, { error: 'Invalid Telegram update ID.' });
         }
 
-        const backendUrl = configuredLayeroUrl(env);
-        const sharedSecret = env.TELEGRAM_WORKER_SHARED_SECRET || '';
-        if (!backendUrl || sharedSecret.length < 32) {
-            return jsonResponse(503, { error: 'Webhook backend is not configured.' });
+        const updateQueue = role === 'admin' ? env.ADMIN_UPDATES : env.BOT_UPDATES;
+        const queuePayloadBytes = encoder.encode(JSON.stringify({ role, update })).byteLength;
+        if (updateQueue && typeof updateQueue.send === 'function' &&
+            queuePayloadBytes <= MAX_QUEUE_MESSAGE_BYTES) {
+            try {
+                await updateQueue.send({ role, update });
+                return jsonResponse(200, { ok: true, queued: true });
+            } catch (error) {
+                console.error(`Telegram ${role} update could not be queued:`, error?.name || 'QueueError');
+                return jsonResponse(503, { error: 'Update could not be safely queued; Telegram should retry.' });
+            }
         }
 
         let backendResponse;
         try {
-            backendResponse = await fetchImpl(new URL(`/api/telegram/webhook/${role}`, backendUrl), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Telegram-Worker-Secret': sharedSecret
-                },
-                body: rawBody,
-                signal: AbortSignal.timeout(25000)
-            });
+            backendResponse = await forwardUpdateToLayero(role, rawBody, env, fetchImpl);
         } catch (error) {
-            console.error(`Layero webhook handler unavailable for ${role}:`, error.name || 'RequestError');
+            console.error(`Layero webhook handler unavailable for ${role}:`, error?.message || 'RequestError');
             return jsonResponse(503, { error: 'Bot backend temporarily unavailable; Telegram should retry this update.' });
         }
 
@@ -202,5 +292,13 @@ export default {
             console.error('Telegram webhook worker request failed:', error?.name || 'UnknownError');
             return jsonResponse(503, { error: 'Webhook temporarily unavailable; Telegram should retry.' });
         });
+    },
+    queue(batch, env) {
+        return consumeQueue(batch, env);
+    },
+    scheduled(_controller, env, context) {
+        context.waitUntil(repairAdminWebhook(env).catch(error => {
+            console.error('Admin Telegram webhook recovery check failed:', error?.message || 'Unknown error');
+        }));
     }
 };
