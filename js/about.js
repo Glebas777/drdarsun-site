@@ -11,10 +11,21 @@ const REVIEWS_API = 'https://drdarsun-site-main.layero.app/api/reviews';
 
 let currentSession = null;
 let moderationRequest = false;
+
+function isPageSwipeSurface(target) {
+    if (!(target instanceof Element) || !target.closest('.review-book__page')) return false;
+    return !target.closest([
+        'a', 'button', 'input', 'select', 'textarea', 'label', 'img', 'video', 'audio',
+        '[contenteditable="true"]', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'span', 'strong', 'em', 'small', 'time', '.review-entry', '.review-moderation-item'
+    ].join(','));
+}
+
 function initializeBook() {
     if (!reviewBook) return;
     const pages = Array.from(reviewBook.querySelectorAll('.review-book__page'));
     const pageNames = ['Обложка', 'О книге', 'Вступление', 'Отзывы читателей', 'Послесловие', 'Задняя обложка'];
+
     const PageFlip = window.St?.PageFlip;
     if (!PageFlip) {
         let currentPage = 0;
@@ -25,6 +36,21 @@ function initializeBook() {
             nextBookButton.disabled = currentPage === pages.length - 1;
             bookPageStatus.textContent = pageNames[currentPage] || `Страница ${currentPage + 1}`;
         };
+        let fallbackPointerStart = null;
+        reviewBook.addEventListener('pointerdown', event => {
+            if (!isPageSwipeSurface(event.target)) return;
+            if (event.pointerType === 'mouse' || event.button !== 0 || !event.isPrimary) return;
+            fallbackPointerStart = { id: event.pointerId, x: event.clientX, y: event.clientY };
+        }, true);
+        document.addEventListener('pointerup', event => {
+            if (!fallbackPointerStart || event.pointerId !== fallbackPointerStart.id) return;
+            const deltaX = event.clientX - fallbackPointerStart.x;
+            const deltaY = event.clientY - fallbackPointerStart.y;
+            fallbackPointerStart = null;
+            if (Math.abs(deltaX) < 48 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) return;
+            showFallbackPage(currentPage + (deltaX < 0 ? 1 : -1));
+        });
+        document.addEventListener('pointercancel', () => { fallbackPointerStart = null; });
         previousBookButton?.addEventListener('click', () => showFallbackPage(currentPage - 1));
         nextBookButton?.addEventListener('click', () => showFallbackPage(currentPage + 1));
         showFallbackPage(0);
@@ -32,13 +58,13 @@ function initializeBook() {
     }
 
     const pageFlip = new PageFlip(reviewBook, {
-        width: 520,
-        height: 620,
+        width: 420,
+        height: 560,
         size: 'stretch',
-        minWidth: 320,
-        maxWidth: 520,
-        minHeight: 460,
-        maxHeight: 660,
+        minWidth: 280,
+        maxWidth: 420,
+        minHeight: 420,
+        maxHeight: 590,
         autoSize: false,
         showCover: true,
         usePortrait: true,
@@ -47,7 +73,8 @@ function initializeBook() {
         drawShadow: true,
         maxShadowOpacity: 0.38,
         flippingTime: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 450 : 850,
-        startPage: 0
+        startPage: 0,
+        disableFlipByClick: true
     });
     let previousPage = 0;
 
@@ -74,17 +101,9 @@ function initializeBook() {
     pageFlip.on('changeOrientation', updateBookControls);
     pageFlip.on('init', updateBookControls);
     let pointerStart = null;
-    pages.forEach(page => {
-        for (const edge of ['left', 'right']) {
-            const swipeZone = document.createElement('span');
-            swipeZone.className = `review-book__swipe-zone review-book__swipe-zone--${edge}`;
-            swipeZone.setAttribute('aria-hidden', 'true');
-            page.appendChild(swipeZone);
-        }
-    });
     reviewBook.addEventListener('pointerdown', event => {
-        if (!(event.target instanceof Element) || !event.target.closest('.review-book__swipe-zone')) return;
-        if (event.pointerType === 'mouse' || event.button !== 0) return;
+        if (!isPageSwipeSurface(event.target)) return;
+        if (event.pointerType === 'mouse' || event.button !== 0 || !event.isPrimary) return;
         pointerStart = { id: event.pointerId, x: event.clientX, y: event.clientY };
     }, true);
     document.addEventListener('pointerup', event => {

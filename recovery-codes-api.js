@@ -135,10 +135,10 @@ function createRecoveryCodesRouter(options = {}) {
 
     async function saveEncryptedCodes(userId, codes) {
         const encrypted = encrypt({ codes, used: [] });
-        await databaseRequest('mfa_recovery_vault', {
+        await databaseRequest('mfa_recovery_vault?on_conflict=user_id', {
             method: 'POST',
-            headers: { Prefer: 'return=minimal' },
-            body: JSON.stringify({ user_id: userId, ...encrypted })
+            headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+            body: JSON.stringify({ user_id: userId, ...encrypted, created_at: new Date().toISOString() })
         });
     }
 

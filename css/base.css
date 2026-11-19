@@ -853,14 +853,23 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 /* Тосты */
 .toast-container {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
+    top: max(88px, calc(70px + env(safe-area-inset-top)));
+    right: max(20px, env(safe-area-inset-right));
     display: flex;
     flex-direction: column;
     gap: 10px;
+    width: min(400px, calc(100vw - 32px));
+    max-height: min(60dvh, calc(100dvh - 104px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 2px;
     z-index: 10000;
+    pointer-events: none;
+    scrollbar-width: thin;
 }
 .toast {
+    flex: 0 0 auto;
+    width: 100%;
     background: var(--bg-card);
     color: var(--text-main);
     padding: 16px 24px;
@@ -873,7 +882,10 @@ button:disabled { cursor: not-allowed; opacity: .58; }
     gap: 12px;
     transform: translateX(120%);
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    max-width: 350px;
+    min-width: 0;
+    max-width: none;
+    overflow-wrap: anywhere;
+    pointer-events: auto;
 }
 .toast.show { transform: translateX(0); }
 .toast.success { border-left: 4px solid #4CAF50; }
@@ -1015,7 +1027,7 @@ input:checked + .toggle-slider:before { transform: translateX(24px); }
 .product-card:focus-visible { outline: 3px solid var(--accent-gold); outline-offset: 3px; }
 .product-card__price { white-space: nowrap; }
 .footer__col a:focus-visible { outline-offset: 1px; }
-.toast-container { right: max(20px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); }
+.toast-container { top: max(88px, calc(70px + env(safe-area-inset-top))); right: max(20px, env(safe-area-inset-right)); bottom: auto; }
 
 @media (min-width: 769px) {
     .filters-sidebar { transform: none !important; }
@@ -1328,6 +1340,10 @@ input:checked + .toggle-slider:before { transform: translateX(24px); }
 .theme-asset-dark { display: none; }
 .dark-theme .theme-asset-light { display: none; }
 .dark-theme .theme-asset-dark { display: block; }
+body:not(.dark-theme) .theme-asset-dark { display: none; }
+body:not(.dark-theme) .theme-asset-light { display: block; }
+body.dark-theme .theme-asset-light { display: none; }
+body.dark-theme .theme-asset-dark { display: block; }
 .social-disclaimer { margin: 12px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.55; }
 .news-section { padding-block: clamp(42px, 7vw, 82px); }
 .news-section__heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 22px; }

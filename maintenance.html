@@ -23,8 +23,8 @@
     <main>
         <img src="assets/images/load_drop_hello.png" alt="">
         <p class="eyebrow">DR. DARSUN</p>
-        <h1>Небольшой технический перерыв</h1>
-        <p>Мы временно обновляем сайт. Скоро вернёмся — ваши данные и аккаунт в безопасности.</p>
+        <h1 id="maintenance-heading">Плановые технические работы</h1>
+        <p id="maintenance-message">Мы обновляем сайт. Скоро вернёмся — ваши данные и аккаунт в безопасности.</p>
         <p>Пожалуйста, зайдите чуть позже.</p>
         <div class="maintenance-actions">
             <button type="button" id="maintenance-retry">Попробовать ещё раз</button>
@@ -36,6 +36,22 @@
         const retryButton = document.getElementById('maintenance-retry');
         const statusMessage = document.getElementById('maintenance-status');
         let checkingStatus = false;
+        const maintenanceModes = {
+            planned: {
+                heading: 'Плановые технические работы',
+                message: 'Мы обновляем сайт. Скоро вернёмся — ваши данные и аккаунт в безопасности.'
+            },
+            emergency: {
+                heading: 'Срочный технический перерыв',
+                message: 'Мы временно закрыли сайт и уже разбираемся с проблемой. Данные и аккаунты не затронуты.'
+            }
+        };
+
+        function renderMaintenanceMode(mode) {
+            const copy = maintenanceModes[mode] || maintenanceModes.planned;
+            document.getElementById('maintenance-heading').textContent = copy.heading;
+            document.getElementById('maintenance-message').textContent = copy.message;
+        }
 
         async function checkSiteStatus() {
             if (checkingStatus) return;
@@ -49,6 +65,7 @@
                 });
                 const result = await response.json().catch(() => null);
                 if (!response.ok) throw new Error('Сервис пока не отвечает. Попробуйте чуть позже.');
+                renderMaintenanceMode(result?.mode);
                 if (result?.maintenance === false) {
                     statusMessage.textContent = 'Сайт снова доступен. Переходим…';
                     window.location.replace('index.html');
@@ -68,6 +85,7 @@
         }
 
         retryButton.addEventListener('click', checkSiteStatus);
+        checkSiteStatus();
         window.setInterval(checkSiteStatus, 15000);
     </script>
     <script src="js/music-player.js"></script>

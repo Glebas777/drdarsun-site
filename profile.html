@@ -23,9 +23,6 @@
         .device-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; }
         .order-card { border: 1px solid var(--border); padding: 15px; border-radius: 12px; margin-bottom: 15px; }
         .order-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
-        .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; }
-        .toast { background: var(--bg-card); color: var(--text-main); padding: 16px 24px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.3); transform: translateX(120%); transition: transform 0.4s; }
-        .toast.show { transform: translateX(0); }
         @media (max-width: 768px) { .profile-layout { flex-direction: column; padding: 100px 20px 40px; } .profile-sidebar { width: 100%; } .profile-nav-btn { display: inline-block; width: auto; margin-right: 5px; } }
     </style>
     <link rel="stylesheet" href="css/profile.css">
@@ -209,8 +206,13 @@
     </section>
 
                     <section class="telegram-link-card" aria-labelledby="telegram-link-title">
-                    <h4 id="telegram-link-title" class="security-heading"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-phone-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-phone-dark.png" alt=""><span>Подключение Telegram</span></h4>
-                    <p class="security-help">Свяжите аккаунт через клиентского бота или отдельного бота привязки. Нажмите на ссылку — откроется нужный Telegram-бот.</p>
+                    <h4 id="telegram-link-title" class="security-heading"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-phone-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-phone-dark.png" alt=""><span>Telegram — управление связью</span></h4>
+                    <p class="security-help">Одна привязка аккаунта работает с клиентским ботом и ботом кодов. Бот-помощник доступен отдельно для вопросов и обращений.</p>
+                    <div class="telegram-link-steps" aria-label="Как связать аккаунт с Telegram">
+                        <span><b>1</b> Создайте одноразовый код</span>
+                        <span><b>2</b> Откройте клиентского бота или бота привязки</span>
+                        <span><b>3</b> Управляйте заказами и уведомлениями здесь</span>
+                    </div>
                     <div id="telegram-public-bots" class="telegram-link-card__actions" aria-label="Telegram-боты"></div>
                     <div id="telegram-link-status" class="security-help" aria-live="polite">Проверка подключения...</div>
                     <div class="telegram-link-card__actions">
@@ -222,6 +224,16 @@
                         <strong id="telegram-link-code-value"></strong>
                         <div id="telegram-link-code-actions" class="telegram-link-card__actions"></div>
                         <button class="btn" id="telegram-link-copy" type="button">Скопировать код</button>
+                    </div>
+                    <div class="telegram-notification-settings">
+                        <div>
+                            <strong>Уведомления о заказах</strong>
+                            <p class="security-help" id="telegram-notification-help">Получайте в клиентском боте сообщения об изменении статуса заказа. Настройка действует только для привязанного Telegram.</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="telegram-notifications-enabled" aria-label="Присылать обновления заказов в Telegram" disabled>
+                            <span class="toggle-slider"></span>
+                        </label>
                     </div>
                 </section>
 
@@ -290,17 +302,6 @@
         <button class="btn" id="disable-notify" style="border: 1px solid #F44336; color: #F44336;">Отключить уведомления</button>
     </div>
 </div>
-<div style="margin-top: 24px;">
-    <h4>Уведомления в Telegram</h4>
-    <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 12px;" id="telegram-notification-help">
-        Получайте сообщения о смене статуса заказа в клиентском Telegram-боте.
-    </p>
-    <label style="display: flex; align-items: center; gap: 10px;">
-        <input type="checkbox" id="telegram-notifications-enabled" disabled>
-        <span>Присылать обновления заказов в Telegram</span>
-    </label>
-</div>
-
                 <div style="margin-top: 40px; border-top: 1px solid var(--border); padding-top: 20px;">
                     <h4 style="color: #F44336;">Удаление аккаунта</h4>
                     <button class="btn" id="delete-account-btn" style="background: #F44336; color: #fff;">Удалить аккаунт</button>

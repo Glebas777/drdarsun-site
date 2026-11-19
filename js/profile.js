@@ -21,6 +21,7 @@ window.showToast = function(message, type = 'success', durationMs = 3000) {
     toast.className = `toast ${type}`;
     toast.textContent = message;
     container.appendChild(toast);
+    container.scrollTop = container.scrollHeight;
     setTimeout(() => toast.classList.add('show'), 10);
     setTimeout(() => {
         toast.classList.remove('show');
@@ -131,17 +132,28 @@ async function init() {
     const telegramApiBase = 'https://drdarsun-site-main.layero.app/api/telegram';
     const telegramApiUrl = `${telegramApiBase}/link`;
     let publicTelegramBots = [];
+    const telegramBotPurposes = {
+        client: 'Каталог, поиск товаров, заказы и уведомления',
+        auth: 'Одноразовые коды для привязки и входа',
+        support: 'Ответы на вопросы и связь с поддержкой'
+    };
 
     function renderTelegramBotLinks(code = '') {
         if (telegramPublicBots) {
             telegramPublicBots.replaceChildren();
             for (const bot of publicTelegramBots) {
                 const link = document.createElement('a');
-                link.className = 'btn';
+                link.className = 'telegram-bot-link';
                 link.href = bot.url;
                 link.target = '_blank';
                 link.rel = 'noopener noreferrer';
-                link.textContent = `${bot.label} · @${bot.username}`;
+                const name = document.createElement('strong');
+                name.textContent = bot.label;
+                const purpose = document.createElement('span');
+                purpose.textContent = telegramBotPurposes[bot.role];
+                const username = document.createElement('small');
+                username.textContent = `@${bot.username}`;
+                link.append(name, purpose, username);
                 telegramPublicBots.appendChild(link);
             }
             if (!publicTelegramBots.length) {
@@ -155,15 +167,15 @@ async function init() {
         if (telegramLinkCodeActions) {
             telegramLinkCodeActions.replaceChildren();
             if (code) {
-                const linkBot = publicTelegramBots.find(bot => bot.role === 'auth') ||
-                    publicTelegramBots.find(bot => bot.role === 'client');
-                if (linkBot) {
+                for (const linkBot of publicTelegramBots.filter(bot =>
+                    ['auth', 'client'].includes(bot.role)
+                )) {
                     const link = document.createElement('a');
                     link.className = 'btn btn--primary';
                     link.href = `${linkBot.url}?start=${encodeURIComponent(code)}`;
                     link.target = '_blank';
                     link.rel = 'noopener noreferrer';
-                    link.textContent = `Открыть @${linkBot.username} и привязать`;
+                    link.textContent = `Привязать через ${linkBot.label}`;
                     telegramLinkCodeActions.appendChild(link);
                 }
             }
@@ -195,12 +207,38 @@ async function init() {
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Не удалось проверить подключение Telegram.');
         const account = result.account;
+        const linked = Boolean(account);
         telegramLinkStatus.textContent = account
             ? `Telegram подключён${account.telegram_username ? `: @${account.telegram_username}` : ''}.`
             : 'Telegram пока не подключён.';
-        telegramLinkStart.hidden = Boolean(account);
-        telegramLinkRemove.hidden = !account;
-        if (account) telegramLinkCode.hidden = true;
+        telegramLinkStart.hidden = linked;
+        telegramLinkRemove.hidden = !linked;
+        if (linked) telegramLinkCode.hidden = true;
+        if (telegramNotificationsEnabled) {
+            telegramNotificationsEnabled.disabled = !linked;
+            if (telegramNotificationsEnabled.dataset.telegramLinked !== String(linked)) {
+                telegramNotificationsEnabled.dataset.telegramLinked = String(linked);
+                if (!linked) {
+                    telegramNotificationsEnabled.checked = false;
+                } else {
+                    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                    if (sessionError) throw sessionError;
+                    if (!session) throw new Error('Войдите в аккаунт и попробуйте снова.');
+                    const { data, error } = await supabase
+                        .from('notification_settings')
+                        .select('telegram_enabled')
+                        .eq('user_id', session.user.id)
+                        .maybeSingle();
+                    if (error) throw error;
+                    telegramNotificationsEnabled.checked = data?.telegram_enabled === true;
+                }
+            }
+            if (telegramNotificationHelp) {
+                telegramNotificationHelp.textContent = linked
+                    ? 'Получайте в клиентском боте сообщения об изменении статуса заказа. Настройка действует только для привязанного Telegram.'
+                    : 'Сначала привяжите Telegram выше, чтобы управлять уведомлениями о заказах.';
+            }
+        }
     }
 
     telegramLinkStart?.addEventListener('click', async () => {

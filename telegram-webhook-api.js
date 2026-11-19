@@ -59,6 +59,7 @@ function createTelegramWebhookApi(options = {}) {
             return res.status(503).json({ error: 'Telegram update processor is unavailable.' });
         }
 
+        let stage = 'claim-update';
         try {
             const claimed = await databaseRequest('rpc/claim_telegram_webhook_update', {
                 method: 'POST',
@@ -73,14 +74,17 @@ function createTelegramWebhookApi(options = {}) {
             const message = update.message || update.callback_query?.message;
             const chatId = message?.chat?.id === undefined ? '' : String(message.chat.id);
             if (chatId && message?.chat?.type === 'private') {
+                stage = 'load-conversation-state';
                 const stateKey = `bot_role=eq.${encodeURIComponent(role)}&telegram_chat_id=eq.${encodeURIComponent(chatId)}&select=state&limit=1`;
                 const [storedState] = await databaseRequest(`telegram_bot_states?${stateKey}`);
                 setBotState(role, chatId, storedState?.state || {});
             }
 
+            stage = 'process-bot-update';
             await processUpdate(role, update, { env, fetch: request });
 
             if (chatId && message?.chat?.type === 'private') {
+                stage = 'save-conversation-state';
                 await databaseRequest('telegram_bot_states?on_conflict=bot_role,telegram_chat_id', {
                     method: 'POST',
                     headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
@@ -92,6 +96,7 @@ function createTelegramWebhookApi(options = {}) {
                     })
                 });
             }
+            stage = 'complete-update';
             const completed = await databaseRequest('rpc/complete_telegram_webhook_update', {
                 method: 'POST',
                 body: JSON.stringify({ p_bot_role: role, p_update_id: updateId })
@@ -99,7 +104,13 @@ function createTelegramWebhookApi(options = {}) {
             if (completed !== true) throw new Error('Telegram webhook update was not marked complete.');
             return res.status(200).json({ ok: true });
         } catch (error) {
-            console.error('Telegram webhook update failed:', error);
+            console.error('Telegram webhook update failed:', {
+                role,
+                updateId,
+                stage,
+                error: error?.message || 'Unknown error'
+            });
+            res.setHeader('Retry-After', '5');
             await databaseRequest('rpc/retry_telegram_webhook_update', {
                 method: 'POST',
                 body: JSON.stringify({ p_bot_role: role, p_update_id: updateId })

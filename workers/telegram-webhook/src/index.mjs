@@ -198,6 +198,9 @@ export function createHandler(env, fetchImpl = fetch) {
 
 export default {
     fetch(request, env) {
-        return createHandler(env)(request);
+        return createHandler(env)(request).catch(error => {
+            console.error('Telegram webhook worker request failed:', error?.name || 'UnknownError');
+            return jsonResponse(503, { error: 'Webhook temporarily unavailable; Telegram should retry.' });
+        });
     }
 };

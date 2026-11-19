@@ -73,6 +73,7 @@ window.showToast = function(message, type = 'success', durationMs = 3500) {
     toast.className = `toast ${type}`;
     toast.textContent = message;
     container.appendChild(toast);
+    container.scrollTop = container.scrollHeight;
     requestAnimationFrame(() => toast.classList.add('show'));
 
     setTimeout(() => {

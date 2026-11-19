@@ -16,6 +16,7 @@ function showToast(message, type = 'success') {
     toast.className = `toast ${type}`;
     toast.textContent = message;
     container.appendChild(toast);
+    container.scrollTop = container.scrollHeight;
     requestAnimationFrame(() => toast.classList.add('show'));
     setTimeout(() => {
         toast.classList.remove('show');

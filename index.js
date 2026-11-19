@@ -23,7 +23,16 @@ app.use(cors({
     origin: ['https://drdarsun.ru', 'https://www.drdarsun.ru', 'https://drdarsun-site-main.layero.app'],
     credentials: true
 }));
-app.use(express.json({ limit: '32kb' }));
+app.use(express.json({ limit: '256kb' }));
+app.use((error, req, res, next) => {
+    if (error?.type === 'entity.too.large') {
+        return res.status(413).json({ error: 'Размер запроса превышает допустимый лимит.' });
+    }
+    if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
+        return res.status(400).json({ error: 'Некорректный JSON запроса.' });
+    }
+    next(error);
+});
 app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
@@ -41,9 +50,9 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-let maintenanceCache = { enabled: false, expiresAt: 0 };
-async function getSiteMaintenanceStatus() {
-    if (maintenanceCache.expiresAt > Date.now()) return maintenanceCache.enabled;
+let maintenanceCache = { enabled: false, mode: 'planned', expiresAt: 0 };
+async function getSiteMaintenanceSettings() {
+    if (maintenanceCache.expiresAt > Date.now()) return maintenanceCache;
     const supabaseUrl = process.env.SUPABASE_URL?.replace(/\/$/, '');
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseUrl || !serviceRoleKey) throw new Error('Maintenance status database configuration is missing.');
@@ -59,14 +68,20 @@ async function getSiteMaintenanceStatus() {
         console.error('Site maintenance status lookup failed:', response.status);
         throw new Error('Site maintenance status is unavailable.');
     }
-    maintenanceCache = { enabled: settings[0]?.value?.enabled === true, expiresAt: Date.now() + 5000 };
-    return maintenanceCache.enabled;
+    const savedMode = settings[0]?.value?.mode;
+    maintenanceCache = {
+        enabled: settings[0]?.value?.enabled === true,
+        mode: ['planned', 'emergency'].includes(savedMode) ? savedMode : 'planned',
+        expiresAt: Date.now() + 5000
+    };
+    return maintenanceCache;
 }
 
 app.get('/api/site-status', async (req, res) => {
     try {
         res.setHeader('Cache-Control', 'no-store');
-        res.json({ maintenance: await getSiteMaintenanceStatus() });
+        const settings = await getSiteMaintenanceSettings();
+        res.json({ maintenance: settings.enabled, mode: settings.mode });
     } catch (error) {
         console.error('Site status request failed:', error);
         res.status(503).json({ error: 'Не удалось проверить состояние сайта.' });
@@ -78,11 +93,16 @@ app.use(async (req, res, next) => {
         req.path === '/api/telegram/admin/maintenance' ||
         req.path.startsWith('/api/telegram/webhook/')) return next();
     try {
-        if (!(await getSiteMaintenanceStatus())) return next();
+        const settings = await getSiteMaintenanceSettings();
+        if (!settings.enabled) return next();
+        const emergency = settings.mode === 'emergency';
         res.setHeader('Cache-Control', 'no-store');
         res.status(503).json({
-            error: 'На сайте технический перерыв. Попробуйте позже.',
+            error: emergency
+                ? 'На сайте срочный технический перерыв. Попробуйте позже.'
+                : 'Мы проводим плановые технические работы. Попробуйте позже.',
             maintenance: true,
+            mode: settings.mode,
             page: 'https://drdarsun.ru/maintenance.html'
         });
     } catch (error) {

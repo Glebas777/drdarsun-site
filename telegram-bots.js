@@ -9,7 +9,12 @@ const BOT_DEFINITIONS = [
 ];
 const TOPICS = ['Заказ', 'Доставка', 'Оплата', 'Товар', 'Аккаунт', 'Другое'];
 const ORDER_STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+const MAINTENANCE_MODE_LABELS = {
+    planned: 'плановые работы',
+    emergency: 'срочный техперерыв'
+};
 const states = new Map();
+const updateQueues = new Map();
 const histories = new Map();
 const assistantUsage = new Map();
 const supportUsage = new Map();
@@ -49,7 +54,7 @@ function configuredPanelChatIds(env) {
 
 function ownerAllowed(role, chatId, env) {
     if (role === 'admin') return Boolean(env.MY_CHAT_ID) && chatId === env.MY_CHAT_ID;
-if (role === 'panel') return configuredPanelChatIds(env).includes(chatId);
+    if (role === 'panel') return configuredPanelChatIds(env).includes(chatId);
     return true;
 }
 
@@ -127,6 +132,20 @@ function botLinksMessage() {
     const bots = publicBotLinks();
     if (!bots.length) return 'Ссылки на ботов сейчас недоступны. Напишите позже или обратитесь в поддержку: @darsunhelp.';
     return `Боты Dr. DarSun:\n\n${bots.map(bot => `${bot.label}: @${bot.username}\n${bot.url}`).join('\n\n')}`;
+}
+
+async function showAdminMaintenanceMenu(bot, chatId) {
+    const { enabled, mode } = await bot.callApi('/admin/maintenance', chatId);
+    const status = enabled
+        ? `включён режим: ${MAINTENANCE_MODE_LABELS[mode] || MAINTENANCE_MODE_LABELS.planned}`
+        : 'сайт работает';
+    await bot.send(chatId, `Состояние сайта: ${status}.\nВыберите действие:`, {
+        reply_markup: inline([
+            [{ text: '🛠 Плановые работы', callback_data: 'adm:maint:planned' }],
+            [{ text: '🚨 Срочный перерыв', callback_data: 'adm:maint:emergency' }],
+            [{ text: '▶️ Возобновить сайт', callback_data: 'adm:maint:off' }]
+        ])
+    });
 }
 
 function getPublicBotLinks(env = process.env) {
@@ -267,7 +286,7 @@ function createBotForRole(role, env, request) {
     }, request);
 }
 
-async function processTelegramUpdate(role, update, options = {}) {
+async function processTelegramUpdateNow(role, update, options = {}) {
     const env = options.env || process.env;
     const request = options.fetch || fetch;
     const config = { role };
@@ -287,6 +306,21 @@ async function processTelegramUpdate(role, update, options = {}) {
         await bot.send(chatId, userFacingError(error));
     }
     return { processed: true };
+}
+
+function processTelegramUpdate(role, update, options = {}) {
+    const chatId = updateChatId(update);
+    if (!chatId) return processTelegramUpdateNow(role, update, options);
+
+    const key = stateKey(role, chatId);
+    const previous = updateQueues.get(key) || Promise.resolve();
+    const current = previous
+        .catch(() => {})
+        .then(() => processTelegramUpdateNow(role, update, options));
+    updateQueues.set(key, current);
+    return current.finally(() => {
+        if (updateQueues.get(key) === current) updateQueues.delete(key);
+    });
 }
 
 const CLIENT_CATALOG_PAGE_SIZE = 8;
@@ -365,7 +399,7 @@ function ticketContactLink(number) {
 const SUPPORT_FAQ = {
     account: 'Привязка: войдите в профиль на drdarsun.ru, откройте «Безопасность», создайте код Telegram и отправьте его боту командой /link КОД. Код одноразовый и действует ограниченное время.',
     orders: 'Заказы доступны в клиентском боте после привязки Telegram к профилю. Команда /orders показывает только заказы вашего аккаунта.',
-    notifications: 'Уведомления о заказах можно включить в профиле в разделе настроек или в клиентском боте командой /notifications.',
+    notifications: 'Уведомления о заказах можно включить в профиле: «Безопасность → Telegram — управление связью», или в клиентском боте командой /notifications.',
     storage: 'После открытия бутылки следуйте условиям на этикетке. Обычно масло хранят плотно закрытым, вдали от света и источников тепла.'
 };
 
@@ -864,7 +898,7 @@ async function handleCallback(config, bot, callback, chatId) {
         }
         if (data === 'adm:toast') {
             setState('admin', chatId, { flow: 'toast-recipient' });
-            await bot.send(chatId, 'Кому показать уведомление? Отправьте email конкретного аккаунта или `all` для всех пользователей сайта. Для отмены: /cancel.');
+            await bot.send(chatId, 'Кому показать уведомление? Отправьте email аккаунта или `all` для публичного объявления всем посетителям сайта, включая гостей. Для отмены: /cancel.');
             return;
         }
         if (data === 'adm:toast:cancel') {
@@ -878,7 +912,7 @@ async function handleCallback(config, bot, callback, chatId) {
             if (state.flow !== 'toast-kind' || !['info', 'success', 'warning', 'error'].includes(kind)) return;
             const nextState = { ...state, flow: 'toast-confirm', kind };
             setState('admin', chatId, nextState);
-            const recipient = nextState.target === 'all' ? 'всем пользователям' : safeText(nextState.target, 160);
+            const recipient = nextState.target === 'all' ? 'всем посетителям сайта, включая гостей' : safeText(nextState.target, 160);
             await bot.send(chatId, `Проверьте уведомление:\n\nКому: ${recipient}\nСтиль: ${kind}\nПоказывать: ${nextState.durationSeconds} сек.\n\n${safeText(nextState.message, 500)}`, {
                 reply_markup: inline([[{ text: '✅ Отправить', callback_data: 'adm:toast:send' }, { text: 'Отмена', callback_data: 'adm:toast:cancel' }]])
             });
@@ -897,26 +931,22 @@ async function handleCallback(config, bot, callback, chatId) {
                 })
             });
             setState('admin', chatId, {});
-await bot.send(chatId, result.broadcast
-    ? `Публичное уведомление опубликовано для посетителей сайта.\nСрок показа: ${result.durationSeconds} сек.`
-    : `Уведомление создано.\nПолучателей: ${result.sent}\nСрок показа: ${result.durationSeconds} сек.`,
-    { reply_markup: menuKeyboard('admin') }
-);            return;
-        }
-        if (data === 'adm:maintenance') {
-            const { enabled } = await bot.callApi('/admin/maintenance', chatId);
-            await bot.send(chatId, `Состояние сайта: ${enabled ? 'техперерыв включён' : 'сайт работает'}.\nВыберите действие:`, {
-                reply_markup: inline([
-                    [{ text: '⏸ Включить техперерыв', callback_data: 'adm:maint:on' }],
-                    [{ text: '▶️ Возобновить сайт', callback_data: 'adm:maint:off' }]
-                ])
-            });
+            await bot.send(chatId, result.broadcast
+                ? `Публичное уведомление опубликовано для посетителей сайта.\nСрок показа: ${result.durationSeconds} сек.`
+                : `Уведомление создано.\nПолучателей: ${result.sent}\nСрок показа: ${result.durationSeconds} сек.`, { reply_markup: menuKeyboard('admin') });
             return;
         }
-        if (data === 'adm:maint:on' || data === 'adm:maint:off') {
-            const enabled = data.endsWith(':on');
-            setState('admin', chatId, { flow: 'maintenance-password', enabled });
-            await bot.send(chatId, `${enabled ? 'Поставить весь сайт на технический перерыв' : 'Снять технический перерыв и снова открыть сайт'}?\n\nДля подтверждения отправьте пароль SITE_MAINTENANCE_PASSWORD. Не пересылайте его и не отправляйте в групповой чат. Для отмены: /cancel.`);
+        if (data === 'adm:maintenance') {
+            return showAdminMaintenanceMenu(bot, chatId);
+        }
+        if (['adm:maint:on', 'adm:maint:off', 'adm:maint:planned', 'adm:maint:emergency'].includes(data)) {
+            const enabled = data !== 'adm:maint:off';
+            const mode = data === 'adm:maint:emergency' ? 'emergency' : 'planned';
+            setState('admin', chatId, { flow: 'maintenance-password', enabled, mode });
+            const action = enabled
+                ? `включить режим «${MAINTENANCE_MODE_LABELS[mode]}» для всего сайта`
+                : 'снять техперерыв и снова открыть сайт';
+            await bot.send(chatId, `Подтвердите: ${action}?\n\nДля подтверждения отправьте пароль SITE_MAINTENANCE_PASSWORD. Не пересылайте его и не отправляйте в групповой чат. Для отмены: /cancel.`);
             return;
         }
         if (data === 'adm:reviews') return listAdminReviews(bot, chatId);
@@ -1168,7 +1198,7 @@ async function handleMessage(config, bot, message) {
             }
             if (text === '🔗 Связать аккаунт') {
                 const profileUrl = 'https://drdarsun.ru/profile.html';
-                await bot.send(chatId, 'Откройте настройки профиля на сайте, создайте код привязки и отправьте его сюда командой /link КОД.', {
+                await bot.send(chatId, 'Откройте профиль → «Безопасность» → «Telegram — управление связью», создайте код привязки и отправьте его сюда командой /link КОД.', {
                     reply_markup: inline([[{ text: 'Открыть профиль', url: profileUrl }]])
                 });
                 return;
@@ -1176,16 +1206,30 @@ async function handleMessage(config, bot, message) {
             if (text === 'ℹ️ Помощь' || text === '/help') {
                 const username = botUsernames.get('support');
                 await bot.send(chatId, username
-                    ? 'Откройте бота-помощника и задайте вопрос.'
-                    : 'Напишите в бота-помощника, чтобы задать вопрос. Для привязки используйте /link КОД.',
+                    ? 'Каталог: /catalog · поиск: /search запрос · заказы: /orders · управление уведомлениями: /notifications · привязка: /link КОД.\nДля вопроса откройте бота-помощника.'
+                    : 'Каталог: /catalog · поиск: /search запрос · заказы: /orders · уведомления: /notifications · привязка: /link КОД.\nДля поддержки напишите @darsunhelp.',
                 {
                     ...(username ? { reply_markup: inline([[{ text: 'Открыть помощника', url: `https://t.me/${username}` }]]) } : {})
                 });
                 return;
             }
+            if (config.role === 'client') {
+                if (text.startsWith('/')) {
+                    await bot.send(chatId, 'Не знаю эту команду. Используйте /help, чтобы увидеть доступные действия.', {
+                        reply_markup: menuKeyboard('client')
+                    });
+                    return;
+                }
+                await showCatalog(bot, chatId, { search: text.slice(0, 80) });
+                return;
+            }
         }
         if (text === '/help') {
             await bot.send(chatId, 'Создайте код привязки в настройках профиля на сайте, затем отправьте /link КОД.');
+        } else if (text.startsWith('/')) {
+            await bot.send(chatId, 'Для привязки откройте профиль на сайте, создайте код и отправьте /link КОД. Для команд отправьте /help.');
+        } else {
+            await bot.send(chatId, 'Этот бот принимает только код привязки. Откройте профиль сайта, создайте код и отправьте /link КОД.');
         }
         return;
     }
@@ -1262,11 +1306,15 @@ async function handleMessage(config, bot, message) {
             try {
                 const result = await bot.callApi('/admin/maintenance', chatId, {
                     method: 'POST',
-                    body: JSON.stringify({ enabled: adminState.enabled, password: text })
+                    body: JSON.stringify({
+                        enabled: adminState.enabled,
+                        ...(adminState.enabled ? { mode: adminState.mode } : {}),
+                        password: text
+                    })
                 });
                 setState('admin', chatId, {});
                 await bot.send(chatId, result.enabled
-                    ? 'Технический перерыв включён. Страницы сайта будут показывать уведомление.'
+                    ? `Включён режим «${MAINTENANCE_MODE_LABELS[result.mode] || MAINTENANCE_MODE_LABELS.planned}». Страницы сайта покажут соответствующее уведомление.`
                     : 'Технический перерыв снят. Сайт снова открыт.');
             } catch (error) {
                 setState('admin', chatId, {});
@@ -1327,18 +1375,12 @@ async function handleMessage(config, bot, message) {
             const { orders = [] } = await bot.callApi('/admin/orders?offset=0', chatId);
             await bot.send(chatId, formatOrders(orders), { reply_markup: menuKeyboard('admin') });
         } else if (text === '🛠 Техперерыв' || text === '/maintenance') {
-            const { enabled } = await bot.callApi('/admin/maintenance', chatId);
-            await bot.send(chatId, `Состояние сайта: ${enabled ? 'техперерыв включён' : 'сайт работает'}.\nВыберите действие:`, {
-                reply_markup: inline([
-                    [{ text: '⏸ Включить техперерыв', callback_data: 'adm:maint:on' }],
-                    [{ text: '▶️ Возобновить сайт', callback_data: 'adm:maint:off' }]
-                ])
-            });
+            await showAdminMaintenanceMenu(bot, chatId);
         } else if (text === '🔔 Уведомление' || text === '/toast') {
             setState('admin', chatId, { flow: 'toast-recipient' });
-            await bot.send(chatId, 'Кому показать уведомление? Отправьте email конкретного аккаунта или `all` для всех пользователей сайта. Для отмены: /cancel.');
+            await bot.send(chatId, 'Кому показать уведомление? Отправьте email аккаунта или `all` для публичного объявления всем посетителям сайта, включая гостей. Для отмены: /cancel.');
         } else if (text === '/help') {
-            await bot.send(chatId, 'Используйте кнопки для обращений, модерации, заказов, техперерыва и уведомлений на сайте.');
+            await bot.send(chatId, 'Команды: /tickets [open|closed] — обращения, /reviews — отзывы, /orders — заказы, /maintenance — режим сайта, /toast — уведомление на сайте. Для отмены текущего ввода: /cancel.');
         } else if (getState('admin', chatId).flow === 'ticket-reply') {
             const state = getState('admin', chatId);
             if (text === '/cancel') {
@@ -1355,6 +1397,10 @@ async function handleMessage(config, bot, message) {
             await bot.send(chatId, result.delivered
                 ? 'Ответ отправлен клиенту.'
                 : 'Ответ сохранён в обращении, но Telegram не подтвердил доставку. Проверьте HELP_BOT_TOKEN.');
+        } else {
+            await bot.send(chatId, 'Не распознал команду. Отправьте /help или используйте кнопки меню.', {
+                reply_markup: menuKeyboard('admin')
+            });
         }
         return;
     }
@@ -1375,9 +1421,15 @@ async function handleMessage(config, bot, message) {
         } else if (text === '🧾 История' || text === '/history') {
             await listAuditLog(bot, chatId);
         } else if (text === '/help') {
-            await bot.send(chatId, 'Кнопки: заказы, создание заказа, поиск/изменение товара и журнал действий. Изменения требуют подтверждения. /cancel отменяет текущий ввод.');
+            await bot.send(chatId, 'Команды: /orders [pending|processing|shipped|delivered|cancelled], /neworder, /products, /newproduct, /history. Изменения требуют подтверждения; /cancel отменяет текущий ввод.');
         } else {
-            await processPanelText(bot, chatId, text);
+            if (text.startsWith('/')) {
+                await bot.send(chatId, 'Не знаю эту команду. Отправьте /help или выберите действие в меню.', {
+                    reply_markup: menuKeyboard('panel')
+                });
+            } else {
+                await processPanelText(bot, chatId, text);
+            }
         }
     }
 }
