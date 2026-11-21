@@ -4,15 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="referrer" content="no-referrer">
-    <title>Вход...</title>
+    <title>Подтверждение · Dr. DarSun</title>
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/auth.css">
+    <link rel="stylesheet" href="../css/auth-mobile.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js"></script>
 </head>
-<body style="background: #0A0A0A; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
-    <div style="width: min(100% - 32px, 480px); text-align: center;">
+<body class="auth-page standalone-auth-page">
+    <main class="standalone-auth-card standalone-confirm-card">
         <h2 id="title">Проверяем токен...</h2>
         <p id="status">Пожалуйста, подождите.</p>
         <a href="https://drdarsun.ru/login.html" style="color: #e0bd72;">Вернуться ко входу</a>
-    </div>
+    </main>
 
     <script>
         const SUPABASE_URL = 'https://drdarsun-site-main.layero.app';
@@ -96,5 +99,6 @@
         confirm();
     </script>
     <script src="../js/site-status.js"></script>
+    <script type="module" src="../js/temporary-payment-notice.js"></script>
 </body>
 </html>

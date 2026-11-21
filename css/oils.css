@@ -56,6 +56,18 @@
 .oil-catalog__orbit::after { content: ''; position: absolute; top: 12%; left: 12%; width: 12px; height: 12px; border-radius: 50%; background: var(--accent-gold); box-shadow: 0 0 24px var(--accent-gold); }
 @keyframes orbit-spin { to { transform: rotate(360deg); } }
 .oil-catalog__body { padding-top: 10px; }
+.plastic-storage { display: grid; gap: 20px; margin: 0 0 22px; padding: clamp(22px, 4vw, 36px); border: 1px solid color-mix(in srgb, var(--accent-gold) 36%, var(--border)); border-radius: 22px; background: radial-gradient(ellipse at 5% 0, color-mix(in srgb, var(--accent-green) 10%, transparent), transparent 48%), var(--bg-card); }
+.plastic-storage__heading { display: grid; grid-template-columns: 54px minmax(0, 1fr); align-items: start; gap: 16px; }
+.plastic-storage__icon { display: grid; width: 52px; height: 52px; place-items: center; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-color); color: var(--accent-green); }
+.plastic-storage__icon svg { width: 27px; height: 27px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; }
+.plastic-storage__heading .eyebrow { margin: 0 0 4px; font-size: 9px; }
+.plastic-storage__heading h2 { margin: 0 0 8px; font-size: clamp(20px, 3vw, 28px); letter-spacing: -.035em; }
+.plastic-storage__heading p:last-child { max-width: 760px; margin: 0; color: var(--text-muted); font-size: 13px; line-height: 1.65; }
+.plastic-storage__steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.plastic-storage__steps li { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: start; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: color-mix(in srgb, var(--bg-color) 72%, transparent); color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+.plastic-storage__steps svg { width: 23px; height: 23px; fill: none; stroke: var(--accent-green); stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; }
+.plastic-storage__steps strong { color: var(--text-main); }
+.dark-theme .plastic-storage__icon, .dark-theme .plastic-storage__steps svg { color: var(--accent-gold); stroke: var(--accent-gold); }
 .oil-catalog__toolbar { position: sticky; top: 76px; z-index: 30; display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 18px; padding: 12px; border: 1px solid var(--border); border-radius: 18px; background: color-mix(in srgb, var(--bg-color) 88%, transparent); backdrop-filter: blur(18px); }
 .oil-catalog__toolbar label { display: grid; flex: 1; max-width: 520px; gap: 6px; font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); }
 .oil-catalog__toolbar input { width: 100%; height: 48px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); color: var(--text-main); padding: 0 15px; outline: none; font-size: 15px; }
@@ -101,6 +113,14 @@
     .oil-catalog__hero-art figcaption { max-width: 240px; margin-top: 6px; font-size: 9px; }
     .orbit-one { width: 205px; height: 205px; }
     .orbit-two { width: 154px; height: 154px; }
+    .plastic-storage { gap: 14px; padding: 20px 16px; border-radius: 18px; }
+    .plastic-storage__heading { grid-template-columns: 42px minmax(0, 1fr); gap: 11px; }
+    .plastic-storage__icon { width: 42px; height: 42px; border-radius: 13px; }
+    .plastic-storage__icon svg { width: 22px; height: 22px; }
+    .plastic-storage__heading h2 { font-size: 20px; }
+    .plastic-storage__heading p:last-child { font-size: 12px; }
+    .plastic-storage__steps { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+    .plastic-storage__steps li { padding: 12px; }
     .oil-catalog__toolbar { top: 62px; align-items: stretch; gap: 8px; padding: 9px; }
     .oil-catalog__toolbar label { min-width: 0; font-size: 9px; }
     .oil-catalog__toolbar input { height: 44px; padding-inline: 10px; font-size: 14px; }

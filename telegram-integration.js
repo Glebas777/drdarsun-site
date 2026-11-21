@@ -11,11 +11,7 @@ const {
 } = require('./oil-product-options');
 
 const BOT_TOKEN_ENV = {
-    client: 'CLIENT_BOT_TOKEN',
-    admin: 'ADMIN_BOT_TOKEN',
-    panel: 'PANEL_BOT_TOKEN',
-    auth: 'CODE_BOT_TOKEN',
-    support: 'HELP_BOT_TOKEN'
+    admin: 'ADMIN_BOT_TOKEN'
 };
 const SUPPORT_TOPICS = ['Заказ', 'Доставка', 'Оплата', 'Товар', 'Аккаунт', 'Другое'];
 const ORDER_STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
@@ -30,10 +26,6 @@ function isValidChatId(value) {
     if (!/^-?\d{1,19}$/.test(value || '')) return false;
     const chatId = BigInt(value);
     return chatId >= -9223372036854775808n && chatId <= 9223372036854775807n;
-}
-
-function isUuid(value) {
-    return /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(value || '');
 }
 
 function safeMessageText(value, maxLength) {
@@ -56,6 +48,7 @@ function createTelegramIntegrationRouter(options = {}) {
 
         const response = await request(`${supabaseUrl}/rest/v1/${path}`, {
             ...init,
+            signal: init.signal || AbortSignal.timeout(10000),
             headers: {
                 'apikey': serviceRoleKey,
                 'Authorization': `Bearer ${serviceRoleKey}`,
@@ -91,30 +84,6 @@ function createTelegramIntegrationRouter(options = {}) {
         }
     }
 
-    async function notifyCustomerOrder(userId, order, created = false) {
-        const token = env.CLIENT_BOT_TOKEN;
-        if (!token || !isUuid(userId) || !order?.id) return;
-        const [preference] = await databaseRequest(`notification_settings?select=telegram_enabled&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
-        if (preference?.telegram_enabled !== true) return;
-        const [account] = await databaseRequest(`telegram_accounts?select=telegram_chat_id&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
-        if (!account?.telegram_chat_id || !isValidChatId(String(account.telegram_chat_id))) return;
-
-        const orderLabel = safeMessageText(order.id, 40);
-        const message = created
-            ? `Ваш заказ №${orderLabel} создан. Текущий статус: ${safeMessageText(order.status || 'pending', 40)}.`
-            : `Обновление заказа №${orderLabel}: новый статус — ${safeMessageText(order.status, 40)}.`;
-        const response = await request(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: String(account.telegram_chat_id), text: message }),
-            signal: AbortSignal.timeout(10000)
-        });
-        const result = await response.json().catch(() => null);
-        if (!response.ok || !result?.ok) {
-            throw new Error(`Telegram order notification failed with status ${response.status}.`);
-        }
-    }
-
     function authenticateBot(req, res, next) {
         const match = /^Bearer ([^\s]+)$/.exec(req.get('Authorization') || '');
         if (!match) return res.status(401).json({ error: 'Требуется токен Telegram-бота.' });
@@ -140,15 +109,10 @@ function createTelegramIntegrationRouter(options = {}) {
     }
 
     function requireOwnerChat(req, res, next) {
-        const expectedChatIds = req.telegramBotRole === 'admin'
-            ? String(env.MY_CHAT_ID || '').split(',').map(value => value.trim()).filter(Boolean)
-            : [...new Set([env.M_CHAT_ID, env.PANEL_CHAT_ID]
-                .flatMap(value => String(value || '').split(','))
-                .map(value => value.trim())
-                .filter(Boolean))];
+        const ownerChatId = String(env.MY_CHAT_ID || env.PANEL_CHAT_ID || env.M_CHAT_ID || '').trim();
         const suppliedChatId = req.get('X-Telegram-Chat-Id') || '';
 
-        if (!expectedChatIds.length || !isValidChatId(suppliedChatId) || !expectedChatIds.includes(suppliedChatId)) {
+        if (!ownerChatId || !isValidChatId(suppliedChatId) || suppliedChatId !== ownerChatId) {
             return res.status(403).json({ error: 'Этот Telegram-аккаунт не имеет доступа.' });
         }
         next();
@@ -411,130 +375,13 @@ function createTelegramIntegrationRouter(options = {}) {
 
     router.get('/integration/status', authenticateBot, (req, res) => {
         const capabilities = {
-            client: ['link:confirm', 'support:create', 'catalog:read', 'orders:read:own'],
-            admin: ['orders:read', 'support:read', 'reviews:moderate'],
-            panel: ['orders:read', 'orders:create', 'orders:update', 'products:manage'],
-            auth: ['link:confirm'],
-            support: ['support:create', 'support:read', 'support:reply', 'support:update', 'catalog:read']
+            admin: ['orders:read', 'orders:update', 'products:manage', 'reviews:moderate']
         };
         res.setHeader('Cache-Control', 'no-store');
         res.json({ bot: req.telegramBotRole, capabilities: capabilities[req.telegramBotRole] });
     });
 
-    router.post('/link/start', authenticateSiteUser, withErrors('Telegram link request failed', async (req, res) => {
-        if (!serviceRoleKey) throw new Error('Telegram integration database configuration is missing.');
-        const code = crypto.randomBytes(8).toString('hex').toUpperCase();
-        const codeHash = crypto.createHmac('sha256', serviceRoleKey).update(code).digest('hex');
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-        await databaseRequest('telegram_link_requests', {
-            method: 'POST',
-            headers: { Prefer: 'return=minimal' },
-            body: JSON.stringify({
-                code_hash: codeHash,
-                user_id: req.siteUser.id,
-                email: req.siteUser.email.toLowerCase(),
-                expires_at: expiresAt
-            })
-        });
-        res.setHeader('Cache-Control', 'no-store');
-        res.status(201).json({ code, expiresAt });
-    }));
-
-    router.get('/link', authenticateSiteUser, withErrors('Telegram link status lookup failed', async (req, res) => {
-        const [account] = await databaseRequest(`telegram_accounts?select=telegram_username,linked_at&user_id=eq.${encodeURIComponent(req.siteUser.id)}&limit=1`);
-        res.json({ account: account || null });
-    }));
-
-    router.post('/link/confirm', authenticateBot, allowRoles('client', 'auth'), withErrors('Telegram link confirmation failed', async (req, res) => {
-        const chatId = req.get('X-Telegram-Chat-Id') || '';
-        const code = typeof req.body?.code === 'string' ? req.body.code.trim().toUpperCase() : '';
-        const username = typeof req.body?.username === 'string'
-            ? req.body.username.trim().replace(/^@/, '').slice(0, 64)
-            : null;
-        if (!isValidChatId(chatId) || !/^[A-F0-9]{16}$/.test(code)) {
-            return res.status(400).json({ error: 'Укажите корректный код привязки и Telegram chat ID.' });
-        }
-
-        const codeHash = crypto.createHmac('sha256', serviceRoleKey)
-            .update(code)
-            .digest('hex');
-        const linked = await databaseRequest('rpc/confirm_telegram_link', {
-            method: 'POST',
-            body: JSON.stringify({
-                p_code_hash: codeHash,
-                p_telegram_chat_id: chatId,
-                p_telegram_username: username
-            })
-        });
-        if (linked !== true) {
-            return res.status(400).json({ error: 'Код истёк, уже использован или аккаунт уже связан с Telegram.' });
-        }
-        res.json({ success: true });
-    }));
-
-    router.delete('/link', authenticateSiteUser, withErrors('Telegram unlink failed', async (req, res) => {
-        await databaseRequest(`telegram_accounts?user_id=eq.${encodeURIComponent(req.siteUser.id)}`, {
-            method: 'DELETE',
-            headers: { Prefer: 'return=minimal' }
-        });
-        res.json({ success: true });
-    }));
-
-    router.get('/client/catalog', authenticateBot, allowRoles('client', 'support'), withErrors('Telegram catalog lookup failed', async (req, res) => {
-        const search = typeof req.query.search === 'string' ? req.query.search.trim().slice(0, 80) : '';
-        const offset = Math.max(0, Math.min(1000, Number.parseInt(req.query.offset, 10) || 0));
-        const products = await databaseRequest('products?select=id,name,price,description,category&order=name.asc&limit=200');
-        const normalizedSearch = search.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('ru-RU');
-        const matchingProducts = normalizedSearch
-            ? products.filter(product => [product.name, product.category, product.description]
-                .some(value => String(value || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('ru-RU').includes(normalizedSearch)))
-            : products;
-        const limit = 8;
-        res.json({
-            products: matchingProducts.slice(offset, offset + limit),
-            offset,
-            search,
-            hasMore: offset + limit < matchingProducts.length,
-            total: matchingProducts.length
-        });
-    }));
-
-    router.get('/client/orders', authenticateBot, allowRoles('client'), withErrors('Telegram customer orders lookup failed', async (req, res) => {
-        const chatId = req.get('X-Telegram-Chat-Id') || '';
-        if (!isValidChatId(chatId)) return res.status(400).json({ error: 'Некорректный Telegram chat ID.' });
-        const offset = Math.max(0, Math.min(1000, Number.parseInt(req.query.offset, 10) || 0));
-        const [account] = await databaseRequest(`telegram_accounts?select=user_id&telegram_chat_id=eq.${encodeURIComponent(chatId)}&limit=1`);
-        if (!account) return res.json({ linked: false, orders: [], offset, hasMore: false });
-        const rows = await databaseRequest(`orders?select=id,items,total,status,created_at&user_id=eq.${encodeURIComponent(account.user_id)}&order=created_at.desc&limit=11&offset=${offset}`);
-        res.json({ linked: true, orders: rows.slice(0, 10), offset, hasMore: rows.length > 10 });
-    }));
-
-    router.get('/client/notifications', authenticateBot, allowRoles('client'), withErrors('Telegram customer notification preference lookup failed', async (req, res) => {
-        const chatId = req.get('X-Telegram-Chat-Id') || '';
-        if (!isValidChatId(chatId)) return res.status(400).json({ error: 'Некорректный Telegram chat ID.' });
-        const [account] = await databaseRequest(`telegram_accounts?select=user_id&telegram_chat_id=eq.${encodeURIComponent(chatId)}&limit=1`);
-        if (!account) return res.json({ linked: false, enabled: false });
-        const [preference] = await databaseRequest(`notification_settings?select=telegram_enabled&user_id=eq.${encodeURIComponent(account.user_id)}&limit=1`);
-        res.json({ linked: true, enabled: preference?.telegram_enabled === true });
-    }));
-
-    router.patch('/client/notifications', authenticateBot, allowRoles('client'), withErrors('Telegram customer notification preference update failed', async (req, res) => {
-        const chatId = req.get('X-Telegram-Chat-Id') || '';
-        const enabled = req.body?.enabled;
-        if (!isValidChatId(chatId) || typeof enabled !== 'boolean') {
-            return res.status(400).json({ error: 'Укажите Telegram chat ID и значение enabled.' });
-        }
-        const [account] = await databaseRequest(`telegram_accounts?select=user_id&telegram_chat_id=eq.${encodeURIComponent(chatId)}&limit=1`);
-        if (!account) return res.status(409).json({ error: 'Сначала привяжите Telegram в профиле на сайте.' });
-        await databaseRequest('notification_settings?on_conflict=user_id', {
-            method: 'POST',
-            headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-            body: JSON.stringify({ user_id: account.user_id, telegram_enabled: enabled })
-        });
-        res.json({ linked: true, enabled });
-    }));
-
-    router.get('/support/my-ticket', authenticateBot, allowRoles('client', 'support'), withErrors('Telegram customer ticket lookup failed', async (req, res) => {
+    router.get('/support/my-ticket', authenticateBot, allowRoles('support'), withErrors('Telegram customer ticket lookup failed', async (req, res) => {
         const chatId = req.get('X-Telegram-Chat-Id') || '';
         if (!isValidChatId(chatId)) return res.status(400).json({ error: 'Некорректный Telegram chat ID.' });
         const [ticket] = await databaseRequest(`telegram_support_tickets?select=id,ticket_number,topic,status,created_at,updated_at&telegram_chat_id=eq.${encodeURIComponent(chatId)}&status=eq.open&order=created_at.desc&limit=1`);
@@ -543,7 +390,7 @@ function createTelegramIntegrationRouter(options = {}) {
         res.json({ ticket, messages: messages.reverse() });
     }));
 
-    router.post('/support/tickets', authenticateBot, allowRoles('client', 'support'), withErrors('Telegram support ticket creation failed', async (req, res) => {
+    router.post('/support/tickets', authenticateBot, allowRoles('support'), withErrors('Telegram support ticket creation failed', async (req, res) => {
         const chatId = req.get('X-Telegram-Chat-Id') || '';
         const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
         const topic = SUPPORT_TOPICS.includes(req.body?.topic) ? req.body.topic : 'Другое';
@@ -571,7 +418,7 @@ function createTelegramIntegrationRouter(options = {}) {
         });
     }));
 
-    router.post('/support/tickets/:id/message', authenticateBot, allowRoles('client', 'support'), withErrors('Telegram support message failed', async (req, res) => {
+    router.post('/support/tickets/:id/message', authenticateBot, allowRoles('support'), withErrors('Telegram support message failed', async (req, res) => {
         if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Некорректный номер обращения.' });
         const chatId = req.get('X-Telegram-Chat-Id') || '';
         const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
@@ -591,7 +438,7 @@ function createTelegramIntegrationRouter(options = {}) {
         res.json({ success: true });
     }));
 
-    router.post('/support/tickets/:id/close', authenticateBot, allowRoles('client', 'support'), withErrors('Telegram customer ticket close failed', async (req, res) => {
+    router.post('/support/tickets/:id/close', authenticateBot, allowRoles('support'), withErrors('Telegram customer ticket close failed', async (req, res) => {
         if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Некорректный номер обращения.' });
         const chatId = req.get('X-Telegram-Chat-Id') || '';
         if (!isValidChatId(chatId)) return res.status(400).json({ error: 'Некорректный Telegram chat ID.' });
@@ -700,7 +547,7 @@ function createTelegramIntegrationRouter(options = {}) {
         const [updatedTicket] = await databaseRequest(`telegram_support_tickets?select=updated_at&id=eq.${req.params.id}&limit=1`);
         const updatedAt = updatedTicket?.updated_at || null;
 
-        const helperToken = env.HELP_BOT_TOKEN;
+        const helperToken = env.ADMIN_BOT_TOKEN;
         if (!helperToken) return res.status(202).json({ success: true, delivered: false, updated_at: updatedAt });
         try {
             const delivery = await request(`https://api.telegram.org/bot${helperToken}/sendMessage`, {
@@ -735,8 +582,23 @@ function createTelegramIntegrationRouter(options = {}) {
 
     router.get('/admin/reviews', authenticateBot, allowRoles('admin'), requireOwnerChat, withErrors('Telegram review moderation lookup failed', async (req, res) => {
         const offset = Math.max(0, Math.min(100000, Number.parseInt(req.query.offset, 10) || 0));
-        const reviews = await databaseRequest(`brand_reviews?select=id,user_name,rating,review_text,created_at&status=eq.pending&order=created_at.asc&limit=11&offset=${offset}`);
-        res.json({ reviews: reviews.slice(0, 10), offset, hasMore: reviews.length > 10 });
+        const reviews = await databaseRequest(`brand_reviews?select=id,user_name,rating,created_at,product_id&status=eq.pending&order=created_at.asc&limit=11&offset=${offset}`);
+        const page = reviews.slice(0, 10);
+        const productIds = [...new Set(page
+            .map(review => review.product_id)
+            .filter(id => typeof id === 'string' && /^[A-Za-z0-9_-]{1,120}$/.test(id)))];
+        const products = productIds.length
+            ? await databaseRequest(`products?select=id,name&id=in.(${productIds.join(',')})`)
+            : [];
+        const productNames = new Map(products.map(product => [product.id, product.name]));
+        res.json({
+            reviews: page.map(review => ({
+                ...review,
+                product_name: review.product_id ? productNames.get(review.product_id) || 'Товар удалён' : null
+            })),
+            offset,
+            hasMore: reviews.length > 10
+        });
     }));
 
     router.patch('/admin/reviews/:id', authenticateBot, allowRoles('admin'), requireOwnerChat, withErrors('Telegram review moderation failed', async (req, res) => {
@@ -753,7 +615,7 @@ function createTelegramIntegrationRouter(options = {}) {
         res.json({ success: true });
     }));
 
-    router.get('/panel/orders', authenticateBot, allowRoles('panel'), requireOwnerChat, withErrors('Telegram panel orders lookup failed', async (req, res) => {
+    router.get('/panel/orders', authenticateBot, allowRoles('panel', 'admin'), requireOwnerChat, withErrors('Telegram panel orders lookup failed', async (req, res) => {
         const offset = Math.max(0, Math.min(100000, Number.parseInt(req.query.offset, 10) || 0));
         const status = ORDER_STATUSES.includes(req.query.status) ? req.query.status : '';
         const statusFilter = status ? `&status=eq.${status}` : '';
@@ -767,7 +629,7 @@ function createTelegramIntegrationRouter(options = {}) {
         res.json({ entries: entries.slice(0, 20), offset, hasMore: entries.length > 20 });
     }));
 
-    router.post('/panel/orders', authenticateBot, allowRoles('panel'), requireOwnerChat, withErrors('Telegram order creation failed', async (req, res) => {
+    router.post('/panel/orders', authenticateBot, allowRoles('panel', 'admin'), requireOwnerChat, withErrors('Telegram order creation failed', async (req, res) => {
         const userId = typeof req.body?.user_id === 'string' ? req.body.user_id : '';
         const itemsInput = req.body?.items;
         if (!isUuid(userId) || !Array.isArray(itemsInput) || itemsInput.length < 1 || itemsInput.length > 20) {
@@ -801,13 +663,10 @@ function createTelegramIntegrationRouter(options = {}) {
             item_count: items.length,
             total
         });
-        notifyCustomerOrder(userId, order, true).catch(error => {
-            console.warn('Telegram order creation notification failed:', error.message);
-        });
         res.status(201).json({ order });
     }));
 
-    router.patch('/panel/orders/:id', authenticateBot, allowRoles('panel'), requireOwnerChat, withErrors('Telegram order update failed', async (req, res) => {
+    router.patch('/panel/orders/:id', authenticateBot, allowRoles('panel', 'admin'), requireOwnerChat, withErrors('Telegram order update failed', async (req, res) => {
         const orderId = typeof req.params.id === 'string' && /^[A-Za-z0-9_-]{1,120}$/.test(req.params.id)
             ? req.params.id
             : '';
@@ -850,22 +709,17 @@ function createTelegramIntegrationRouter(options = {}) {
             status: order.status,
             total: order.total
         });
-        if (previousOrder && previousOrder.status !== order.status) {
-            notifyCustomerOrder(order.user_id || previousOrder.user_id, order).catch(error => {
-                console.warn('Telegram order status notification failed:', error.message);
-            });
-        }
         res.json({ order });
     }));
 
-    router.get('/panel/products', authenticateBot, allowRoles('panel'), requireOwnerChat, withErrors('Telegram product lookup failed', async (req, res) => {
+    router.get('/panel/products', authenticateBot, allowRoles('panel', 'admin'), requireOwnerChat, withErrors('Telegram product lookup failed', async (req, res) => {
         const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 8));
         const offset = Math.min(100000, Math.max(0, Number.parseInt(req.query.offset, 10) || 0));
         const rows = await databaseRequest(`products?select=id,name,price,description,category,image_url,volume,packaging_type,pressing_type,shelf_life_months&order=name.asc,id.asc&limit=${limit + 1}&offset=${offset}`);
         res.json({ products: rows.slice(0, limit), hasMore: rows.length > limit, offset });
     }));
 
-    router.get('/panel/oil-types', authenticateBot, allowRoles('panel'), requireOwnerChat, (_req, res) => {
+    router.get('/panel/oil-types', authenticateBot, allowRoles('panel', 'admin'), requireOwnerChat, (_req, res) => {
         res.setHeader('Cache-Control', 'no-store');
         res.json({
             oils: OIL_TYPES,
@@ -876,7 +730,7 @@ function createTelegramIntegrationRouter(options = {}) {
         });
     });
 
-    router.post('/panel/products', authenticateBot, allowRoles('panel'), requireOwnerChat, withErrors('Telegram product creation failed', async (req, res) => {
+    router.post('/panel/products', authenticateBot, allowRoles('panel', 'admin'), requireOwnerChat, withErrors('Telegram product creation failed', async (req, res) => {
         const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
         const category = typeof req.body?.category === 'string' ? req.body.category.trim() : '';
         const description = typeof req.body?.description === 'string' ? req.body.description.trim() : '';
@@ -925,7 +779,7 @@ function createTelegramIntegrationRouter(options = {}) {
         res.status(201).json({ product });
     }));
 
-    router.patch('/panel/products/:id', authenticateBot, allowRoles('panel'), requireOwnerChat, withErrors('Telegram product update failed', async (req, res) => {
+    router.patch('/panel/products/:id', authenticateBot, allowRoles('panel', 'admin'), requireOwnerChat, withErrors('Telegram product update failed', async (req, res) => {
         const productId = typeof req.params.id === 'string' && /^[A-Za-z0-9_-]{1,120}$/.test(req.params.id)
             ? req.params.id
             : '';

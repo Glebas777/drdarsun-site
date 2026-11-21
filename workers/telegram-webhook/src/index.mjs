@@ -1,15 +1,10 @@
 const BOT_ROLES = {
-    client: { token: 'CLIENT_BOT_TOKEN', webhookSecret: 'CLIENT_WEBHOOK_SECRET' },
-    admin: { token: 'ADMIN_BOT_TOKEN', webhookSecret: 'ADMIN_WEBHOOK_SECRET' },
-    panel: { token: 'PANEL_BOT_TOKEN', webhookSecret: 'PANEL_WEBHOOK_SECRET' },
-    auth: { token: 'CODE_BOT_TOKEN', webhookSecret: 'AUTH_WEBHOOK_SECRET' },
-    support: { token: 'HELP_BOT_TOKEN', webhookSecret: 'SUPPORT_WEBHOOK_SECRET' }
+    admin: { token: 'ADMIN_BOT_TOKEN', webhookSecret: 'ADMIN_WEBHOOK_SECRET' }
 };
-const BOT_ROLE_ORDER = ['admin', 'panel', 'client', 'auth', 'support'];
+const BOT_ROLE_ORDER = ['admin'];
 
 const encoder = new TextEncoder();
 const MAX_UPDATE_BYTES = 256 * 1024;
-const MAX_QUEUE_MESSAGE_BYTES = 120 * 1024;
 const TELEGRAM_SECRET_PATTERN = /^[A-Za-z0-9_-]{1,256}$/;
 
 function jsonResponse(status, body) {
@@ -34,6 +29,15 @@ function constantTimeEqual(left, right) {
     return difference === 0;
 }
 
+function activeRoles(env) {
+    const configuredRoles = String(env.WORKER_ROLES || '')
+        .split(',')
+        .map(role => role.trim())
+        .filter(Boolean);
+    if (!configuredRoles.length) return BOT_ROLE_ORDER;
+    return BOT_ROLE_ORDER.filter(role => configuredRoles.includes(role));
+}
+
 function configuredLayeroUrl(env) {
     try {
         const url = new URL(env.LAYER0_API_BASE_URL);
@@ -47,8 +51,8 @@ function configuredLayeroUrl(env) {
 function expectedWebhookUrl(env, role) {
     try {
         const url = new URL(env.TELEGRAM_WORKER_PUBLIC_URL);
-        if (url.protocol !== 'https:' || url.pathname !== '/' ||
-            url.search || url.hash || url.username || url.password) return null;
+        if (url.protocol !== 'https:' || url.pathname !== '/' || url.search || url.hash ||
+            url.username || url.password) return null;
         return new URL(`/telegram/${role}`, url).toString();
     } catch {
         return null;
@@ -60,7 +64,7 @@ async function telegramRequest(token, method, payload, fetchImpl) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(15000)
+        signal: AbortSignal.timeout(10000)
     });
     const result = await response.json().catch(() => null);
     if (!response.ok || !result?.ok) {
@@ -69,12 +73,23 @@ async function telegramRequest(token, method, payload, fetchImpl) {
     return result.result;
 }
 
+export async function sendToUser(role, chatId, text, extra = {}, env, fetchImpl = fetch) {
+    const config = BOT_ROLES[role];
+    if (!config) throw new Error('Unknown Telegram bot role.');
+    const token = env[config.token];
+    if (!token) throw new Error(`The ${role} bot is not configured.`);
+    return telegramRequest(token, 'sendMessage', {
+        chat_id: chatId,
+        text,
+        ...extra
+    }, fetchImpl);
+}
+
 async function forwardUpdateToLayero(role, update, env, fetchImpl) {
     const backendUrl = configuredLayeroUrl(env);
     const sharedSecret = env.TELEGRAM_WORKER_SHARED_SECRET || '';
-    if (!backendUrl || sharedSecret.length < 32) {
-        throw new Error('Webhook backend is not configured.');
-    }
+    if (!backendUrl) throw new Error('Layero API base URL is missing or invalid.');
+    if (sharedSecret.length < 32) throw new Error('Worker shared secret is missing or too short.');
     return fetchImpl(new URL(`/api/telegram/webhook/${role}`, backendUrl), {
         method: 'POST',
         headers: {
@@ -86,154 +101,40 @@ async function forwardUpdateToLayero(role, update, env, fetchImpl) {
     });
 }
 
-function retryDelaySeconds(message, response) {
-    const retryAfter = Number(response?.headers.get('Retry-After'));
-    if (Number.isFinite(retryAfter) && retryAfter > 0) return Math.min(300, retryAfter);
-    const attempts = Math.max(1, Number(message.attempts) || 1);
-    return Math.min(300, 5 * (2 ** Math.min(attempts - 1, 6)));
-}
-
-export async function consumeQueue(batch, env, fetchImpl = fetch) {
-    for (const message of batch.messages) {
-        const { role, update } = message.body || {};
-        const workerRole = env.WORKER_ROLE || '';
-        const validRole = Object.hasOwn(BOT_ROLES, role) &&
-            (!workerRole || workerRole === role);
-        if (!validRole || !Number.isSafeInteger(update?.update_id) || update.update_id < 0) {
-            console.error('Discarding invalid Telegram queue message.', { queue: batch.queue });
-            message.ack();
-            continue;
-        }
-
-        try {
-            const response = await forwardUpdateToLayero(role, update, env, fetchImpl);
-            if (response.ok) {
-                message.ack();
-                continue;
-            }
-            console.error(`Queued Layero update returned ${response.status} for ${role}.`);
-            message.retry({ delaySeconds: retryDelaySeconds(message, response) });
-        } catch (error) {
-            console.error(`Queued Layero update failed for ${role}:`, error?.name || 'RequestError');
-            message.retry({ delaySeconds: retryDelaySeconds(message) });
-        }
-    }
-}
-
-async function repairRoleWebhook(role, env, fetchImpl) {
-    const config = BOT_ROLES[role];
-    const token = env[config.token];
-    const webhookSecret = env[config.webhookSecret] || '';
-    const webhookUrl = expectedWebhookUrl(env, role);
-    if (!token || !webhookUrl || !TELEGRAM_SECRET_PATTERN.test(webhookSecret)) {
-        throw new Error(`${role} webhook recovery is not configured.`);
-    }
-    const info = await telegramRequest(token, 'getWebhookInfo', {}, fetchImpl);
-    if (info?.url === webhookUrl) {
-        if (Number(info.pending_update_count) > 20) {
-            console.warn(`Telegram ${role} webhook has a pending update backlog.`, {
-                pending: info.pending_update_count
-            });
-        }
-        return { repaired: false, pending: Number(info.pending_update_count) || 0 };
-    }
-
-    await telegramRequest(token, 'setWebhook', {
-        url: webhookUrl,
-        secret_token: webhookSecret,
-        allowed_updates: ['message', 'callback_query'],
-        max_connections: 1,
-        drop_pending_updates: false
-    }, fetchImpl);
-    console.warn(`Telegram ${role} webhook was missing or incorrect and has been restored.`);
-    return { repaired: true, pending: Number(info?.pending_update_count) || 0 };
-}
-
-export function repairAdminWebhook(env, fetchImpl = fetch) {
-    return repairRoleWebhook('admin', env, fetchImpl);
-}
-
-export async function repairTelegramWebhooks(env, fetchImpl = fetch) {
-    const results = [];
-    const rolesToRepair = env.WORKER_ROLE ? [env.WORKER_ROLE] : BOT_ROLE_ORDER;
-    for (const role of rolesToRepair) {
-        if (!env[BOT_ROLES[role].token]) {
-            results.push({ role, configured: false });
-            continue;
-        }
-        try {
-            const result = await repairRoleWebhook(role, env, fetchImpl);
-            results.push({ role, configured: true, ...result });
-        } catch (error) {
-            console.error(`Telegram ${role} webhook recovery check failed:`, error?.message || 'Unknown error');
-            results.push({ role, configured: true, error: error?.message || 'Unknown error' });
-        }
-    }
-    return results;
-}
-
 async function manageWebhooks(request, env, fetchImpl, action) {
+    const suppliedSecret = request.headers.get('X-Admin-Secret') || '';
     const adminSecret = env.WEBHOOK_ADMIN_SECRET || '';
-    const suppliedSecret = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') || '';
     if (!adminSecret || !constantTimeEqual(suppliedSecret, adminSecret)) {
         return jsonResponse(401, { error: 'Unauthorized.' });
     }
-    const workerRole = env.WORKER_ROLE || '';
-    if (workerRole && !Object.hasOwn(BOT_ROLES, workerRole)) {
-        return jsonResponse(503, { error: 'Invalid isolated worker role.' });
+
+    const publicUrl = new URL(env.TELEGRAM_WORKER_PUBLIC_URL);
+    if (publicUrl.protocol !== 'https:' || publicUrl.pathname !== '/' ||
+        publicUrl.search || publicUrl.hash || publicUrl.username || publicUrl.password) {
+        return jsonResponse(503, { error: 'Set TELEGRAM_WORKER_PUBLIC_URL to the deployed HTTPS Worker origin.' });
     }
 
-    let publicUrl = null;
-    if (action === 'register') {
-        try {
-            publicUrl = new URL(env.TELEGRAM_WORKER_PUBLIC_URL);
-            if (publicUrl.protocol !== 'https:' || publicUrl.pathname !== '/' ||
-                publicUrl.search || publicUrl.hash || publicUrl.username || publicUrl.password) {
-                throw new Error('Invalid public worker URL.');
-            }
-        } catch {
-            return jsonResponse(503, { error: 'Set TELEGRAM_WORKER_PUBLIC_URL to the deployed HTTPS Worker origin.' });
-        }
-    }
-
-    const tokenRoles = new Map();
-    const rolesToManage = workerRole ? [workerRole] : BOT_ROLE_ORDER;
-    for (const role of rolesToManage) {
-        const config = BOT_ROLES[role];
-        const token = env[config.token];
-        if (token) tokenRoles.set(token, [...(tokenRoles.get(token) || []), role]);
-    }
-
-    const duplicateRoles = new Map();
-    for (const roles of tokenRoles.values()) {
-        if (roles.length > 1) {
-            for (const role of roles) duplicateRoles.set(role, true);
-        }
-    }
-
+    const roles = activeRoles(env);
     const results = [];
-    for (const role of rolesToManage) {
+    for (const role of roles) {
         const config = BOT_ROLES[role];
         const token = env[config.token];
         if (!token) {
             results.push({ role, configured: false, success: false });
             continue;
         }
-        if (duplicateRoles.has(role)) {
-            results.push({ role, configured: true, success: false, error: 'Bot token is duplicated across roles.' });
+        const webhookSecret = env[config.webhookSecret] || '';
+        if (!TELEGRAM_SECRET_PATTERN.test(webhookSecret)) {
+            results.push({ role, configured: true, success: false, error: `${config.webhookSecret} is missing or invalid.` });
             continue;
         }
         try {
             if (action === 'register') {
-                const webhookSecret = env[config.webhookSecret] || '';
-                if (!TELEGRAM_SECRET_PATTERN.test(webhookSecret)) {
-                    throw new Error(`${config.webhookSecret} is missing or invalid.`);
-                }
                 await telegramRequest(token, 'setWebhook', {
                     url: new URL(`/telegram/${role}`, publicUrl).toString(),
                     secret_token: webhookSecret,
                     allowed_updates: ['message', 'callback_query'],
-                    max_connections: 1,
+                    max_connections: 10,
                     drop_pending_updates: false
                 }, fetchImpl);
             } else {
@@ -241,89 +142,74 @@ async function manageWebhooks(request, env, fetchImpl, action) {
             }
             results.push({ role, configured: true, success: true });
         } catch (error) {
-            console.error(`Webhook ${action} failed for ${role}:`, error.message);
-            results.push({ role, configured: true, success: false });
+            results.push({ role, configured: true, success: false, error: error.message });
         }
     }
-    const failed = results.some(result => result.configured && !result.success);
-    return jsonResponse(failed ? 502 : 200, { action, results });
+    const failed = results.some(result => !result.success);
+    return jsonResponse(failed ? 502 : 200, {
+        action,
+        success: !failed,
+        results
+    });
 }
 
 function workerDiagnostics(env) {
-    const workerRole = env.WORKER_ROLE || '';
-    const roleNames = workerRole ? [workerRole] : BOT_ROLE_ORDER;
-    const roles = Object.fromEntries(roleNames.map(role => {
+    const bots = Object.fromEntries(BOT_ROLE_ORDER.map(role => {
+        if (!activeRoles(env).includes(role)) return null;
         const config = BOT_ROLES[role];
         const tokenConfigured = Boolean(env[config.token]);
         const webhookSecretValid = TELEGRAM_SECRET_PATTERN.test(env[config.webhookSecret] || '');
-        return [role, {
-            configured: tokenConfigured && webhookSecretValid,
-            tokenConfigured,
-            webhookSecretValid
-        }];
-    }));
-    const queues = workerRole
-        ? { isolated: typeof env.UPDATES?.send === 'function' }
-        : {
-            admin: typeof env.ADMIN_UPDATES?.send === 'function',
-            general: typeof env.BOT_UPDATES?.send === 'function'
-        };
+        return [role, { configured: tokenConfigured && webhookSecretValid, tokenConfigured, webhookSecretValid }];
+    }).filter(Boolean));
+    const roles = activeRoles(env);
     const backend = Boolean(configuredLayeroUrl(env)) &&
         typeof env.TELEGRAM_WORKER_SHARED_SECRET === 'string' &&
         env.TELEGRAM_WORKER_SHARED_SECRET.length >= 32;
-    const publicUrl = Boolean(expectedWebhookUrl(env, workerRole || 'admin'));
-    const enabledBotsReady = workerRole
-        ? Boolean(roles[workerRole]?.configured)
-        : BOT_ROLE_ORDER.every(role =>
-            !env[BOT_ROLES[role].token] || roles[role]?.configured
-        );
+    const publicUrl = roles.length > 0 && Boolean(expectedWebhookUrl(env, roles[0]));
     return {
-        ok: backend && publicUrl &&
-            (workerRole ? queues.isolated : queues.admin && queues.general) &&
-            (workerRole ? roles[workerRole].configured : roles.admin.configured) &&
-            enabledBotsReady,
+        ok: backend && publicUrl && roles.every(role => bots[role]?.configured),
         backend,
         publicUrl,
-        queues,
-        bots: roles
+        roles,
+        bots
     };
 }
 
 export function createHandler(env, fetchImpl = fetch) {
     return async function handleRequest(request) {
         const url = new URL(request.url);
-        if (env.WORKER_ROLE && /^\/telegram\/[^/]+$/.test(url.pathname)) {
-            const requestedRole = url.pathname.split('/').pop();
-            if (requestedRole !== env.WORKER_ROLE) {
-                return jsonResponse(404, { error: 'This Worker handles a different bot role.' });
-            }
-        }
+
         if (url.pathname === '/admin/health') {
             if (request.method !== 'GET') return jsonResponse(405, { error: 'Method not allowed.' });
-            const adminSecret = env.WEBHOOK_ADMIN_SECRET || '';
-            const suppliedSecret = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') || '';
-            if (!adminSecret || !constantTimeEqual(suppliedSecret, adminSecret)) {
+            const suppliedSecret = request.headers.get('X-Admin-Secret') || '';
+            if (!env.WEBHOOK_ADMIN_SECRET || !constantTimeEqual(suppliedSecret, env.WEBHOOK_ADMIN_SECRET)) {
                 return jsonResponse(401, { error: 'Unauthorized.' });
             }
             const diagnostics = workerDiagnostics(env);
             return jsonResponse(diagnostics.ok ? 200 : 503, diagnostics);
         }
 
-        if (url.pathname === '/admin/register-webhooks' || url.pathname === '/admin/remove-webhooks') {
-            if (request.method !== 'POST') return jsonResponse(405, { error: 'Method not allowed.' });
-            const action = url.pathname.endsWith('/register-webhooks') ? 'register' : 'remove';
+        if (url.pathname === '/admin/register' || url.pathname === '/admin/remove') {
+            if (url.pathname === '/admin/register' && request.method !== 'GET' && request.method !== 'POST') {
+                return jsonResponse(405, { error: 'Method not allowed.' });
+            }
+            if (url.pathname === '/admin/remove' && request.method !== 'POST') {
+                return jsonResponse(405, { error: 'Method not allowed.' });
+            }
+            const action = url.pathname.endsWith('/register') ? 'register' : 'remove';
             return manageWebhooks(request, env, fetchImpl, action);
         }
 
-        const match = /^\/telegram\/(client|admin|panel|auth|support)$/.exec(url.pathname);
+        const match = /^\/telegram\/(admin)$/.exec(url.pathname);
         if (!match) return jsonResponse(404, { error: 'Not found.' });
         if (request.method !== 'POST') return jsonResponse(405, { error: 'Method not allowed.' });
 
         const role = match[1];
-        const token = env[BOT_ROLES[role].token];
-        if (!token) return jsonResponse(503, { error: `The ${role} bot is not configured.` });
-
-        const webhookSecret = env[BOT_ROLES[role].webhookSecret] || '';
+        if (!activeRoles(env).includes(role)) {
+            return jsonResponse(404, { error: 'Role not served by this Worker.' });
+        }
+        const config = BOT_ROLES[role];
+        const webhookSecret = env[config.webhookSecret] || '';
         const suppliedSecret = request.headers.get('X-Telegram-Bot-Api-Secret-Token') || '';
         if (!webhookSecret || !constantTimeEqual(suppliedSecret, webhookSecret)) {
             return jsonResponse(401, { error: 'Unauthorized webhook.' });
@@ -335,7 +221,6 @@ export function createHandler(env, fetchImpl = fetch) {
         if (encoder.encode(rawBody).byteLength > MAX_UPDATE_BYTES) {
             return jsonResponse(413, { error: 'Update too large.' });
         }
-
         let update;
         try {
             update = JSON.parse(rawBody);
@@ -346,29 +231,15 @@ export function createHandler(env, fetchImpl = fetch) {
             return jsonResponse(400, { error: 'Invalid Telegram update ID.' });
         }
 
-        const updateQueue = env.UPDATES || (role === 'admin' ? env.ADMIN_UPDATES : env.BOT_UPDATES);
-        const queuePayloadBytes = encoder.encode(JSON.stringify({ role, update })).byteLength;
-        if (updateQueue && typeof updateQueue.send === 'function' &&
-            queuePayloadBytes <= MAX_QUEUE_MESSAGE_BYTES) {
-            try {
-                await updateQueue.send({ role, update });
-                return jsonResponse(200, { ok: true, queued: true });
-            } catch (error) {
-                console.error(`Telegram ${role} update could not be queued:`, error?.name || 'QueueError');
-                return jsonResponse(503, { error: 'Update could not be safely queued; Telegram should retry.' });
-            }
-        }
-
         let backendResponse;
         try {
             backendResponse = await forwardUpdateToLayero(role, rawBody, env, fetchImpl);
         } catch (error) {
-            console.error(`Layero webhook handler unavailable for ${role}:`, error?.message || 'RequestError');
+            console.error(`Layero forward failed for ${role}:`, error?.message || error?.name || 'RequestError');
             return jsonResponse(503, { error: 'Bot backend temporarily unavailable; Telegram should retry this update.' });
         }
-
         if (!backendResponse.ok) {
-            console.error(`Layero webhook handler returned ${backendResponse.status} for ${role}.`);
+            console.error(`Layero returned ${backendResponse.status} for ${role}.`);
             return jsonResponse(503, { error: 'Bot backend did not confirm the update; Telegram should retry it.' });
         }
         return jsonResponse(200, { ok: true });
@@ -381,13 +252,5 @@ export default {
             console.error('Telegram webhook worker request failed:', error?.name || 'UnknownError');
             return jsonResponse(503, { error: 'Webhook temporarily unavailable; Telegram should retry.' });
         });
-    },
-    queue(batch, env) {
-        return consumeQueue(batch, env);
-    },
-    scheduled(_controller, env, context) {
-        context.waitUntil(repairTelegramWebhooks(env).catch(error => {
-            console.error('Telegram webhook recovery check failed:', error?.message || 'Unknown error');
-        }));
     }
 };

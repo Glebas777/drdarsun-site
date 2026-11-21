@@ -1,21 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-role="${1:-}"
-case "$role" in
-    admin|panel|client|auth|support) ;;
-    *)
-        echo "Использование: ./register-webhook.sh {admin|panel|client|auth|support}" >&2
-        exit 2
-        ;;
-esac
+role="admin"
 
 if [[ ! -t 0 ]]; then
     echo "Запусти команду в обычном терминале, чтобы ввести секрет." >&2
     exit 2
 fi
 
-host="drdarsun-telegram-${role}.turgleb7.workers.dev"
+host="drdarsun-tg-a.turgleb7.workers.dev"
 url="https://${host}"
 secret=""
 
@@ -59,7 +52,7 @@ fi
 
 echo "Health OK. Регистрирую webhook бота $role..."
 if ! register_status="$(curl -sS --max-time 20 --config "$auth_config" \
-    -X POST -o "$response_file" -w '%{http_code}' "$url/admin/register-webhooks")"; then
+    -X POST -o "$response_file" -w '%{http_code}' "$url/admin/register")"; then
     echo "Не удалось связаться с Worker-ом при регистрации. Повтори команду." >&2
     exit 1
 fi

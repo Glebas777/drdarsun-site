@@ -46,17 +46,18 @@
     mini.className = 'music-player';
     mini.setAttribute('aria-label', 'Мини плеер');
     mini.innerHTML = `
-        <button class="music-player__mini-cover" type="button" aria-label="Открыть плеер"><span aria-hidden="true">♫</span></button>
+        <button class="music-player__mini-cover" type="button" aria-label="Открыть плеер"><span aria-hidden="true">♫</span><i></i><i></i><i></i></button>
         <div class="music-player__mini-copy">
             <span>DR. DARSUN</span>
             <strong class="music-player__mini-title"></strong>
             <small class="music-player__mini-artist"></small>
+            <span class="music-player__mini-time" aria-hidden="true">0:00 / 0:00</span>
             <input class="music-player__seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Позиция воспроизведения">
         </div>
         <div class="music-player__mini-controls">
-            <button class="music-player__prev" type="button" aria-label="Предыдущий трек">‹</button>
-            <button class="music-player__play" type="button" aria-label="Воспроизвести">▶</button>
-            <button class="music-player__next" type="button" aria-label="Следующий трек">›</button>
+            <button class="music-player__prev" type="button" aria-label="Предыдущий трек"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6zm13 1v12L9 12z"/></svg></button>
+            <button class="music-player__play" type="button" aria-label="Воспроизвести"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"/></svg></button>
+            <button class="music-player__next" type="button" aria-label="Следующий трек"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5h2v14h-2zM5 6v12l10-6z"/></svg></button>
         </div>
         <button class="music-player__mini-hide" type="button" aria-label="Скрыть мини плеер"><span aria-hidden="true">×</span></button>`;
 
@@ -72,6 +73,11 @@
     audio.className = 'music-player__audio';
     audio.loop = false;
     audio.preload = 'metadata';
+
+    const playIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"/></svg>';
+    const pauseIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h3v14H8zm5 0h3v14h-3z"/></svg>';
+    const previousIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6zm13 1v12L9 12z"/></svg>';
+    const nextIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5h2v14h-2zM5 6v12l10-6z"/></svg>';
 
     function formatTime(seconds) {
         if (!Number.isFinite(seconds)) return '0:00';
@@ -102,6 +108,7 @@
         mini.querySelector('.music-player__mini-title').textContent = track.title;
         mini.querySelector('.music-player__mini-artist').textContent = track.artist;
         toggle.querySelector('strong').textContent = track.title;
+        toggle.setAttribute('aria-label', `Открыть плеер: ${track.title}`);
         modal.querySelectorAll('[data-track-title]').forEach(element => { element.textContent = track.title; });
         modal.querySelectorAll('[data-track-artist]').forEach(element => { element.textContent = track.artist; });
         modal.querySelectorAll('.music-modal__track').forEach((element, index) => element.classList.toggle('is-active', index === trackIndex));
@@ -121,8 +128,9 @@
         const isPlaying = !audio.paused && !audio.ended;
         mini.dataset.playing = String(isPlaying);
         modal.dataset.playing = String(isPlaying);
-        mini.querySelector('.music-player__play').textContent = isPlaying ? 'Ⅱ' : '▶';
-        modal.querySelector('.music-modal__play').textContent = isPlaying ? 'Ⅱ' : '▶';
+        toggle.dataset.playing = String(isPlaying);
+        mini.querySelector('.music-player__play').innerHTML = isPlaying ? pauseIcon : playIcon;
+        modal.querySelector('.music-modal__play').innerHTML = isPlaying ? pauseIcon : playIcon;
         mini.querySelector('.music-player__play').setAttribute('aria-label', isPlaying ? 'Приостановить' : 'Воспроизвести');
         modal.querySelector('.music-modal__play').setAttribute('aria-label', isPlaying ? 'Приостановить' : 'Воспроизвести');
         if ('mediaSession' in navigator) {
@@ -137,7 +145,9 @@
         modal.querySelector('.music-modal__seek').value = String(value);
         mini.querySelector('.music-player__seek').disabled = duration <= 0;
         modal.querySelector('.music-modal__seek').disabled = duration <= 0;
-        modal.querySelector('.music-modal__time').textContent = `${formatTime(audio.currentTime)} / ${formatTime(duration)}`;
+        const timeLabel = `${formatTime(audio.currentTime)} / ${formatTime(duration)}`;
+        mini.querySelector('.music-player__mini-time').textContent = timeLabel;
+        modal.querySelector('.music-modal__time').textContent = timeLabel;
         const now = Date.now();
         if (now - lastSavedAt > 5000) {
             lastSavedAt = now;
@@ -219,9 +229,9 @@
                     <input class="music-modal__seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Позиция воспроизведения">
                     <div class="music-modal__timeline"><span class="music-modal__time">0:00 / 0:00</span><span class="music-modal__status" role="status" aria-live="polite"></span></div>
                     <div class="music-modal__controls">
-                        <button class="music-modal__prev" type="button" aria-label="Предыдущий трек">‹</button>
-                        <button class="music-modal__play" type="button" aria-label="Воспроизвести">▶</button>
-                        <button class="music-modal__next" type="button" aria-label="Следующий трек">›</button>
+                        <button class="music-modal__prev" type="button" aria-label="Предыдущий трек">${previousIcon}</button>
+                        <button class="music-modal__play" type="button" aria-label="Воспроизвести">${playIcon}</button>
+                        <button class="music-modal__next" type="button" aria-label="Следующий трек">${nextIcon}</button>
                         <div class="music-modal__volume"><span>Громкость</span><input type="range" min="0" max="1" value="0.65" step="0.05" aria-label="Громкость"></div>
                     </div>
                     <div class="music-modal__actions">
@@ -317,16 +327,21 @@
         }
     });
     audio.addEventListener('timeupdate', updateProgress);
+    audio.addEventListener('durationchange', updateProgress);
+    audio.addEventListener('seeked', updateProgress);
     audio.addEventListener('play', updatePlayback);
     audio.addEventListener('pause', updatePlayback);
     audio.addEventListener('ended', () => changeTrack(1));
     audio.addEventListener('canplay', () => {
         if (!playAfterLoad) modal.querySelector('.music-modal__status').textContent = '';
+        mini.querySelector('.music-player__mini-cover').removeAttribute('data-loading');
     });
+    audio.addEventListener('loadstart', () => mini.querySelector('.music-player__mini-cover').setAttribute('data-loading', 'true'));
     audio.addEventListener('error', () => {
         playAfterLoad = false;
         pendingSeek = null;
         modal.querySelector('.music-modal__status').textContent = 'Трек не загрузился. Выберите другой или проверьте соединение.';
+        mini.querySelector('.music-player__mini-cover').removeAttribute('data-loading');
         updatePlayback();
     });
     window.addEventListener('pagehide', saveState);

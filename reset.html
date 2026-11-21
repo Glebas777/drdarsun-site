@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dr. DarSun | Сброс пароля</title>
     <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/auth-mobile.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.js"></script>
 </head>
-<body style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg-color); margin: 0;">
-    <div style="background: var(--bg-card); border: 1px solid var(--border); padding: 40px; border-radius: 24px; max-width: 400px; width: 90%; text-align: center;">
+<body class="auth-page standalone-auth-page">
+    <main class="standalone-auth-card">
         <h2 style="color: var(--text-main); margin-bottom: 20px;">Новый пароль</h2>
         <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 14px;">Введите новый пароль для входа.</p>
         
@@ -17,7 +19,7 @@
             <button type="submit" id="reset-btn" style="padding: 12px; border-radius: 8px; background: #D4AF37; color: #000; border: none; font-weight: bold; cursor: pointer;">Сменить пароль</button>
         </form>
         <div id="reset-message" role="status" aria-live="polite" style="margin-top: 20px; color: #F44336;"></div>
-    </div>
+    </main>
 
     <script type="module">
         import { supabase } from './js/supabase-client.js';
@@ -70,5 +72,6 @@
         });
     </script>
     <script src="js/site-status.js"></script>
+    <script type="module" src="js/temporary-payment-notice.js"></script>
 </body>
 </html>

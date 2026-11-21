@@ -66,16 +66,18 @@
 .review-entry__date { display: block; margin-top: 9px; color: #908b7b; font-size: 10px; }
 .review-moderation { display: grid; gap: 12px; padding-top: 18px; border-top: 1px dashed rgba(123, 112, 88, .35); }
 .review-moderation-item { display: grid; gap: 9px; padding: 12px; border: 1px solid rgba(123, 112, 88, .24); border-radius: 12px; background: rgba(255, 255, 255, .45); }
+.review-moderation-item__product { margin: 0; color: #52633f; font-size: 11px; font-weight: 700; }
 .review-moderation-item__actions { display: flex; gap: 8px; }
 .review-moderation-item__actions .btn { min-height: 36px; padding: 7px 12px; font-size: 11px; }
 .review-book__cover-page { align-items: stretch; justify-content: stretch; padding: 0; border-color: #244229; background: linear-gradient(125deg, #0B2A0F, #1B5E20 52%, #0B2A0F); color: #F1E6C6; }
-.review-book__cover { position: relative; display: flex; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; border: 0; background: radial-gradient(ellipse at 50% 46%, rgba(212, 175, 55, .18), transparent 49%), linear-gradient(118deg, #0B2A0F, #1B5E20 48%, #0B2A0F); color: #F1E6C6; cursor: pointer; }
+.review-book__cover { position: relative; display: flex; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; border: 0; background: radial-gradient(ellipse at 50% 43%, rgba(212, 175, 55, .23), transparent 44%), radial-gradient(ellipse at 50% 100%, rgba(57, 118, 57, .38), transparent 48%), linear-gradient(118deg, #08240d, #1B5E20 48%, #08240d); color: #F1E6C6; cursor: pointer; }
 .review-book__cover::before, .review-book__cover::after { position: absolute; inset: 18px; border: 1px solid rgba(212, 175, 55, .48); border-radius: 5px 13px 13px 5px; content: ""; pointer-events: none; }
 .review-book__cover::after { inset: 25px; border-color: rgba(212, 175, 55, .2); }
 .review-book__cover-emblem { display: grid; width: 66px; height: 66px; place-items: center; border: 1px solid rgba(212, 175, 55, .7); border-radius: 50%; }
 .review-book__cover-emblem img { width: 42px; height: 42px; object-fit: contain; }
-.review-book__cover-title { margin: 22px 0 1px; color: #F1E6C6; font: 700 clamp(64px, 12vw, 120px)/.95 'Caveat', cursive; letter-spacing: -.035em; text-shadow: 1px 1px 0 rgba(12, 24, 16, .6), -1px 0 rgba(239, 223, 180, .25); transform: rotate(-4deg); }
-.review-book__cover-subtitle, .review-book__cover-author { margin-top: 12px; color: rgba(240, 228, 194, .8); font-size: 11px; letter-spacing: .21em; text-transform: uppercase; }
+.review-book__cover-title { position: relative; margin: 22px 0 1px; color: #F1E6C6; font: 700 clamp(56px, 10vw, 100px)/.95 'Caveat', cursive; letter-spacing: -.035em; text-shadow: 1px 1px 0 rgba(12, 24, 16, .6), -1px 0 rgba(239, 223, 180, .25); transform: rotate(-4deg); }
+.review-book__cover-title::after { position: absolute; right: 12%; bottom: -13px; left: 12%; height: 1px; background: linear-gradient(90deg, transparent, rgba(212, 175, 55, .85), transparent); content: ""; }
+.review-book__cover-subtitle, .review-book__cover-author { margin-top: 16px; color: rgba(240, 228, 194, .8); font-size: 10px; letter-spacing: .16em; text-align: center; text-transform: uppercase; }
 .review-book__cover-author { margin-top: 54px; color: #D4AF37; font-size: 10px; }
 .review-book__cover-prompt { position: absolute; bottom: 48px; color: rgba(240, 228, 194, .7); font-size: 12px; animation: cover-prompt 1.8s ease-in-out infinite; }
 .review-book__cover-spine { position: absolute; inset: 0 auto 0 0; width: 26px; background: linear-gradient(90deg, rgba(8, 24, 14, .42), rgba(255, 255, 255, .04), transparent); pointer-events: none; }

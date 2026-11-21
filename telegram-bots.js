@@ -1,15 +1,21 @@
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+let nodeFetchPromise;
+const fetch = globalThis.fetch || ((...args) => {
+    nodeFetchPromise ||= import('node-fetch').then(({ default: nodeFetch }) => nodeFetch);
+    return nodeFetchPromise.then(nodeFetch => nodeFetch(...args));
+});
+const crypto = require('crypto');
 const { VOLUME_OPTIONS } = require('./oil-product-options');
 
 const BOT_DEFINITIONS = [
-    { role: 'client', tokenEnv: 'CLIENT_BOT_TOKEN', usernameEnv: 'CLIENT_BOT_USERNAME' },
-    { role: 'admin', tokenEnv: 'ADMIN_BOT_TOKEN', usernameEnv: 'ADMIN_BOT_USERNAME' },
-    { role: 'panel', tokenEnv: 'PANEL_BOT_TOKEN', usernameEnv: 'PANEL_BOT_USERNAME' },
-    { role: 'auth', tokenEnv: 'CODE_BOT_TOKEN', usernameEnv: 'AUTH_BOT_USERNAME' },
-    { role: 'support', tokenEnv: 'HELP_BOT_TOKEN', usernameEnv: 'SUPPORT_BOT_USERNAME' }
+    { role: 'admin', tokenEnv: 'ADMIN_BOT_TOKEN', usernameEnv: 'ADMIN_BOT_USERNAME' }
 ];
 const TOPICS = ['Заказ', 'Доставка', 'Оплата', 'Товар', 'Аккаунт', 'Другое'];
 const ORDER_STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+const STATE_TTL = 30 * 60 * 1000;
+const USAGE_WINDOW = 5 * 60 * 1000;
+const NOTIFICATION_TTL = 7 * 24 * 60 * 60 * 1000;
+const CLEANUP_INTERVAL = 5 * 60 * 1000;
+const TELEGRAM_CHAT_SEND_INTERVAL = 1000;
 const MAINTENANCE_MODE_LABELS = {
     planned: 'плановые работы',
     emergency: 'срочный техперерыв'
@@ -23,21 +29,90 @@ const histories = new Map();
 const assistantUsage = new Map();
 const supportUsage = new Map();
 const botUsernames = new Map();
-const notified = { tickets: new Map(), reviews: new Set() };
+const notified = { tickets: new Map(), reviews: new Map() };
+const configuredUsernameEnvs = new WeakSet();
 
 function stateKey(role, chatId) {
     return `${role}:${chatId}`;
 }
 
 function getState(role, chatId) {
-    return states.get(stateKey(role, chatId)) || {};
+    const entry = states.get(stateKey(role, chatId));
+    if (!entry) return {};
+    entry.lastUsedAt = Date.now();
+    return entry.value;
 }
 
 function setState(role, chatId, state) {
     const key = stateKey(role, chatId);
-    if (state && Object.keys(state).length) states.set(key, state);
+    if (state && Object.keys(state).length) states.set(key, { value: state, lastUsedAt: Date.now() });
     else states.delete(key);
 }
+
+function getHistory(chatId) {
+    const entry = histories.get(chatId);
+    if (!entry) return [];
+    entry.lastUsedAt = Date.now();
+    return entry.value;
+}
+
+function setHistory(chatId, history) {
+    if (history.length) histories.set(chatId, { value: history, lastUsedAt: Date.now() });
+    else histories.delete(chatId);
+}
+
+function cleanupExpiredEntries() {
+    const now = Date.now();
+    for (const [key, entry] of states) {
+        if (now - entry.lastUsedAt >= STATE_TTL) states.delete(key);
+    }
+    for (const [key, entry] of histories) {
+        if (now - entry.lastUsedAt >= STATE_TTL) histories.delete(key);
+    }
+    for (const [key, timestamp] of telegramLastSendAt) {
+        if (now - timestamp >= STATE_TTL) telegramLastSendAt.delete(key);
+    }
+    for (const [key, timestamps] of assistantUsage) {
+        const active = timestamps.filter(timestamp => now - timestamp < USAGE_WINDOW);
+        if (active.length) assistantUsage.set(key, active);
+        else assistantUsage.delete(key);
+    }
+    for (const [key, timestamps] of supportUsage) {
+        const active = timestamps.filter(timestamp => now - timestamp < USAGE_WINDOW);
+        if (active.length) supportUsage.set(key, active);
+        else supportUsage.delete(key);
+    }
+    for (const [key, timestamps] of updateRateLimits) {
+        const active = timestamps.filter(timestamp => now - timestamp < 5000);
+        if (active.length) updateRateLimits.set(key, active);
+        else updateRateLimits.delete(key);
+    }
+    for (const [key, entry] of notified.tickets) {
+        if (now - entry.notifiedAt >= NOTIFICATION_TTL) notified.tickets.delete(key);
+    }
+    for (const [key, notifiedAt] of notified.reviews) {
+        if (now - notifiedAt >= NOTIFICATION_TTL) notified.reviews.delete(key);
+    }
+}
+
+const cleanupTimer = setInterval(cleanupExpiredEntries, CLEANUP_INTERVAL);
+cleanupTimer.unref?.();
+
+function cacheConfiguredBotUsernames(env) {
+    if (!env || (typeof env !== 'object' && typeof env !== 'function') ||
+        configuredUsernameEnvs.has(env)) return;
+    configuredUsernameEnvs.add(env);
+    for (const candidate of BOT_DEFINITIONS) {
+        const username = candidate.usernameEnv ? env[candidate.usernameEnv] : '';
+        if (typeof username === 'string' && /^[A-Za-z0-9_]{5,32}$/.test(username.trim())) {
+            botUsernames.set(candidate.role, username.trim());
+        } else {
+            botUsernames.delete(candidate.role);
+        }
+    }
+}
+
+cacheConfiguredBotUsernames(process.env);
 
 function isPrivateUpdate(update) {
     const chat = update.message?.chat || update.callback_query?.message?.chat;
@@ -69,29 +144,16 @@ function allowChatUpdate(role, chatId) {
 }
 
 function configuredPanelChatIds(env) {
-    return [...new Set([env.M_CHAT_ID, env.PANEL_CHAT_ID]
-        .flatMap(value => String(value || '').split(','))
-        .map(value => value.trim())
-        .filter(Boolean))];
+    const ownerChatId = String(env.MY_CHAT_ID || env.PANEL_CHAT_ID || env.M_CHAT_ID || '').trim();
+    return ownerChatId ? [ownerChatId] : [];
 }
 
 function ownerAllowed(role, chatId, env) {
-    if (role === 'admin') return Boolean(env.MY_CHAT_ID) && chatId === env.MY_CHAT_ID;
-    if (role === 'panel') return configuredPanelChatIds(env).includes(chatId);
+    if (role === 'admin' || role === 'panel') return configuredPanelChatIds(env).includes(chatId);
     return true;
 }
 
 function menuKeyboard(role) {
-    if (role === 'client') {
-        return {
-            keyboard: [
-                [{ text: '📚 Каталог' }, { text: '📦 Мои заказы' }],
-                [{ text: 'Найти товар' }, { text: 'Уведомления' }],
-                [{ text: '🔗 Связать аккаунт' }, { text: 'ℹ️ Помощь' }]
-            ],
-            resize_keyboard: true
-        };
-    }
     if (role === 'support') {
         return {
             keyboard: [
@@ -106,7 +168,9 @@ function menuKeyboard(role) {
         return {
             keyboard: [
                 [{ text: '🆘 Обращения' }, { text: '✍️ Отзывы' }],
-                [{ text: '📦 Заказы' }, { text: '🛠 Техперерыв' }],
+                [{ text: '📦 Заказы' }, { text: '➕ Новый заказ' }],
+                [{ text: '🛍 Товары' }, { text: '➕ Новый товар' }],
+                [{ text: '🧾 История' }, { text: '🛠 Техперерыв' }],
                 [{ text: '🔔 Уведомление' }]
             ],
             resize_keyboard: true
@@ -122,39 +186,11 @@ function menuKeyboard(role) {
             resize_keyboard: true
         };
     }
-    return { keyboard: [[{ text: '🔗 Связать аккаунт' }, { text: 'ℹ️ Помощь' }]], resize_keyboard: true };
+    return { keyboard: [], resize_keyboard: true };
 }
 
 function inline(rows) {
     return { inline_keyboard: rows };
-}
-
-function publicBotLinks(env = process.env) {
-    return [
-        ['client', 'Клиентский бот'],
-        ['support', 'Бот-помощник'],
-        ['auth', 'Бот привязки аккаунта']
-    ].flatMap(([role, label]) => {
-        const definition = BOT_DEFINITIONS.find(bot => bot.role === role);
-        const configuredUsername = definition?.usernameEnv ? env[definition.usernameEnv] : '';
-        const username = botUsernames.get(role) || (typeof configuredUsername === 'string' ? configuredUsername.trim() : '');
-        return /^[A-Za-z0-9_]{5,32}$/.test(username)
-            ? [{ role, label, username, url: `https://t.me/${username}` }]
-            : [];
-    });
-}
-
-function botLinksKeyboard() {
-    return inline(publicBotLinks().map(bot => [{
-        text: `${bot.label} · @${bot.username}`,
-        url: bot.url
-    }]));
-}
-
-function botLinksMessage() {
-    const bots = publicBotLinks();
-    if (!bots.length) return 'Ссылки на ботов сейчас недоступны. Напишите позже или обратитесь в поддержку: @darsunhelp.';
-    return `Боты Dr. DarSun:\n\n${bots.map(bot => `${bot.label}: @${bot.username}\n${bot.url}`).join('\n\n')}`;
 }
 
 async function showAdminMaintenanceMenu(bot, chatId) {
@@ -169,10 +205,6 @@ async function showAdminMaintenanceMenu(bot, chatId) {
             [{ text: '▶️ Возобновить сайт', callback_data: 'adm:maint:off' }]
         ])
     });
-}
-
-function getPublicBotLinks(env = process.env) {
-    return publicBotLinks(env).map(({ role, label, username, url }) => ({ role, label, username, url }));
 }
 
 function safeText(value, maxLength = 1000) {
@@ -195,7 +227,6 @@ function userFacingError(error) {
     }
     if (/Backend 400 at/.test(message)) return `Запрос не принят: ${safeText(message, 500)}`;
     if (/Telegram .* failed \(401\)/.test(message)) return 'Токен этого бота недействителен. Администратору нужно проверить токен в настройках backend.';
-    if (/Telegram getUpdates failed \(409\)/.test(message)) return 'Этот бот уже запущен в другом процессе. Остановите второй экземпляр приложения и попробуйте снова.';
     if (/Telegram .* failed \(400\)/.test(message)) return `Telegram не принял запрос: ${safeText(message, 500)}`;
     if (/Сервис временно недоступен|Помощник временно недоступен/.test(message)) return message;
     return 'Не удалось выполнить действие. Проверьте ввод и попробуйте ещё раз.';
@@ -224,27 +255,34 @@ function createBotClient(config, env, request, processContext = null) {
     const baseTelegramUrl = `https://api.telegram.org/bot${token}`;
 
     async function telegram(method, body) {
-        let response;
-        try {
-            response = await request(`${baseTelegramUrl}/${method}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-                signal: body?.timeout ? AbortSignal.timeout((body.timeout + 10) * 1000) : undefined
-            });
-        } catch (error) {
-            error.retryable = true;
-            throw error;
-        }
-        const result = await response.json().catch(() => null);
-        if (!response.ok || !result?.ok) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+            let response;
+            try {
+                response = await request(`${baseTelegramUrl}/${method}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                    signal: AbortSignal.timeout(body?.timeout ? (body.timeout + 10) * 1000 : 15000)
+                });
+            } catch (error) {
+                error.retryable = true;
+                throw error;
+            }
+            const result = await response.json().catch(() => null);
+            if (response.ok && result?.ok) return result.result;
+
             const error = new Error(`Telegram ${method} failed (${response.status}): ${safeText(result?.description || 'unknown error', 240)}`);
             error.telegramStatus = response.status;
             error.telegramMethod = method;
             error.retryAfter = result?.parameters?.retry_after;
+            if (response.status === 429 && Number.isFinite(error.retryAfter) &&
+                error.retryAfter > 0 && attempt === 0) {
+                await new Promise(resolve => setTimeout(resolve, error.retryAfter * 1000));
+                continue;
+            }
             throw error;
         }
-        return result.result;
+        throw new Error(`Telegram ${method} failed after retry.`);
     }
 
     async function callApi(path, chatId, init = {}) {
@@ -279,18 +317,19 @@ function createBotClient(config, env, request, processContext = null) {
     async function send(chatId, text, options = {}) {
         const value = String(text || '').trim() || 'Не удалось подготовить ответ.';
         for (let start = 0; start < value.length; start += 3900) {
+            const end = Math.min(start + 3900, value.length);
             const payload = {
                 chat_id: chatId,
-                text: value.slice(start, start + 3900),
+                text: value.slice(start, end),
                 disable_web_page_preview: true,
-                ...options
+                ...(end === value.length ? options : {})
             };
             const key = `${config.role}:${chatId}`;
             const previous = telegramSendQueues.get(key) || Promise.resolve();
             const current = previous.catch(() => {}).then(async () => {
                 const elapsed = Date.now() - (telegramLastSendAt.get(key) || 0);
-                if (elapsed < 1100) {
-                    await new Promise(resolve => setTimeout(resolve, 1100 - elapsed));
+                if (elapsed < TELEGRAM_CHAT_SEND_INTERVAL) {
+                    await new Promise(resolve => setTimeout(resolve, TELEGRAM_CHAT_SEND_INTERVAL - elapsed));
                 }
                 try {
                     return await telegram('sendMessage', payload);
@@ -321,7 +360,17 @@ function createBotClient(config, env, request, processContext = null) {
         });
     }
 
-    return { token, telegram, callApi, send, answerCallback, editCallbackMessage, apiBase };
+    return {
+        token,
+        telegram,
+        callApi,
+        send,
+        answerCallback,
+        editCallbackMessage,
+        apiBase,
+        request,
+        sharedSecret: env.TELEGRAM_WORKER_SHARED_SECRET
+    };
 }
 
 function getBotDefinition(role) {
@@ -335,12 +384,7 @@ function createBotForRole(role, env, request, processContext) {
         : '';
     if (!definition || !token) throw new Error(`Telegram ${role} bot is not configured.`);
 
-    for (const candidate of BOT_DEFINITIONS) {
-        const username = candidate.usernameEnv ? env[candidate.usernameEnv] : '';
-        if (typeof username === 'string' && /^[A-Za-z0-9_]{5,32}$/.test(username.trim())) {
-            botUsernames.set(candidate.role, username.trim());
-        }
-    }
+    cacheConfiguredBotUsernames(env);
 
     return createBotClient({ ...definition, tokenEnv: '__NORMALIZED_TOKEN' }, {
         ...env,
@@ -349,27 +393,23 @@ function createBotForRole(role, env, request, processContext) {
 }
 
 async function processTelegramUpdateNow(role, update, options = {}) {
+    if (!getBotDefinition(role)) throw new Error('Unknown Telegram bot role.');
     const env = options.env || process.env;
     const request = options.fetch || fetch;
     const config = { role };
-    const processContext = { sideEffectAttempted: false };
-    const bot = createBotForRole(role, env, request, processContext);
     if (!isPrivateUpdate(update)) return { ignored: true };
 
     const chatId = updateChatId(update);
     if (!chatId) return { ignored: true };
     if (!ownerAllowed(role, chatId, env)) {
-        if (role === 'panel') {
-            await bot.send(chatId, `Доступ к панели ограничен.\nВаш Telegram chat ID: ${chatId}\nДобавьте это значение в PANEL_CHAT_ID или M_CHAT_ID на сервере и перезапустите бота.`);
-        } else if (role === 'admin') {
-            await bot.send(chatId, `Админ-доступ ограничен.\nВаш Telegram chat ID: ${chatId}\nЗадайте значение MY_CHAT_ID на сервере.`);
-        }
         return { ignored: true, reason: 'chat-not-allowed' };
     }
     if (!allowChatUpdate(role, chatId)) {
         console.warn(`Telegram ${role} update throttled for chat ${chatId}.`);
         return { ignored: true, reason: 'rate-limited' };
     }
+    const processContext = { sideEffectAttempted: false };
+    const bot = createBotForRole(role, env, request, processContext);
     try {
         if (update.callback_query) {
             await handleCallback(config, bot, update.callback_query, chatId);
@@ -403,83 +443,18 @@ function processTelegramUpdate(role, update, options = {}) {
     });
 }
 
-const CLIENT_CATALOG_PAGE_SIZE = 8;
-const CLIENT_ORDERS_PAGE_SIZE = 10;
-
-async function showCatalog(bot, chatId, { search = '', offset = 0 } = {}) {
-    const result = await bot.callApi(`/client/catalog?search=${encodeURIComponent(search)}&offset=${offset}`, chatId);
-    const products = result.products || [];
-    setState('client', chatId, { flow: 'catalog-list', products, search, offset });
-    if (!products.length) {
-        await bot.send(chatId, search ? `Ничего не найдено по запросу «${safeText(search, 80)}».` : 'Каталог пока пуст.', {
-            reply_markup: inline([[{ text: 'Искать снова', callback_data: 'cl:search' }, { text: 'Показать весь каталог', callback_data: 'cl:catalog' }]])
-        });
-        return;
-    }
-    const rows = products.map((product, index) => [{
-        text: `${safeText(product.name, 48)} · ${Number.isFinite(Number(product.price)) ? `${Number(product.price)} ₽` : 'цена уточняется'}`,
-        callback_data: `cl:product:${index}`
-    }]);
-    const navigation = [];
-    if (offset > 0) navigation.push({ text: 'Назад', callback_data: 'cl:catalog:prev' });
-    if (result.hasMore) navigation.push({ text: 'Дальше', callback_data: 'cl:catalog:next' });
-    if (navigation.length) rows.push(navigation);
-    rows.push([{ text: 'Поиск товара', callback_data: 'cl:search' }]);
-    await bot.send(chatId,
-        `Каталог${search ? ` · ${safeText(search, 80)}` : ''}\nСтраница ${Math.floor(offset / CLIENT_CATALOG_PAGE_SIZE) + 1} · найдено ${result.total}`,
-        { reply_markup: inline(rows) }
-    );
-}
-
-async function showCustomerOrders(bot, chatId, offset = 0) {
-    const result = await bot.callApi(`/client/orders?offset=${offset}`, chatId);
-    if (!result.linked) {
-        await bot.send(chatId, 'Чтобы показать ваши заказы, сначала привяжите Telegram в профиле на сайте.', {
-            reply_markup: inline([[{ text: 'Открыть профиль', url: 'https://drdarsun.ru/profile.html' }]])
-        });
-        return;
-    }
-    const orders = result.orders || [];
-    setState('client', chatId, { flow: 'orders-list', orders, offset });
-    if (!orders.length) {
-        await bot.send(chatId, 'Заказов пока нет.');
-        return;
-    }
-    const rows = orders.map((order, index) => [{
-        text: `Заказ ${safeText(order.id, 36)} · ${safeText(order.status, 32)} · ${Number(order.total) || 0} ₽`,
-        callback_data: `cl:order:${index}`
-    }]);
-    const navigation = [];
-    if (offset > 0) navigation.push({ text: 'Назад', callback_data: 'cl:orders:prev' });
-    if (result.hasMore) navigation.push({ text: 'Дальше', callback_data: 'cl:orders:next' });
-    if (navigation.length) rows.push(navigation);
-    await bot.send(chatId, 'Ваши заказы. Выберите заказ, чтобы посмотреть позиции и статус:', { reply_markup: inline(rows) });
-}
-
-async function confirmLink(bot, chatId, user, code) {
-    if (!/^[A-F0-9]{16}$/i.test(code || '')) {
-        await bot.send(chatId, 'Введите одноразовый код привязки из профиля на сайте: /link КОД');
-        return;
-    }
-    await bot.callApi('/link/confirm', chatId, {
-        method: 'POST',
-        body: JSON.stringify({ code: code.toUpperCase(), username: user?.username || '' })
-    });
-    await bot.send(chatId, 'Аккаунт успешно привязан. Теперь можно пользоваться командами бота.');
-}
-
 async function getMyTicket(bot, chatId) {
     return bot.callApi('/support/my-ticket', chatId);
 }
 
 function ticketContactLink(number) {
-    return `https://t.me/darsunhelp?text=${encodeURIComponent(`Здравствуйте, по обращению №${number}`)}`;
+    return `mailto:drdarsunhelper@gmail.com?subject=${encodeURIComponent(`Обращение №${number}`)}`;
 }
 
 const SUPPORT_FAQ = {
-    account: 'Привязка: войдите в профиль на drdarsun.ru, откройте «Безопасность», создайте код Telegram и отправьте его боту командой /link КОД. Код одноразовый и действует ограниченное время.',
-    orders: 'Заказы доступны в клиентском боте после привязки Telegram к профилю. Команда /orders показывает только заказы вашего аккаунта.',
-    notifications: 'Уведомления о заказах можно включить в профиле: «Безопасность → Telegram — управление связью», или в клиентском боте командой /notifications.',
+    account: 'Для восстановления доступа используйте ссылку «Забыли пароль?» на странице входа. Не отправляйте пароли и коды подтверждения в чаты.',
+    orders: 'Актуальные сведения о заказе можно уточнить у оператора поддержки.',
+    notifications: 'Уведомления о заказах доступны на электронной почте в настройках профиля.',
     storage: 'После открытия бутылки следуйте условиям на этикетке. Обычно масло хранят плотно закрытым, вдали от света и источников тепла.'
 };
 
@@ -490,7 +465,7 @@ async function showSupportFaq(bot, chatId, topic) {
     }
     await bot.send(chatId, 'Выберите вопрос:', {
         reply_markup: inline([
-            [{ text: 'Привязка аккаунта', callback_data: 's:faq:account' }],
+            [{ text: 'Доступ к аккаунту', callback_data: 's:faq:account' }],
             [{ text: 'Заказы', callback_data: 's:faq:orders' }],
             [{ text: 'Уведомления', callback_data: 's:faq:notifications' }],
             [{ text: 'Хранение масла', callback_data: 's:faq:storage' }]
@@ -506,14 +481,14 @@ async function createTicket(bot, chatId, user, message, topic) {
     const link = ticketContactLink(result.number);
     await bot.send(chatId,
         `Обращение №${result.number} создано${result.existing ? ' и добавлено к вашему активному обращению' : ''}.\nТема: ${topic}\n\nЕсли хотите написать лично, откройте чат с поддержкой — номер уже будет в сообщении:\n${link}`,
-        { reply_markup: inline([[{ text: 'Написать @darsunhelp', url: link }]]) }
+        { reply_markup: inline([[{ text: 'Написать на почту', url: link }]]) }
     );
     setState('support', chatId, {});
 }
 
 async function supportMessage(bot, chatId, user, message) {
     const now = Date.now();
-    const supportAttempts = (supportUsage.get(chatId) || []).filter(timestamp => now - timestamp < 5 * 60 * 1000);
+    const supportAttempts = (supportUsage.get(chatId) || []).filter(timestamp => now - timestamp < USAGE_WINDOW);
     if (supportAttempts.length >= 20) {
         supportUsage.set(chatId, supportAttempts);
         await bot.send(chatId, 'Слишком много сообщений за короткое время. Подождите несколько минут или воспользуйтесь FAQ.');
@@ -538,7 +513,7 @@ async function supportMessage(bot, chatId, user, message) {
         return;
     }
 
-    const usage = (assistantUsage.get(chatId) || []).filter(timestamp => now - timestamp < 5 * 60 * 1000);
+    const usage = (assistantUsage.get(chatId) || []).filter(timestamp => now - timestamp < USAGE_WINDOW);
     if (usage.length >= 8) {
         assistantUsage.set(chatId, usage);
         await bot.send(chatId, 'Слишком много сообщений за короткое время. Подождите несколько минут или выберите «Нужен оператор».');
@@ -547,10 +522,13 @@ async function supportMessage(bot, chatId, user, message) {
     usage.push(now);
     assistantUsage.set(chatId, usage);
 
-    const history = histories.get(chatId) || [];
-    const aiResponse = await fetch(`${bot.apiBase}/api/gigachat`, {
+    const history = getHistory(chatId);
+    const aiResponse = await bot.request(`${bot.apiBase}/api/gigachat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-Worker-Secret': bot.sharedSecret || ''
+        },
         body: JSON.stringify({ message, history, context: 'site', supportMode: true }),
         signal: AbortSignal.timeout(30000)
     });
@@ -560,7 +538,7 @@ async function supportMessage(bot, chatId, user, message) {
 
     history.push({ role: 'user', content: message.slice(0, 1000) });
     history.push({ role: 'assistant', content: response.reply.slice(0, 1000) });
-    histories.set(chatId, history.slice(-8));
+    setHistory(chatId, history.slice(-8));
 
     if (response.escalation?.required) {
         const recentQuestions = history
@@ -616,7 +594,8 @@ async function listAdminReviews(bot, chatId, offset = 0) {
         return;
     }
     for (const review of reviews) {
-        const text = `${safeText(review.user_name, 80)} · ${review.rating}/5\n${safeText(review.review_text, 2500)}`;
+        const product = review.product_name ? `Товар: ${safeText(review.product_name, 100)}\n` : '';
+        const text = `${product}${safeText(review.user_name, 80)} · ${review.rating}/5`;
         await bot.send(chatId, text, {
             reply_markup: inline([[{ text: '✅ Одобрить', callback_data: `adm:ra:${review.id}` }, { text: '❌ Отклонить', callback_data: `adm:rr:${review.id}` }]])
         });
@@ -634,14 +613,15 @@ async function listOrders(bot, chatId, { status = '', offset = 0 } = {}) {
         await bot.send(chatId, 'Заказов пока нет.', { reply_markup: menuKeyboard('panel') });
         return;
     }
-    for (const order of result.orders.slice(0, 15)) {
+    const pageOrders = result.orders.slice(0, 15);
+    for (const [index, order] of pageOrders.entries()) {
         const text = `Заказ ${safeText(order.id, 40)}\n${formatOrders([order])}\nПокупатель: ${safeText(order.customer_name || '—', 100)}\nПочта: ${safeText(order.customer_email || '—', 180)}\nАдрес: ${safeText(order.delivery_address || '—', 300)}\nПозиции: ${Array.isArray(order.items) ? order.items.map(item => `${safeText(item.name || item.product_id, 80)} × ${item.quantity || 1}`).join(', ') : '—'}`;
         const buttons = ORDER_STATUSES.map(status => ({
             text: `${order.status === status ? '• ' : ''}${status}`,
-            callback_data: `p:o:${result.orders.indexOf(order)}:${status}`
+            callback_data: `p:o:${index}:${status}`
         }));
-        await bot.send(chatId, text, { reply_markup: inline(buttons.reduce((rows, button, index) => {
-            const row = Math.floor(index / 3);
+        await bot.send(chatId, text, { reply_markup: inline(buttons.reduce((rows, button, buttonIndex) => {
+            const row = Math.floor(buttonIndex / 3);
             rows[row] ||= [];
             rows[row].push(button);
             return rows;
@@ -695,7 +675,7 @@ async function listProducts(bot, chatId, offset = 0) {
         await bot.send(chatId, 'Товаров нет.', { reply_markup: menuKeyboard('panel') });
         return;
     }
-    const pageProducts = products.slice(offset, offset + PANEL_PRODUCTS_PAGE_SIZE);
+    const pageProducts = products.slice(0, PANEL_PRODUCTS_PAGE_SIZE);
     setState('panel', chatId, {
         flow: 'products-list',
         products: pageProducts,
@@ -916,63 +896,6 @@ async function handleCallback(config, bot, callback, chatId) {
         }
         return;
     }
-    if (config.role === 'client') {
-        const state = getState('client', chatId);
-        if (data === 'cl:search') {
-            setState('client', chatId, { flow: 'catalog-search' });
-            await bot.send(chatId, 'Введите название товара или категорию. Для отмены отправьте /cancel.');
-        } else if (data === 'cl:catalog') {
-            await showCatalog(bot, chatId);
-        } else if (data === 'cl:catalog:next' || data === 'cl:catalog:prev') {
-            await showCatalog(bot, chatId, {
-                search: state.search || '',
-                offset: Math.max(0, (state.offset || 0) + (data.endsWith('next') ? CLIENT_CATALOG_PAGE_SIZE : -CLIENT_CATALOG_PAGE_SIZE))
-            });
-        } else if (data.startsWith('cl:product:')) {
-            const product = state.products?.[Number(data.slice('cl:product:'.length))];
-            if (!product) return;
-            const description = safeText(product.description, 1200) || 'Описание пока не добавлено.';
-            await bot.send(chatId,
-                `${safeText(product.name, 120)}\n${safeText(product.category, 80)} · ${Number(product.price) || 0} ₽\n\n${description}`,
-                { reply_markup: inline([[{ text: 'Назад к каталогу', callback_data: 'cl:catalog' }, { text: 'Поиск товара', callback_data: 'cl:search' }]]) }
-            );
-        } else if (data === 'cl:orders:next' || data === 'cl:orders:prev') {
-            await showCustomerOrders(bot, chatId, Math.max(0, (state.offset || 0) + (data.endsWith('next') ? CLIENT_ORDERS_PAGE_SIZE : -CLIENT_ORDERS_PAGE_SIZE)));
-        } else if (data.startsWith('cl:order:')) {
-            const order = state.orders?.[Number(data.slice('cl:order:'.length))];
-            if (!order) return;
-            const items = Array.isArray(order.items)
-                ? order.items.map(item => `${safeText(item.name || item.product_id, 100)} × ${Number(item.quantity) || 1}`).join('\n')
-                : 'Состав заказа недоступен.';
-            await bot.send(chatId,
-                `Заказ ${safeText(order.id, 80)}\nСтатус: ${safeText(order.status, 32)}\nДата: ${new Date(order.created_at).toLocaleDateString('ru-RU')}\nСумма: ${Number(order.total) || 0} ₽\n\n${items}`,
-                { reply_markup: inline([[{ text: 'Назад к заказам', callback_data: 'cl:orders:prev' }]]) }
-            );
-        } else if (data === 'cl:notifications') {
-            const preferences = await bot.callApi('/client/notifications', chatId);
-            if (!preferences.linked) {
-                await bot.send(chatId, 'Сначала привяжите Telegram в профиле на сайте, чтобы управлять уведомлениями.');
-                return;
-            }
-            setState('client', chatId, { ...state, notificationsEnabled: preferences.enabled });
-            await bot.send(chatId, `Уведомления о заказах: ${preferences.enabled ? 'включены' : 'выключены'}.`, {
-                reply_markup: inline([[{ text: preferences.enabled ? 'Выключить уведомления' : 'Включить уведомления', callback_data: 'cl:notifications:toggle' }]])
-            });
-        } else if (data === 'cl:notifications:toggle') {
-            const preferences = await bot.callApi('/client/notifications', chatId);
-            if (!preferences.linked) {
-                await bot.send(chatId, 'Сначала привяжите Telegram в профиле на сайте, чтобы управлять уведомлениями.');
-                return;
-            }
-            const updated = await bot.callApi('/client/notifications', chatId, {
-                method: 'PATCH',
-                body: JSON.stringify({ enabled: !preferences.enabled })
-            });
-            setState('client', chatId, { ...state, notificationsEnabled: updated.enabled });
-            await bot.editCallbackMessage(callback, `Уведомления о заказах ${updated.enabled ? 'включены' : 'выключены'}.`);
-        }
-        return;
-    }
     if (config.role === 'admin') {
         if (data.startsWith('adm:tickets:filter:')) {
             const status = data.slice('adm:tickets:filter:'.length);
@@ -1077,6 +1000,7 @@ async function handleCallback(config, bot, callback, chatId) {
         }
         if (data === 'adm:reviews') return listAdminReviews(bot, chatId);
         if (data === 'adm:tickets') return listAdminTickets(bot, chatId);
+        if (!data.startsWith('p:')) {
         const [, action, id] = data.split(':');
         if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return;
         if (action === 'ra' || action === 'rr') {
@@ -1100,9 +1024,9 @@ async function handleCallback(config, bot, callback, chatId) {
             setState('admin', chatId, { flow: 'ticket-reply', ticketId: id });
             await bot.send(chatId, 'Введите ответ для выбранного обращения. Для отмены отправьте /cancel.');
         }
-        return;
+        if (!data.startsWith('p:')) return;
     }
-    if (config.role === 'panel') {
+    if (config.role === 'panel' || config.role === 'admin') {
         if (data === 'p:products:next' || data === 'p:products:prev') {
             const state = getState('panel', chatId);
             if (state.flow !== 'products-list') return;
@@ -1339,6 +1263,7 @@ async function handleCallback(config, bot, callback, chatId) {
         }
     }
 }
+}
 
 async function handleMessage(config, bot, message) {
     const chatId = String(message.chat.id);
@@ -1349,132 +1274,13 @@ async function handleMessage(config, bot, message) {
         return;
     }
 
-    if (config.role === 'client' || config.role === 'auth') {
-        if (config.role === 'client' && getState('client', chatId).flow === 'catalog-search') {
-            if (text === '/cancel') {
-                setState('client', chatId, {});
-                await bot.send(chatId, 'Поиск отменён.', { reply_markup: menuKeyboard('client') });
-                return;
-            }
-            if (!text || text.length > 80) {
-                await bot.send(chatId, 'Введите запрос длиной до 80 символов.');
-                return;
-            }
-            setState('client', chatId, {});
-            await showCatalog(bot, chatId, { search: text });
-            return;
-        }
-        if (text.startsWith('/link')) {
-            const code = text.split(/\s+/)[1] || '';
-            try {
-                await confirmLink(bot, chatId, user, code);
-            } catch (error) {
-                await bot.send(chatId, error.message || 'Не удалось привязать аккаунт. Проверьте код и попробуйте снова.');
-            }
-            return;
-        }
-        if (text.startsWith('/start')) {
-            const startCode = text.split(/\s+/)[1] || '';
-            if (['auth', 'client'].includes(config.role) && startCode) {
-                try {
-                    await confirmLink(bot, chatId, user, startCode);
-                } catch (error) {
-                    await bot.send(chatId, error.message || 'Не удалось привязать аккаунт. Проверьте код и попробуйте снова.');
-                }
-                return;
-            }
-            await bot.send(chatId,
-                config.role === 'client'
-                    ? 'Добро пожаловать! Здесь можно посмотреть каталог, проверить заказы и связать аккаунт сайта.'
-                    : 'Бот привязки аккаунта Dr. DarSun. Отправьте одноразовый код из профиля командой /link КОД.',
-                { reply_markup: menuKeyboard(config.role) }
-            );
-            if (config.role === 'client' && botUsernames.has('support')) {
-                await bot.send(chatId, 'Нужна помощь? Напишите помощнику:', {
-                    reply_markup: inline([[{
-                        text: `Перейти к помощнику · @${botUsernames.get('support')}`,
-                        url: `https://t.me/${botUsernames.get('support')}`
-                    }]])
-                });
-            }
-            return;
-        }
-        if (config.role === 'auth' && text === '🔗 Связать аккаунт') {
-            await bot.send(chatId, 'Создайте одноразовый код привязки в профиле на сайте и отправьте его сюда командой /link КОД.');
-            return;
-        }
-        if (config.role === 'client') {
-            if (text === '📚 Каталог' || text === '/catalog') return showCatalog(bot, chatId);
-            if (text === 'Найти товар' || text === '/search') {
-                setState('client', chatId, { flow: 'catalog-search' });
-                await bot.send(chatId, 'Введите название товара или категорию. Для отмены отправьте /cancel.');
-                return;
-            }
-            if (text.startsWith('/search ')) return showCatalog(bot, chatId, { search: text.slice('/search '.length).trim().slice(0, 80) });
-            if (text === '📦 Мои заказы' || text === '/orders') return showCustomerOrders(bot, chatId);
-            if (text === 'Уведомления' || text === '/notifications') {
-                const preferences = await bot.callApi('/client/notifications', chatId);
-                if (!preferences.linked) {
-                    await bot.send(chatId, 'Сначала привяжите Telegram в профиле на сайте, чтобы управлять уведомлениями.');
-                    return;
-                }
-                setState('client', chatId, { flow: 'notifications', notificationsEnabled: preferences.enabled });
-                await bot.send(chatId, `Уведомления о заказах: ${preferences.enabled ? 'включены' : 'выключены'}.`, {
-                    reply_markup: inline([[{ text: preferences.enabled ? 'Выключить уведомления' : 'Включить уведомления', callback_data: 'cl:notifications:toggle' }]])
-                });
-                return;
-            }
-            if (text === '🔗 Связать аккаунт') {
-                const profileUrl = 'https://drdarsun.ru/profile.html';
-                await bot.send(chatId, 'Откройте профиль → «Безопасность» → «Telegram — управление связью», создайте код привязки и отправьте его сюда командой /link КОД.', {
-                    reply_markup: inline([[{ text: 'Открыть профиль', url: profileUrl }]])
-                });
-                return;
-            }
-            if (text === 'ℹ️ Помощь' || text === '/help') {
-                const username = botUsernames.get('support');
-                await bot.send(chatId, username
-                    ? 'Каталог: /catalog · поиск: /search запрос · заказы: /orders · управление уведомлениями: /notifications · привязка: /link КОД.\nДля вопроса откройте бота-помощника.'
-                    : 'Каталог: /catalog · поиск: /search запрос · заказы: /orders · уведомления: /notifications · привязка: /link КОД.\nДля поддержки напишите @darsunhelp.',
-                {
-                    ...(username ? { reply_markup: inline([[{ text: 'Открыть помощника', url: `https://t.me/${username}` }]]) } : {})
-                });
-                return;
-            }
-            if (config.role === 'client') {
-                if (text.startsWith('/')) {
-                    await bot.send(chatId, 'Не знаю эту команду. Используйте /help, чтобы увидеть доступные действия.', {
-                        reply_markup: menuKeyboard('client')
-                    });
-                    return;
-                }
-                await showCatalog(bot, chatId, { search: text.slice(0, 80) });
-                return;
-            }
-        }
-        if (text === '/help') {
-            await bot.send(chatId, 'Создайте код привязки в настройках профиля на сайте, затем отправьте /link КОД.');
-        } else if (text.startsWith('/')) {
-            await bot.send(chatId, 'Для привязки откройте профиль на сайте, создайте код и отправьте /link КОД. Для команд отправьте /help.');
-        } else {
-            await bot.send(chatId, 'Этот бот принимает только код привязки. Откройте профиль сайта, создайте код и отправьте /link КОД.');
-        }
-        return;
-    }
-
     if (config.role === 'support') {
         if (text.startsWith('/start')) {
-            await bot.send(chatId, `Я помощник Dr. DarSun${botUsernames.has('support') ? ` · @${botUsernames.get('support')}` : ''}. Постараюсь решить вопрос, а если потребуется оператор — создам обращение с темой и номером. Чтобы получить ссылки на все боты, отправьте /bots.`, { reply_markup: menuKeyboard('support') });
+            await bot.send(chatId, `Поддержка Dr. DarSun${botUsernames.has('support') ? ` · @${botUsernames.get('support')}` : ''} поможет разобраться с вопросом или передаст его оператору.`, { reply_markup: menuKeyboard('support') });
             return;
         }
         if (text === '/faq' || text === '🧾 Частые вопросы') {
             await showSupportFaq(bot, chatId);
-            return;
-        }
-        if (text === '/bots' || /(?:какие|где).{0,30}бот|ссылк.{0,30}бот|бот.{0,30}(?:ссылк|юзер|username)/i.test(text)) {
-            await bot.send(chatId, botLinksMessage(), {
-                ...(publicBotLinks().length ? { reply_markup: botLinksKeyboard() } : {})
-            });
             return;
         }
         if (text === '/help') {
@@ -1600,15 +1406,24 @@ async function handleMessage(config, bot, message) {
         } else if (text === '✍️ Отзывы' || text === '/reviews') {
             await listAdminReviews(bot, chatId);
         } else if (text === '📦 Заказы' || text === '/orders') {
-            const { orders = [] } = await bot.callApi('/admin/orders?offset=0', chatId);
-            await bot.send(chatId, formatOrders(orders), { reply_markup: menuKeyboard('admin') });
+            await listOrders(bot, chatId, { status: '' });
+        } else if (text === '➕ Новый заказ' || text === '/neworder') {
+            await startNewOrder(bot, chatId);
+        } else if (text === '🛍 Товары' || text === '/products') {
+            await listProducts(bot, chatId);
+        } else if (text === '➕ Новый товар' || text === '/newproduct') {
+            await startNewProduct(bot, chatId);
+        } else if (text === '🧾 История' || text === '/history') {
+            await listAuditLog(bot, chatId);
         } else if (text === '🛠 Техперерыв' || text === '/maintenance') {
             await showAdminMaintenanceMenu(bot, chatId);
         } else if (text === '🔔 Уведомление' || text === '/toast') {
             setState('admin', chatId, { flow: 'toast-recipient' });
             await bot.send(chatId, 'Кому показать уведомление? Отправьте email аккаунта или `all` для публичного объявления всем посетителям сайта, включая гостей. Для отмены: /cancel.');
         } else if (text === '/help') {
-            await bot.send(chatId, 'Команды: /tickets [open|closed] — обращения, /reviews — отзывы, /orders — заказы, /maintenance — режим сайта, /toast — уведомление на сайте. Для отмены текущего ввода: /cancel.');
+            await bot.send(chatId, 'Команды: /tickets [open|closed] — обращения, /reviews — отзывы, /orders — заказы, /neworder — новый заказ, /products — товары, /newproduct — новый товар, /history — история, /maintenance — режим сайта, /toast — уведомление. Для отмены текущего ввода: /cancel.');
+        } else if (getState('panel', chatId).flow) {
+            await processPanelText(bot, chatId, text);
         } else if (getState('admin', chatId).flow === 'ticket-reply') {
             const state = getState('admin', chatId);
             if (text === '/cancel') {
@@ -1620,11 +1435,16 @@ async function handleMessage(config, bot, message) {
                 method: 'POST',
                 body: JSON.stringify({ message: text })
             });
-            if (result.updated_at) notified.tickets.set(state.ticketId, result.updated_at);
+            if (result.updated_at) {
+                notified.tickets.set(state.ticketId, {
+                    updatedAt: result.updated_at,
+                    notifiedAt: Date.now()
+                });
+            }
             setState('admin', chatId, {});
             await bot.send(chatId, result.delivered
                 ? 'Ответ отправлен клиенту.'
-                : 'Ответ сохранён в обращении, но Telegram не подтвердил доставку. Проверьте HELP_BOT_TOKEN.');
+                : 'Ответ сохранён в обращении, но Telegram не подтвердил доставку. Проверьте ADMIN_BOT_TOKEN.');
         } else {
             await bot.send(chatId, 'Не распознал команду. Отправьте /help или используйте кнопки меню.', {
                 reply_markup: menuKeyboard('admin')
@@ -1665,7 +1485,7 @@ async function handleMessage(config, bot, message) {
 }
 
 async function notifyAdmin(bot, chatId, env) {
-    const ownerChat = env.MY_CHAT_ID;
+    const ownerChat = String(env.MY_CHAT_ID || '').trim();
     if (!ownerChat || chatId !== ownerChat) return;
     let tickets = [];
     let reviews = [];
@@ -1680,149 +1500,47 @@ async function notifyAdmin(bot, chatId, env) {
         console.error('Telegram admin review queue failed:', safeError(error, bot.token));
     }
     for (const ticket of tickets) {
-        if (notified.tickets.get(ticket.id) === ticket.updated_at) continue;
-        const isNew = !notified.tickets.has(ticket.id);
+        const previous = notified.tickets.get(ticket.id);
+        if (previous?.updatedAt === ticket.updated_at) continue;
+        const isNew = !previous;
         await bot.send(chatId,
             `${isNew ? 'Новое обращение' : 'Обращение обновлено'} №${ticket.ticket_number}\nТема: ${safeText(ticket.topic, 60)}\n${safeText(ticket.telegram_username ? `@${ticket.telegram_username}` : ticket.telegram_chat_id, 80)}${ticket.last_message?.message ? `\n\n${ticket.last_message.sender_role === 'customer' ? 'Клиент' : 'Поддержка'}: ${safeText(ticket.last_message.message, 1200)}` : ''}`,
             { reply_markup: inline([[{ text: 'Открыть переписку', callback_data: `adm:t:${ticket.id}` }, { text: 'Ответить', callback_data: `adm:r:${ticket.id}` }, { text: 'Закрыть', callback_data: `adm:c:${ticket.id}` }]]) }
         );
-        notified.tickets.set(ticket.id, ticket.updated_at);
+        notified.tickets.set(ticket.id, { updatedAt: ticket.updated_at, notifiedAt: Date.now() });
     }
     for (const review of reviews) {
         if (notified.reviews.has(review.id)) continue;
         await bot.send(chatId,
-            `Новый отзыв на модерации\n${safeText(review.user_name, 80)} · ${review.rating}/5\n${safeText(review.review_text, 1500)}`,
+            `Новый отзыв на модерации\n${safeText(review.user_name, 80)} · ${review.rating}/5`,
             { reply_markup: inline([[{ text: '✅ Одобрить', callback_data: `adm:ra:${review.id}` }, { text: '❌ Отклонить', callback_data: `adm:rr:${review.id}` }]]) }
         );
-        notified.reviews.add(review.id);
+        notified.reviews.set(review.id, Date.now());
     }
 }
 
-function startTelegramBots(options = {}) {
+async function sendToUser(role, chatId, text, extra = {}, options = {}) {
+    const definition = getBotDefinition(role);
     const env = options.env || process.env;
-    const request = options.fetch || fetch;
-    const bots = new Map();
-    const timers = [];
-    const seenTokens = new Map();
-    const ambiguousTokens = new Set();
-    let stopping = false;
-
-    for (const definition of BOT_DEFINITIONS) {
-        const token = typeof env[definition.tokenEnv] === 'string' ? env[definition.tokenEnv].trim() : '';
-        if (!token) continue;
-        if (definition.role === 'admin' && !env.MY_CHAT_ID) {
-            console.warn('Telegram admin bot not started: MY_CHAT_ID is not configured.');
-            continue;
-        }
-        if (definition.role === 'panel' && configuredPanelChatIds(env).length === 0) {
-            console.warn('Telegram panel bot not started: M_CHAT_ID or PANEL_CHAT_ID is not configured.');
-            continue;
-        }
-        const duplicateRole = seenTokens.get(token);
-        if (duplicateRole) {
-            bots.delete(duplicateRole);
-            ambiguousTokens.add(token);
-            console.error(`Telegram ${definition.role} and ${duplicateRole} bots not started: they use the same token. Create a distinct token for each bot.`);
-            continue;
-        }
-        if (ambiguousTokens.has(token)) continue;
-        seenTokens.set(token, definition.role);
-        const bot = createBotClient({ ...definition, tokenEnv: '__NORMALIZED_TOKEN' }, {
-            ...env,
-            __NORMALIZED_TOKEN: token
-        }, request);
-        bots.set(definition.role, bot);
+    const token = definition?.tokenEnv ? String(env[definition.tokenEnv] || '').trim() : '';
+    if (!definition || !token) throw new Error(`Telegram ${role} bot is not configured.`);
+    const request = options.fetch || ((...args) => fetch(...args));
+    const response = await request(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text, ...extra }),
+        signal: AbortSignal.timeout(10000)
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok || !result?.ok) {
+        throw new Error(`Telegram sendMessage failed with status ${response.status}.`);
     }
-
-    for (const [role, bot] of bots) {
-        (async () => {
-            let offset = 0;
-            let retryDelay = 3000;
-            try {
-                const me = await bot.telegram('getMe', {});
-                if (!me?.is_bot || typeof me.username !== 'string') {
-                    console.error(`Telegram ${role} identity check failed: getMe returned invalid bot data.`);
-                    return;
-                }
-                botUsernames.set(role, me.username);
-                console.log(`Telegram ${role} bot authenticated as @${me.username}.`);
-                await bot.telegram('deleteWebhook', { drop_pending_updates: false });
-                console.log(`Telegram ${role} webhook cleared; long polling is active.`);
-                try {
-                    await bot.telegram('setMyCommands', {
-                        commands: role === 'panel'
-                            ? [{ command: 'start', description: 'Открыть меню' }, { command: 'orders', description: 'Заказы' }, { command: 'neworder', description: 'Создать заказ' }, { command: 'products', description: 'Товары' }, { command: 'newproduct', description: 'Создать товар' }]
-                            : role === 'admin'
-                                ? [{ command: 'start', description: 'Открыть админ-меню' }, { command: 'tickets', description: 'Обращения' }, { command: 'reviews', description: 'Отзывы на модерации' }, { command: 'orders', description: 'Заказы' }, { command: 'maintenance', description: 'Техперерыв сайта' }, { command: 'toast', description: 'Уведомление на сайте' }]
-                                : role === 'support'
-                                    ? [{ command: 'start', description: 'Начать общение' }, { command: 'ticket', description: 'Моё обращение' }, { command: 'operator', description: 'Позвать оператора' }, { command: 'bots', description: 'Ссылки на ботов' }, { command: 'help', description: 'Помощь' }]
-                                    : [{ command: 'start', description: 'Открыть меню' }, { command: 'link', description: 'Привязать аккаунт: /link КОД' }, { command: 'help', description: 'Помощь' }]
-                    });
-                } catch (error) {
-                    console.error(`Telegram ${role} command setup failed:`, safeError(error, bot.token));
-                }
-            } catch (error) {
-                console.error(`Telegram ${role} token check failed:`, safeError(error, bot.token));
-                return;
-            }
-
-            if (role === 'admin' && env.MY_CHAT_ID) {
-                const notify = () => notifyAdmin(bot, env.MY_CHAT_ID, env).catch(error =>
-                    console.error('Telegram admin notifications failed:', safeError(error, bot.token))
-                );
-                const timer = setInterval(notify, 15000);
-                timer.unref?.();
-                timers.push(timer);
-                notify();
-            }
-
-            while (!stopping) {
-                try {
-                    const updates = await bot.telegram('getUpdates', {
-                        offset,
-                        timeout: 25,
-                        allowed_updates: ['message', 'callback_query']
-                    });
-                    for (const update of updates) {
-                        offset = update.update_id + 1;
-                        if (!isPrivateUpdate(update)) continue;
-                        const chatId = updateChatId(update);
-                        if (!ownerAllowed(role, chatId, env)) continue;
-                        try {
-                            await processTelegramUpdate(role, update, { env, fetch: request });
-                        } catch (error) {
-                            console.error(`Telegram ${role} update failed:`, safeError(error, bot.token));
-                            const userMessage = userFacingError(error);
-                            if (chatId) await bot.send(chatId, userMessage).catch(() => {});
-                        }
-                    }
-                    retryDelay = 3000;
-                } catch (error) {
-                    console.error(`Telegram ${role} polling failed:`, safeError(error, bot.token));
-                    if (stopping || [400, 401, 409].includes(error.telegramStatus)) break;
-                    const delay = error.retryAfter
-                        ? Math.min(60000, error.retryAfter * 1000)
-                        : retryDelay;
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    retryDelay = Math.min(60000, retryDelay * 2);
-                }
-            }
-        })();
-    }
-
-    return {
-        stop() {
-            stopping = true;
-            for (const timer of timers) clearInterval(timer);
-        },
-        roles: [...bots.keys()]
-    };
+    return result.result;
 }
 
 module.exports = {
-    startTelegramBots,
-    getPublicBotLinks,
     processTelegramUpdate,
+    sendToUser,
     getBotState: (role, chatId) => getState(role, chatId),
     setBotState: (role, chatId, state) => setState(role, chatId, state)
 };

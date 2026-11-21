@@ -23,11 +23,10 @@
                 <a href="about.html">О нас</a>
                 <a href="delivery.html">Доставка</a>
                 <a href="oil-catalog.html">Масла</a>
-                <a href="index.html#news">Новости</a>
             </nav>
 <div class="header__actions">
     <button class="theme-toggle" id="theme-toggle"></button>
-    <a href="cart.html" class="icon-btn" aria-label="Корзина"><span aria-hidden="true">🛒</span><span class="cart-count" data-cart-count hidden></span></a>
+    <a href="cart.html" class="icon-btn" aria-label="Корзина"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h8.5a2 2 0 0 0 1.9-1.5L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg><span class="cart-count" data-cart-count hidden></span></a>
     <div id="auth-buttons"></div>
     <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
 </div>
@@ -40,7 +39,6 @@
             <a href="scientists-about-oils.html">Учёные о маслах</a>
             <a href="oil-catalog.html">Справочник масел</a>
             <a href="delivery.html">Доставка</a>
-            <a href="index.html#news">Новости</a>
         </div>
     </header>
 
@@ -52,6 +50,18 @@
             <p>Натуральные масла и продукты собственного производства.</p>
             <a class="catalog-intro__guide" href="oil-catalog.html">Изучить масла в справочнике <span aria-hidden="true">↗</span></a>
         </section>
+
+        <aside class="catalog-mascot-tip" aria-labelledby="catalog-mascot-title">
+            <img src="assets/images/walnut2.png" alt="" loading="lazy">
+            <div>
+                <p class="eyebrow">СОВЕТ ОТ ДОКТОРА</p>
+                <h2 id="catalog-mascot-title">Ищете что-то конкретное?</h2>
+                <p id="catalog-mascot-message" aria-live="polite">Начните с поиска по названию или выберите категорию — так найти нужное проще.</p>
+            </div>
+            <button class="catalog-mascot-tip__next" id="catalog-mascot-next" type="button" aria-label="Следующий совет">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+            </button>
+        </aside>
 
         <p class="catalog-demo-notice" id="catalog-demo-notice" role="status" hidden></p>
 
@@ -141,31 +151,14 @@
         </div>
     </footer>
 
-<!-- Кнопка вызова чата в каталоге -->
-<button id="catalog-bot-toggle" class="chat-launcher" type="button" aria-label="Открыть чат с Доктором ДарСан" aria-controls="catalog-bot-modal" aria-expanded="false">✳</button>
-
-<div class="bot-modal" id="catalog-bot-modal" role="dialog" aria-label="Чат с Доктором ДарСан" aria-modal="false">
-    <div class="bot-header">
-        <div><h4>Доктор ДарСан</h4><span>Помощник по каталогу</span></div>
-        <button id="catalog-bot-close" type="button" aria-label="Закрыть чат">×</button>
-    </div>
-    <div class="bot-messages" id="catalog-chat-messages" aria-live="polite" aria-relevant="additions">
-        <div class="msg-wrapper bot">
-            <div class="msg">Здравствуйте! Помочь с выбором?</div>
-        </div>
-    </div>
-    <div class="chat-composer">
-        <input type="text" id="catalog-chat-input" maxlength="1200" placeholder="Спросить о товарах…" aria-label="Сообщение для помощника">
-        <button id="catalog-chat-send" type="button" aria-label="Отправить сообщение">→</button>
-    </div>
-</div>
-
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/catalog.js"></script>
+    <script type="module" src="js/site-tips.js"></script>
     <script type="module" src="js/catalog-seed-rain.js"></script>
     <script src="js/burger.js"></script>
     <script type="module" src="js/auth-header.js"></script>
     <script src="js/preloader.js"></script>
     <script src="js/site-status.js"></script>
+    <script type="module" src="js/temporary-payment-notice.js"></script>
 </body>
 </html>

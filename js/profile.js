@@ -130,83 +130,10 @@ async function init() {
     const telegramLinkCodeValue = document.getElementById('telegram-link-code-value');
     const telegramLinkCopy = document.getElementById('telegram-link-copy');
     const telegramLinkCodeActions = document.getElementById('telegram-link-code-actions');
-    const telegramPublicBots = document.getElementById('telegram-public-bots');
     const telegramApiBase = 'https://drdarsun-site-main.layero.app/api/telegram';
     const telegramApiUrl = `${telegramApiBase}/link`;
-    let publicTelegramBots = [];
-    let publicTelegramBotsLoaded = false;
-    let telegramRefreshInProgress = false;
-    const telegramBotPurposes = {
-        client: 'Каталог, поиск товаров, заказы и уведомления',
-        auth: 'Одноразовые коды для привязки и входа',
-        support: 'Ответы на вопросы и связь с поддержкой'
-    };
-
-    function renderTelegramBotLinks(code = '') {
-        if (telegramPublicBots) {
-            telegramPublicBots.replaceChildren();
-            for (const bot of publicTelegramBots) {
-                const link = document.createElement('a');
-                link.className = 'telegram-bot-link';
-                link.href = bot.url;
-                link.target = '_blank';
-                link.rel = 'noopener noreferrer';
-                const name = document.createElement('strong');
-                name.textContent = bot.label;
-                const purpose = document.createElement('span');
-                purpose.textContent = telegramBotPurposes[bot.role];
-                const username = document.createElement('small');
-                username.textContent = `@${bot.username}`;
-                link.append(name, purpose, username);
-                telegramPublicBots.appendChild(link);
-            }
-            if (!publicTelegramBots.length) {
-                const message = document.createElement('span');
-                message.className = 'security-help';
-                message.textContent = 'Ссылки на Telegram-ботов временно недоступны.';
-                telegramPublicBots.appendChild(message);
-            }
-        }
-
-        if (telegramLinkCodeActions) {
-            telegramLinkCodeActions.replaceChildren();
-            if (code) {
-                for (const linkBot of publicTelegramBots.filter(bot =>
-                    ['auth', 'client'].includes(bot.role)
-                )) {
-                    const link = document.createElement('a');
-                    link.className = 'btn btn--primary';
-                    link.href = `${linkBot.url}?start=${encodeURIComponent(code)}`;
-                    link.target = '_blank';
-                    link.rel = 'noopener noreferrer';
-                    link.textContent = `Привязать через ${linkBot.label}`;
-                    telegramLinkCodeActions.appendChild(link);
-                }
-            }
-        }
-    }
-
-    async function loadPublicTelegramBots() {
-        if (publicTelegramBotsLoaded) return;
-        const response = await fetch(`${telegramApiBase}/public-bots`, { cache: 'no-store' });
-        const result = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(result?.error || 'Не удалось получить ссылки на Telegram-ботов.');
-        publicTelegramBots = Array.isArray(result?.bots)
-            ? result.bots.filter(bot =>
-                bot &&
-                ['client', 'support', 'auth'].includes(bot.role) &&
-                typeof bot.username === 'string' &&
-                /^https:\/\/t\.me\/[A-Za-z0-9_]+$/.test(bot.url)
-            )
-            : [];
-        publicTelegramBotsLoaded = true;
-        renderTelegramBotLinks(telegramLinkCodeValue?.textContent || '');
-    }
 
     async function refreshTelegramLink() {
-        await loadPublicTelegramBots().catch(error => {
-            console.warn('Telegram public bot links are not available:', error.message);
-        });
         const response = await fetch(telegramApiUrl, {
             headers: { Authorization: `Bearer ${session.access_token}` }
         });
@@ -220,31 +147,6 @@ async function init() {
         telegramLinkStart.hidden = linked;
         telegramLinkRemove.hidden = !linked;
         if (linked) telegramLinkCode.hidden = true;
-        if (telegramNotificationsEnabled) {
-            telegramNotificationsEnabled.disabled = !linked;
-            if (telegramNotificationsEnabled.dataset.telegramLinked !== String(linked)) {
-                telegramNotificationsEnabled.dataset.telegramLinked = String(linked);
-                if (!linked) {
-                    telegramNotificationsEnabled.checked = false;
-                } else {
-                    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-                    if (sessionError) throw sessionError;
-                    if (!session) throw new Error('Войдите в аккаунт и попробуйте снова.');
-                    const { data, error } = await supabase
-                        .from('notification_settings')
-                        .select('telegram_enabled')
-                        .eq('user_id', session.user.id)
-                        .maybeSingle();
-                    if (error) throw error;
-                    telegramNotificationsEnabled.checked = data?.telegram_enabled === true;
-                }
-            }
-            if (telegramNotificationHelp) {
-                telegramNotificationHelp.textContent = linked
-                    ? 'Получайте в клиентском боте сообщения об изменении статуса заказа. Настройка действует только для привязанного Telegram.'
-                    : 'Сначала привяжите Telegram выше, чтобы управлять уведомлениями о заказах.';
-            }
-        }
     }
 
     telegramLinkStart?.addEventListener('click', async () => {
@@ -262,8 +164,6 @@ async function init() {
             if (!response.ok) throw new Error(result.error || 'Не удалось создать код привязки.');
             telegramLinkCodeValue.textContent = result.code;
             telegramLinkCode.hidden = false;
-            await loadPublicTelegramBots();
-            renderTelegramBotLinks(result.code);
         } catch (error) {
             showToast(error.message || 'Не удалось создать код привязки.', 'error');
         } finally {
@@ -349,7 +249,7 @@ async function init() {
         };
         document.addEventListener('visibilitychange', refreshVisibleTelegramStatus);
         window.addEventListener('focus', refreshVisibleTelegramStatus);
-        telegramStatusRefresh = window.setInterval(refreshVisibleTelegramStatus, 5000);
+        telegramStatusRefresh = window.setInterval(refreshVisibleTelegramStatus, 30000);
         window.addEventListener('pagehide', () => {
             window.clearInterval(telegramStatusRefresh);
             window.clearInterval(telegramCheckCooldown);
@@ -1528,7 +1428,6 @@ const enableNotifyBtn = document.getElementById('enable-notify-btn');
 const disableNotifyBtn = document.getElementById('disable-notify');
 const telegramNotificationsEnabled = document.getElementById('telegram-notifications-enabled');
 const telegramNotificationHelp = document.getElementById('telegram-notification-help');
-let savedEmailNotificationsEnabled = false;
 
 if (notifyEmail) {
     supabase.auth.getSession().then(async ({ data: { session }, error }) => {
@@ -1537,11 +1436,10 @@ if (notifyEmail) {
         notifyEmail.textContent = session.user.email;
         const { data, error: settingsError } = await supabase
             .from('notification_settings')
-            .select('email_enabled,telegram_enabled')
+            .select('email_enabled')
             .eq('user_id', session.user.id)
             .maybeSingle();
         if (settingsError) throw settingsError;
-        savedEmailNotificationsEnabled = data?.email_enabled === true;
         if (data?.email_enabled) {
             enableNotifyBtn.textContent = 'Уведомления включены';
             disableNotifyBtn.disabled = false;
@@ -1572,31 +1470,6 @@ if (notifyEmail) {
     });
 }
 
-telegramNotificationsEnabled?.addEventListener('change', async () => {
-    telegramNotificationsEnabled.disabled = true;
-    try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
-        if (!session) throw new Error('Войдите в аккаунт и попробуйте снова.');
-        const { error } = await supabase.from('notification_settings').upsert({
-            user_id: session.user.id,
-            email_enabled: savedEmailNotificationsEnabled,
-            telegram_enabled: telegramNotificationsEnabled.checked,
-            updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id' });
-        if (error) throw error;
-        showToast(telegramNotificationsEnabled.checked
-            ? 'Уведомления о заказах в Telegram включены.'
-            : 'Уведомления в Telegram отключены.');
-    } catch (error) {
-        console.error('Telegram notification preference could not be saved:', error);
-        telegramNotificationsEnabled.checked = !telegramNotificationsEnabled.checked;
-        showToast('Не удалось сохранить настройку Telegram: ' + error.message, 'error');
-    } finally {
-        telegramNotificationsEnabled.disabled = false;
-    }
-});
-
 enableNotifyBtn?.addEventListener('click', async () => {
     enableNotifyBtn.disabled = true;
     try {
@@ -1605,11 +1478,9 @@ enableNotifyBtn?.addEventListener('click', async () => {
         if (!session) throw new Error('Войдите в аккаунт и попробуйте снова.');
         const { error: saveError } = await supabase.from('notification_settings').upsert({
             user_id: session.user.id,
-            email_enabled: true,
-            telegram_enabled: telegramNotificationsEnabled?.checked === true
+            email_enabled: true
         }, { onConflict: 'user_id' });
         if (saveError) throw saveError;
-        savedEmailNotificationsEnabled = true;
 
         const { error: sendError } = await supabase.functions.invoke('send-notification', {
             body: {
@@ -1621,10 +1492,8 @@ enableNotifyBtn?.addEventListener('click', async () => {
         if (sendError) {
             await supabase.from('notification_settings').upsert({
                 user_id: session.user.id,
-                email_enabled: false,
-                telegram_enabled: telegramNotificationsEnabled?.checked === true
+                email_enabled: false
             }, { onConflict: 'user_id' });
-            savedEmailNotificationsEnabled = false;
             throw sendError;
         }
         enableNotifyBtn.textContent = 'Уведомления включены';
@@ -1645,11 +1514,9 @@ disableNotifyBtn?.addEventListener('click', async () => {
         if (!session) throw new Error('Войдите в аккаунт и попробуйте снова.');
         const { error } = await supabase.from('notification_settings').upsert({
             user_id: session.user.id,
-            email_enabled: false,
-            telegram_enabled: telegramNotificationsEnabled?.checked === true
+            email_enabled: false
         }, { onConflict: 'user_id' });
         if (error) throw error;
-        savedEmailNotificationsEnabled = false;
         enableNotifyBtn.textContent = 'Включить уведомления';
         showToast('Email-уведомления отключены.');
     } catch (error) {

@@ -1,0 +1,64 @@
+.error-page {
+    display: grid;
+    min-height: 100vh;
+    place-items: center;
+    padding: 28px 20px;
+    margin: 0;
+    overflow: hidden;
+    background:
+        radial-gradient(ellipse at 18% 18%, rgba(212, 175, 55, .2), transparent 34%),
+        radial-gradient(ellipse at 88% 84%, rgba(27, 94, 32, .42), transparent 36%),
+        linear-gradient(rgba(7, 17, 9, .78), rgba(7, 17, 9, .9)),
+        url('../assets/images/load_night.png') center / cover fixed;
+    color: #FAF7E6;
+}
+
+.error-card {
+    position: relative;
+    width: min(100%, 680px);
+    padding: clamp(30px, 7vw, 64px);
+    overflow: hidden;
+    border: 1px solid rgba(212, 175, 55, .4);
+    border-radius: 30px;
+    background: rgba(11, 42, 15, .84);
+    box-shadow: 0 28px 90px rgba(0, 0, 0, .35);
+    text-align: center;
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+}
+
+.error-card::before,
+.error-card::after {
+    position: absolute;
+    z-index: 0;
+    width: 220px;
+    aspect-ratio: 1;
+    border: 1px solid rgba(212, 175, 55, .18);
+    border-radius: 50%;
+    content: "";
+    pointer-events: none;
+}
+
+.error-card::before { top: -150px; right: -80px; }
+.error-card::after { bottom: -180px; left: -120px; width: 300px; }
+.error-card > * { position: relative; z-index: 1; }
+.error-card__logo { display: block; width: min(220px, 62%); height: 68px; margin: 0 auto 34px; object-fit: contain; }
+.error-card__illustration { width: 100px; height: 100px; object-fit: contain; }
+.error-card__code { margin: 14px 0 0; color: #F9C74F; font-size: 13px; font-weight: 750; letter-spacing: .22em; }
+.error-card h1 { margin: 12px 0 16px; font-size: clamp(32px, 7vw, 54px); }
+.error-card p:not(.error-card__code) { max-width: 470px; margin: 0 auto; color: rgba(250, 247, 230, .78); line-height: 1.75; }
+.error-card__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 30px; }
+.error-card__actions .btn { border-color: rgba(212, 175, 55, .58); color: #F9C74F; }
+.error-card__actions .btn--primary { border-color: #D4AF37; background: #D4AF37; color: #102411; }
+.error-card__actions .btn--primary:hover { background: #F9C74F; }
+.error-card__help { display: inline-block; margin-top: 24px; color: rgba(250, 247, 230, .7); font-size: 13px; text-decoration: underline; text-decoration-color: rgba(212, 175, 55, .55); text-underline-offset: 4px; }
+
+@media (max-width: 520px) {
+    .error-card { border-radius: 24px; }
+    .error-card__actions { flex-direction: column; }
+    .error-card__actions .btn { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; }
+}

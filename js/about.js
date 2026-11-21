@@ -104,9 +104,14 @@ function createReviewCard(review, { moderation = false } = {}) {
     rating.textContent = `${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}`;
     top.append(name, rating);
 
-    const text = document.createElement('p');
-    text.textContent = review.review_text;
-    card.append(top, text);
+    if (moderation && review.product_name) {
+        const product = document.createElement('p');
+        product.className = 'review-moderation-item__product';
+        product.textContent = `Товар: ${review.product_name}`;
+        card.appendChild(product);
+    }
+
+    card.append(top);
 
     if (!moderation) {
         const date = document.createElement('time');
@@ -139,8 +144,9 @@ function createReviewCard(review, { moderation = false } = {}) {
 async function loadPublishedReviews() {
     const { data, error } = await supabase
         .from('brand_reviews')
-        .select('id,user_id,user_name,rating,review_text,created_at')
+        .select('id,user_id,user_name,rating,created_at')
         .eq('status', 'approved')
+        .is('product_id', null)
         .order('created_at', { ascending: false })
         .limit(30);
     if (error) throw error;
@@ -233,8 +239,7 @@ async function submitReview(event) {
             },
             body: JSON.stringify({
                 user_name: formData.get('user_name'),
-                rating: Number(formData.get('rating')),
-                review_text: formData.get('review_text')
+                rating: Number(formData.get('rating'))
             })
         });
         const result = await response.json().catch(() => null);
@@ -242,7 +247,7 @@ async function submitReview(event) {
         const submittedName = reviewNameInput.value;
         reviewForm.reset();
         reviewNameInput.value = submittedName;
-        if (reviewFormStatus) reviewFormStatus.textContent = 'Спасибо! Отзыв отправлен на проверку и появится в книге после публикации.';
+        if (reviewFormStatus) reviewFormStatus.textContent = 'Спасибо! Оценка отправлена на проверку и появится после публикации.';
         window.showToast?.('Отзыв отправлен на проверку.', 'success');
     } catch (error) {
         if (reviewFormStatus) reviewFormStatus.textContent = error.message || 'Не удалось отправить отзыв. Попробуйте позже.';

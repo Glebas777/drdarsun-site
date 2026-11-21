@@ -192,6 +192,9 @@ cartItems?.addEventListener('click', (event) => {
 });
 
 checkoutButton?.addEventListener('click', async () => {
+    if (document.documentElement.dataset.orderIntake === 'paused') {
+        return showToast('Приём заказов временно остановлен: способы оплаты пока недоступны.', 'error');
+    }
     let cart;
     try {
         cart = readCart();
@@ -229,6 +232,9 @@ checkoutButton?.addEventListener('click', async () => {
 
 checkoutForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (document.documentElement.dataset.orderIntake === 'paused') {
+        return showToast('Приём заказов временно остановлен: способы оплаты пока недоступны.', 'error');
+    }
     if (!checkoutForm.reportValidity()) return;
 
     const submitButton = checkoutForm.querySelector('button[type="submit"]');

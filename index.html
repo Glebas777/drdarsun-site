@@ -36,11 +36,10 @@
                 <a href="about.html">О нас</a>
                 <a href="scientists-about-oils.html">Учёные о маслах</a>
                 <a href="delivery.html">Доставка</a>
-                <a href="index.html#news">Новости</a>
             </nav>
     <div class="header__actions">
         <button class="theme-toggle" id="theme-toggle"></button>
-        <a href="cart.html" class="icon-btn">🛒</a>
+        <a href="cart.html" class="icon-btn" aria-label="Корзина"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h8.5a2 2 0 0 0 1.9-1.5L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg></a>
         <div id="auth-buttons"></div> 
         <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
     </div>
@@ -52,7 +51,6 @@
             <a href="about.html">О нас</a>
             <a href="scientists-about-oils.html">Учёные о маслах</a>
             <a href="delivery.html">Доставка</a>
-            <a href="index.html#news">Новости</a>
         </div>
     </header>
 
@@ -102,33 +100,31 @@
             </div>
         </section>
 
-        <section class="news-section container" id="news" aria-labelledby="news-title">
-            <div class="news-section__heading">
-                <div>
-                    <p class="eyebrow">НОВОСТИ DR. DARSUN</p>
-                    <h2 id="news-title">Новости и полезное</h2>
-                </div>
-                <img src="assets/images/hello.png" alt="" aria-hidden="true">
+        <section class="oil-finder container" aria-labelledby="oil-finder-title">
+            <div class="oil-finder__heading">
+                <p class="eyebrow">НЕБОЛЬШАЯ ПОДСКАЗКА</p>
+                <h2 id="oil-finder-title">Какое масло вам интересно?</h2>
+                <p>Выберите задачу — подскажем, с каких страниц справочника начать.</p>
             </div>
-            <article class="news-card news-card--science">
-                <time datetime="2026-11-19">19 ноября 2026</time>
-                <h3>Выбирайте масло с подробностями</h3>
-                <p>В карточке товара можно посмотреть важные характеристики, если они указаны: объём, упаковку, способ отжима и срок хранения. А в каталоге масел — подробнее узнать о разных видах.</p>
-                <a class="btn btn--primary" href="catalog.html">Открыть каталог</a>
-                <a class="btn" href="oil-catalog.html">Узнать о видах масел</a>
-            </article>
-            <article class="news-card news-card--bots">
-                <time datetime="2026-11-18">18 ноября 2026</time>
-                <h3>Покупки и помощь — в Telegram</h3>
-                <p>Клиентский бот помогает искать товары и смотреть свои заказы. Отдельный бот кодов нужен для безопасной привязки аккаунта, а бот-помощник — чтобы задать вопрос или обратиться в поддержку.</p>
-                <a class="btn btn--primary" href="about.html#telegram-learning">Обучение по клиентским ботам</a>
-            </article>
-            <article class="news-card news-card--science">
-                <time datetime="2026-11-18">18 ноября 2026</time>
-                <h3>Новый раздел: «Учёные о маслах»</h3>
-                <p>Открыли справочный раздел о составе растительных масел, незаменимых жирных кислотах, окислении и хранении. В карточках подходящих товаров появился краткий ориентир по составу; точные значения зависят от сырья и партии.</p>
-                <a class="btn btn--primary" href="scientists-about-oils.html">Открыть раздел</a>
-            </article>
+            <div class="oil-finder__choices" role="group" aria-label="Для чего выбираете масло">
+                <button class="oil-finder__choice" type="button" data-oil-use="salad">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h16l-1.2 5.2a2 2 0 0 1-2 1.5H7.2a2 2 0 0 1-2-1.5L4 13Z"/><path d="M3 10h18M8 7c-.8-1 .4-1.6 0-3m5 3c-.8-1 .4-1.6 0-3m5 3c-.8-1 .4-1.6 0-3"/></svg>
+                    <span>Для салатов и холодных блюд</span>
+                </button>
+                <button class="oil-finder__choice" type="button" data-oil-use="everyday">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M6 17h12l-1-8H7l-1 8Z"/><path d="M9 6c0-1.2 1-1.5 1-2.5M14 6c0-1.2 1-1.5 1-2.5"/></svg>
+                    <span>Для повседневной кухни</span>
+                </button>
+                <button class="oil-finder__choice" type="button" data-oil-use="flavor">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5c-1.7 2.5-6 7.1-6 11a6 6 0 0 0 12 0c0-3.9-4.3-8.5-6-11Z"/><path d="M9 15.5c.3 1.5 1.3 2.3 2.8 2.5"/></svg>
+                    <span>Хочу попробовать яркий вкус</span>
+                </button>
+                <button class="oil-finder__choice" type="button" data-oil-use="care">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.3-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.7-7 10-7 10Z"/><path d="M9 12h6"/></svg>
+                    <span>Для косметического ухода</span>
+                </button>
+            </div>
+            <div class="oil-finder__result" id="oil-finder-result" aria-live="polite" hidden></div>
         </section>
 
         <footer class="footer">
@@ -163,8 +159,7 @@
             </div>
         </footer>
 
-        <button id="bot-toggle" class="chat-launcher" type="button" aria-label="Открыть чат с Доктором ДарСан" aria-controls="bot-modal" aria-expanded="false">✳</button>
-        <button id="snake-toggle" class="snake-launcher" type="button" aria-label="Открыть игру Змейка" aria-controls="snake-modal" aria-expanded="false">🐍</button>
+        <button id="snake-toggle" class="snake-launcher" type="button" aria-label="Открыть игру Змейка" aria-controls="snake-modal" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8h10a4 4 0 0 1 3.7 5.5l-1.1 2.7a2 2 0 0 1-3.2.7L14 13.5h-4l-2.4 3.4a2 2 0 0 1-3.2-.7l-1.1-2.7A4 4 0 0 1 7 8Z"/><path d="M7.5 10.5v4m-2-2h4m6-1h.01m2 2h.01"/></svg></button>
         <section class="snake-modal" id="snake-modal" aria-hidden="true" hidden>
             <div class="snake-modal__panel" role="dialog" aria-modal="true" aria-labelledby="snake-title">
                 <header class="snake-modal__header">
@@ -188,34 +183,14 @@
                 <button id="snake-start" class="btn btn--primary snake-modal__start" type="button">Играть</button>
             </div>
         </section>
-    <!-- Бот -->
-    <div class="bot-modal" id="bot-modal" role="dialog" aria-label="Чат с Доктором ДарСан" aria-modal="false">
-        <div class="bot-header">
-            <div><h4>Доктор ДарСан</h4><span>Помощник Dr. DarSun</span></div>
-            <button id="bot-close" type="button" aria-label="Закрыть чат">×</button>
-        </div>
-        <div class="bot-messages" id="chat-messages" aria-live="polite" aria-relevant="additions">
-            <div class="msg-wrapper bot">
-                <div class="msg">Здравствуйте! Я Доктор. Чем помочь?</div>
-            </div>
-        </div>
-        <div style="padding:15px; display:flex; gap:8px; align-items:center;">
-            <button id="stickers-btn" class="chat-tool" type="button" aria-label="Открыть стикеры" aria-expanded="false">☺</button>
-            <input type="text" id="chat-input" maxlength="1200" placeholder="Спросить Доктора…" aria-label="Сообщение для помощника">
-            <button id="mic-btn" class="chat-tool" type="button" aria-label="Голосовой ввод">♩</button>
-            <button id="chat-send" type="button" aria-label="Отправить сообщение">→</button>
-        </div>
-        <div id="stickers-panel" class="stickers-panel"></div>
-    </div>
-
 <script type="module" src="js/main.js"></script>
 <script type="module" src="js/hero-scene.js"></script>
 <script type="module" src="js/snake-game.js"></script>
-<script type="module" src="js/chat.js"></script>
-<script type="module" src="js/public-telegram-bots.js"></script>
+<script type="module" src="js/oil-finder.js"></script>
 <script src="js/burger.js"></script>
         <script type="module" src="js/auth-header.js"></script>
             <script src="js/preloader.js"></script>
     <script src="js/site-status.js"></script>
+    <script type="module" src="js/temporary-payment-notice.js"></script>
     </body>
     </html>

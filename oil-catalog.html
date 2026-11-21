@@ -22,7 +22,7 @@
             </nav>
             <div class="header__actions">
                 <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Переключить тему"></button>
-                <a href="cart.html" class="icon-btn" aria-label="Корзина">Корзина</a>
+                <a href="cart.html" class="icon-btn" aria-label="Корзина"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h8.5a2 2 0 0 0 1.9-1.5L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg></a>
                 <div id="auth-buttons"></div>
                 <button class="burger" id="burger-btn" type="button" aria-label="Открыть меню"><span></span><span></span><span></span></button>
             </div>
@@ -56,6 +56,22 @@
         </section>
 
         <section class="oil-catalog__body container">
+            <section class="plastic-storage" aria-labelledby="plastic-storage-title">
+                <div class="plastic-storage__heading">
+                    <span class="plastic-storage__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6v3l1 1v13H8V7l1-1V3Z"/><path d="M9 6h6M10 10h4m-4 4h4"/><path d="M7 8H5v9a3 3 0 0 0 3 3"/></svg></span>
+                    <div>
+                        <p class="eyebrow">ПРОСТО О ХРАНЕНИИ</p>
+                        <h2 id="plastic-storage-title">Как хранить масло в пластиковой бутылке</h2>
+                        <p>Обычная пищевая пластиковая тара — это нормально: берегите масло от света, тепла и воздуха, а условия с этикетки ставьте на первое место.</p>
+                    </div>
+                </div>
+                <ol class="plastic-storage__steps">
+                    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a7 7 0 0 0-4 12.7V19h8v-3.3A7 7 0 0 0 12 3Z"/><path d="M9 22h6M9 17h6"/></svg><span><strong>Уберите от солнца.</strong> Держите бутылку в тёмном шкафу, не на подоконнике.</span></li>
+                    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M5.6 6.7l12.8 10.6m0-10.6L5.6 17.3"/></svg><span><strong>Избегайте нагрева.</strong> Не ставьте рядом с плитой, духовкой или батареей.</span></li>
+                    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v4H7zM8 8v12h8V8"/><path d="M10 12h4m-4 3h4"/></svg><span><strong>Плотно закрывайте крышку.</strong> Не доливайте новое масло в остатки и не используйте бутылку повторно.</span></li>
+                    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h5m-5 4h8"/></svg><span><strong>Следуйте маркировке.</strong> Срок после вскрытия и необходимость холодильника зависят от конкретного масла и указаний производителя.</span></li>
+                </ol>
+            </section>
             <div class="oil-catalog__toolbar">
                 <label>
                     <span>Поиск масла</span>
@@ -231,5 +247,6 @@
     <script src="js/burger.js"></script>
     <script type="module" src="js/auth-header.js"></script>
     <script src="js/site-status.js"></script>
+    <script type="module" src="js/temporary-payment-notice.js"></script>
 </body>
 </html>

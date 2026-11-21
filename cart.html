@@ -35,11 +35,10 @@
             <a href="about.html">О нас</a>
             <a href="scientists-about-oils.html">Учёные о маслах</a>
             <a href="delivery.html">Доставка</a>
-            <a href="index.html#news">Новости</a>
         </nav>
 <div class="header__actions">
     <button class="theme-toggle" id="theme-toggle"></button>
-    <a href="cart.html" class="icon-btn">🛒</a>
+    <a href="cart.html" class="icon-btn" aria-label="Корзина"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h8.5a2 2 0 0 0 1.9-1.5L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg></a>
     <div id="auth-buttons"></div> 
     <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
 </div>
@@ -51,7 +50,6 @@
         <a href="about.html">О нас</a>
         <a href="scientists-about-oils.html">Учёные о маслах</a>
         <a href="delivery.html">Доставка</a>
-        <a href="index.html#news">Новости</a>
     </div>
 </header>
 
@@ -71,7 +69,7 @@
                 <div class="summary-row"><span>Товары</span><span id="sum-subtotal">0 ₽</span></div>
                 <div class="summary-row total"><span>К оплате</span><span id="sum-total">0 ₽</span></div>
                 
-                <button class="btn btn--primary checkout-start" id="checkout-btn">Перейти к оформлению</button>
+                <button class="btn btn--primary checkout-start" id="checkout-btn" disabled>Заказы временно недоступны</button>
                 
                 <form id="checkout-form" class="checkout-form" hidden>
                     <label for="order-name">Ваше имя</label>
@@ -82,9 +80,9 @@
                     <label for="order-address">Адрес доставки</label>
                     <input type="text" id="order-address" placeholder="Город, улица, дом" required maxlength="300">
                     
-                    <p class="checkout-payment-help">После отправки заявки поддержка подтвердит наличие, доставку и доступный способ оплаты по почте аккаунта.</p>
+                    <p class="checkout-payment-help">Приём заказов временно остановлен: способы оплаты пока недоступны.</p>
 
-                    <button type="submit" class="btn btn--primary checkout-start">Отправить заказ</button>
+                    <button type="submit" class="btn btn--primary checkout-start" disabled>Заказы временно недоступны</button>
                 </form>
             </div>
         </div>
@@ -128,5 +126,6 @@
     <script type="module" src="js/auth-header.js"></script>
     <script src="js/preloader.js"></script>
     <script src="js/site-status.js"></script>
+    <script type="module" src="js/temporary-payment-notice.js"></script>
 </body>
 </html>

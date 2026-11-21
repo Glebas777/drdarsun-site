@@ -127,5 +127,5 @@ if (container) {
         const { data, error } = await supabase.auth.getSession();
         if (error) console.warn('Device session lookup failed:', error);
         else checkDeviceAlive(data?.session);
-    }, 5000);
+    }, 30000);
 }

@@ -35,11 +35,10 @@
             <a href="about.html">О нас</a>
             <a href="scientists-about-oils.html">Учёные о маслах</a>
             <a href="delivery.html">Доставка</a>
-            <a href="index.html#news">Новости</a>
         </nav>
 <div class="header__actions">
     <button class="theme-toggle" id="theme-toggle"></button>
-    <a href="cart.html" class="icon-btn" aria-label="Корзина"><span aria-hidden="true">🛒</span><span class="cart-count" data-cart-count hidden></span></a>
+    <a href="cart.html" class="icon-btn" aria-label="Корзина"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h8.5a2 2 0 0 0 1.9-1.5L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg><span class="cart-count" data-cart-count hidden></span></a>
     <div id="auth-buttons"></div> 
     <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
 </div>
@@ -51,7 +50,6 @@
         <a href="about.html">О нас</a>
         <a href="scientists-about-oils.html">Учёные о маслах</a>
         <a href="delivery.html">Доставка</a>
-        <a href="index.html#news">Новости</a>
     </div>
 </header>
 
@@ -81,17 +79,47 @@
                     <div class="spec-row"><span>Срок хранения</span><span id="spec-shelf-life">—</span></div>
                     <div class="spec-row"><span>Упаковка</span><span id="spec-packaging">—</span></div>
                 </div>
+                <aside class="product-mascot-tip" aria-labelledby="product-mascot-title">
+                    <img src="assets/images/darsun.png" alt="" loading="lazy">
+                    <div>
+                        <p class="eyebrow">ПОДСКАЗКА ДОКТОРА</p>
+                        <h2 id="product-mascot-title">Перед покупкой</h2>
+                        <p id="product-mascot-message">Сверьте назначение продукта, упаковку и условия хранения в характеристиках и на этикетке.</p>
+                    </div>
+                    <button class="product-mascot-tip__next" id="product-mascot-next" type="button" aria-label="Следующая подсказка">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+                    </button>
+                </aside>
                 <p class="product-trust-note"><span aria-hidden="true">✦</span> Бережное производство и внимание к каждой детали</p>
             </div>
         </div>
 
-        <section class="product-reviews">
+        <section class="product-reviews" id="product-reviews">
             <div class="product-reviews__heading">
                 <p class="eyebrow">ВПЕЧАТЛЕНИЯ ПОКУПАТЕЛЕЙ</p>
                 <h2>Отзывы о товаре</h2>
             </div>
             <div id="reviews-list" class="product-reviews__list" aria-live="polite">
                 <p class="product-reviews__empty">Загрузка отзывов...</p>
+            </div>
+            <div class="product-review-form-card">
+                <h3>Поделитесь впечатлением</h3>
+                <p class="product-review-form-card__hint">Оценка появится на странице после проверки модератором.</p>
+                <a id="product-review-login-link" class="btn btn--primary" href="login.html" hidden>Войдите, чтобы оставить отзыв</a>
+                <form id="product-review-form" class="product-review-form" hidden>
+                    <label for="product-review-user-name">Ваше имя</label>
+                    <input id="product-review-user-name" name="user_name" type="text" maxlength="60" autocomplete="name" required>
+                    <label for="product-review-rating">Оценка</label>
+                    <select id="product-review-rating" name="rating" required>
+                        <option value="5">5 — отлично</option>
+                        <option value="4">4 — хорошо</option>
+                        <option value="3">3 — нормально</option>
+                        <option value="2">2 — не понравилось</option>
+                        <option value="1">1 — плохо</option>
+                    </select>
+                    <button class="btn btn--primary" id="product-review-submit" type="submit">Отправить оценку</button>
+                    <p id="product-review-status" class="product-review-form-card__hint" role="status" aria-live="polite"></p>
+                </form>
             </div>
         </section>
     </main>
@@ -130,9 +158,11 @@
 
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/product.js"></script>
+        <script type="module" src="js/site-tips.js"></script>
     <script src="js/burger.js"></script>
     <script type="module" src="js/auth-header.js"></script>
     <script src="js/preloader.js"></script>
     <script src="js/site-status.js"></script>
+    <script type="module" src="js/temporary-payment-notice.js"></script>
 </body>
 </html>

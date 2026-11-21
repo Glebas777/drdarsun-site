@@ -1,7 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 
-const BOT_ROLES = new Set(['client', 'admin', 'panel', 'auth', 'support']);
+const BOT_ROLES = new Set(['admin']);
 
 function createTelegramWebhookApi(options = {}) {
     const router = express.Router();
@@ -48,6 +48,11 @@ function createTelegramWebhookApi(options = {}) {
         );
     }
 
+    function configuredOwnerChatId(role) {
+        if (role !== 'admin') return '';
+        return String(env.MY_CHAT_ID || env.PANEL_CHAT_ID || env.M_CHAT_ID || '').trim();
+    }
+
     router.post('/:role', async (req, res) => {
         const role = req.params.role;
         const update = req.body;
@@ -65,6 +70,15 @@ function createTelegramWebhookApi(options = {}) {
             return res.status(503).json({ error: 'Telegram update processor is unavailable.' });
         }
 
+        const message = update.message || update.callback_query?.message;
+        const chatId = message?.chat?.id === undefined ? '' : String(message.chat.id);
+        if (message?.chat?.type !== 'private') {
+            return res.status(200).json({ ok: true, ignored: true });
+        }
+        if (role === 'admin' && chatId !== configuredOwnerChatId(role)) {
+            return res.status(200).json({ ok: true, ignored: true });
+        }
+
         let stage = 'claim-update';
         let updateClaimed = false;
         try {
@@ -73,14 +87,9 @@ function createTelegramWebhookApi(options = {}) {
                 body: JSON.stringify({ p_bot_role: role, p_update_id: updateId })
             });
             if (claimed === 'completed') return res.status(200).json({ ok: true, duplicate: true });
-            if (claimed !== 'claimed') {
-                res.setHeader('Retry-After', '2');
-                return res.status(503).json({ error: 'Telegram update is still being processed.' });
-            }
+            if (claimed !== 'claimed') return res.status(200).json({ ok: true, duplicate: true, processing: true });
             updateClaimed = true;
 
-            const message = update.message || update.callback_query?.message;
-            const chatId = message?.chat?.id === undefined ? '' : String(message.chat.id);
             if (chatId && message?.chat?.type === 'private') {
                 stage = 'load-conversation-state';
                 const stateKey = `bot_role=eq.${encodeURIComponent(role)}&telegram_chat_id=eq.${encodeURIComponent(chatId)}&select=state&limit=1`;

@@ -28,7 +28,7 @@
         <p>Пожалуйста, зайдите чуть позже.</p>
         <div class="maintenance-actions">
             <button type="button" id="maintenance-retry">Попробовать ещё раз</button>
-            <a href="https://t.me/darsunhelp" target="_blank" rel="noopener noreferrer">Связаться с поддержкой</a>
+            <a href="mailto:drdarsunhelper@gmail.com">Написать на почту</a>
         </div>
         <p id="maintenance-status" role="status" aria-live="polite"></p>
     </main>
@@ -86,10 +86,11 @@
 
         retryButton.addEventListener('click', checkSiteStatus);
         checkSiteStatus();
-        window.setInterval(checkSiteStatus, 3000);
+        window.setInterval(checkSiteStatus, 15000);
     </script>
     <script src="js/music-player.js"></script>
     <script src="js/floating-controls.js"></script>
     <script type="module" src="js/site-toasts.js"></script>
+    <script type="module" src="js/temporary-payment-notice.js"></script>
 </body>
 </html>

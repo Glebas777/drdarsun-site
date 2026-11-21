@@ -64,39 +64,16 @@
                 </div>
                 <div id="captcha-login" class="auth-captcha" data-turnstile data-action="login" hidden></div>
                 <div class="login-actions">
-                    <button type="submit" class="btn btn--primary btn--full">Войти</button>
+                    <button type="submit" class="btn btn--primary btn--full auth-submit-btn">
+                        <span class="auth-submit-btn__label">Войти</span>
+                        <img class="auth-submit-btn__seed" src="assets/images/sunflower2.png" alt="" aria-hidden="true">
+                    </button>
                 </div>
 <div class="login-extra-links">
     <a href="#" id="forgot-password">Забыли пароль?</a>
-    <a href="#" id="telegram-login-trigger">Войти по коду из Telegram</a>
     <a href="#" id="backup-code-login">Вход по резервному коду</a>
     <a href="#" id="qr-login-trigger">Вход по QR-коду</a>
 </div>
-            </form>
-
-            <form id="telegram-auth-form" class="auth-form" style="display: none;">
-                <p id="telegram-auth-description" class="auth-inline-error" style="display: block;">Укажите username Telegram, привязанный к аккаунту. Код придёт в Telegram.</p>
-                <div class="input-group">
-                    <label for="telegram-auth-username">Telegram username</label>
-                    <input type="text" id="telegram-auth-username" placeholder="@username" autocomplete="username" minlength="5" maxlength="33" required>
-                </div>
-                <div class="login-actions">
-                    <button type="button" class="btn btn--primary btn--full" id="telegram-auth-send">Отправить код</button>
-                </div>
-                <div class="input-group" id="telegram-auth-code-group" hidden>
-                    <label for="telegram-auth-code">Код из Telegram</label>
-                    <input type="text" id="telegram-auth-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,12}" minlength="6" maxlength="12">
-                </div>
-                <div class="login-actions" id="telegram-auth-verify-actions" hidden>
-                    <button type="submit" class="btn btn--primary btn--full" id="telegram-auth-verify">Подтвердить код</button>
-                </div>
-                <div class="input-group" id="telegram-new-password-group" hidden>
-                    <label for="telegram-new-password">Новый пароль</label>
-                    <input type="password" id="telegram-new-password" minlength="12" autocomplete="new-password" placeholder="Минимум 12 символов">
-                    <button type="button" class="btn btn--primary btn--full" id="telegram-new-password-save">Сохранить новый пароль</button>
-                </div>
-                <a href="#" id="telegram-auth-back" style="display: block; text-align: center; margin-top: 15px; color: #888;">Вернуться ко входу</a>
-                <p id="telegram-auth-status" class="auth-inline-error" role="status" aria-live="polite" hidden></p>
             </form>
 
             <form id="recovery-code-form" class="auth-form" style="display: none;">
@@ -120,7 +97,6 @@
                 <div class="login-actions">
                     <button type="submit" class="btn btn--primary btn--full">Отправить ссылку</button>
                 </div>
-                <button type="button" class="btn btn--full telegram-recovery-trigger" id="telegram-recovery-trigger">Восстановить через Telegram</button>
                 <a href="#" id="back-to-login" style="display: block; text-align: center; margin-top: 15px; color: #888;">Вернуться ко входу</a>
             </form>
 
@@ -214,5 +190,6 @@
     <script type="module" src="js/auth.js"></script>
     <script src="js/burger.js"></script>
     <script src="js/site-status.js"></script>
+    <script type="module" src="js/temporary-payment-notice.js"></script>
 </body>
 </html>
