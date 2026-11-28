@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">
+  <style>
+    .leaf { transform-box: fill-box; transform-origin: 50% 100%; animation: sway 4.4s ease-in-out infinite; }
+    .grain { transform-box: fill-box; transform-origin: center; animation: drift 3.7s ease-in-out infinite; }
+    .grain:nth-of-type(2n) { animation-delay: -1.6s; }
+    @keyframes sway { 0%,100% { transform: rotate(-2deg); } 50% { transform: rotate(3deg); } }
+    @keyframes drift { 0%,100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-5px) rotate(8deg); } }
+    @media (prefers-reduced-motion: reduce) { .leaf,.grain { animation: none; } }
+  </style>
+  <rect width="640" height="360" rx="28" fill="#f4ead5"/>
+  <circle cx="146" cy="85" r="94" fill="#fff8e9"/>
+  <ellipse cx="327" cy="306" rx="171" ry="22" fill="#b9a17c" opacity=".35"/>
+  <path d="M223 116h208l-17 172c-2 17-17 29-34 29h-106c-17 0-32-12-34-29l-17-172Z" fill="#e0bf79" stroke="#775239" stroke-width="8"/>
+  <path d="M218 118h218v34H218z" rx="8" fill="#a96c3e" stroke="#775239" stroke-width="8"/>
+  <path d="M247 176h160v92c-1 19-16 34-35 34h-90c-19 0-34-15-35-34v-92Z" fill="#f4db9d"/>
+  <path d="M247 204h160v64c-1 19-16 34-35 34h-90c-19 0-34-15-35-34v-64Z" fill="#b7793e" opacity=".5"/>
+  <path d="M270 218c25-25 88-25 112 0-22 25-90 25-112 0Z" fill="#fff1c8" opacity=".65"/>
+  <g class="grain" fill="#8b713d"><ellipse cx="176" cy="171" rx="22" ry="10" transform="rotate(-28 176 171)"/><ellipse cx="144" cy="210" rx="22" ry="10" transform="rotate(26 144 210)"/><ellipse cx="177" cy="247" rx="22" ry="10" transform="rotate(-12 177 247)"/></g>
+  <path class="leaf" d="M124 296c9-82 40-140 99-174" fill="none" stroke="#647e4c" stroke-width="8" stroke-linecap="round"/>
+  <g class="leaf" fill="#82975c"><ellipse cx="152" cy="236" rx="34" ry="13" transform="rotate(-37 152 236)"/><ellipse cx="182" cy="193" rx="35" ry="13" transform="rotate(-44 182 193)"/><ellipse cx="203" cy="158" rx="34" ry="13" transform="rotate(-28 203 158)"/></g>
+  <circle class="grain" cx="482" cy="167" r="9" fill="#b78a45"/><circle class="grain" cx="519" cy="203" r="7" fill="#b78a45"/><circle class="grain" cx="479" cy="237" r="8" fill="#b78a45"/>
+</svg>

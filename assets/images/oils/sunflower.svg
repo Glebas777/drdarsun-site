@@ -1,7 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">
+  <style>
+    .plant-sway { transform-box: fill-box; transform-origin: 50% 100%; animation: plant-sway 4.8s ease-in-out infinite; }
+    .fruit-drift { transform-box: fill-box; transform-origin: 50% 70%; animation: fruit-drift 3.6s ease-in-out infinite; }
+    @keyframes plant-sway { 0%,100% { transform: rotate(-1.6deg); } 50% { transform: rotate(1.8deg); } }
+    @keyframes fruit-drift { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+    @media (prefers-reduced-motion: reduce) { .plant-sway,.fruit-drift { animation: none; } }
+  </style>
   <rect width="640" height="360" rx="28" fill="#f5edcf"/><circle cx="510" cy="86" r="118" fill="#fff8dc"/>
   <path d="M134 326c72-82 114-166 130-254M307 326c18-85 67-158 144-219" fill="none" stroke="#668151" stroke-width="9" stroke-linecap="round"/>
-  <g fill="#81975c"><ellipse cx="178" cy="244" rx="52" ry="18" transform="rotate(-32 178 244)"/><ellipse cx="229" cy="177" rx="56" ry="18" transform="rotate(-53 229 177)"/><ellipse cx="356" cy="269" rx="55" ry="18" transform="rotate(18 356 269)"/><ellipse cx="397" cy="186" rx="55" ry="18" transform="rotate(-36 397 186)"/></g>
-  <g transform="translate(456 184)"><g fill="#e1ad34"><ellipse cy="-52" rx="18" ry="43"/><ellipse cy="-52" rx="18" ry="43" transform="rotate(45)"/><ellipse cy="-52" rx="18" ry="43" transform="rotate(90)"/><ellipse cy="-52" rx="18" ry="43" transform="rotate(135)"/></g><circle r="33" fill="#75502f"/><g fill="#d2a14d"><circle cx="-10" cy="-7" r="3"/><circle cx="4" cy="-14" r="3"/><circle cx="13" cy="0" r="3"/><circle cx="-5" cy="8" r="3"/><circle cx="8" cy="15" r="3"/></g></g>
-  <path d="M480 249c45-20 85 10 76 48-8 32-52 48-83 27-25-16-24-54 7-75Z" fill="#d9b945"/><path d="M493 265c21 14 29 33 26 54" fill="none" stroke="#896a35" stroke-width="4"/>
+  <g class="plant-sway" fill="#81975c"><ellipse cx="178" cy="244" rx="52" ry="18" transform="rotate(-32 178 244)"/><ellipse cx="229" cy="177" rx="56" ry="18" transform="rotate(-53 229 177)"/><ellipse cx="356" cy="269" rx="55" ry="18" transform="rotate(18 356 269)"/><ellipse cx="397" cy="186" rx="55" ry="18" transform="rotate(-36 397 186)"/></g>
+  <g class="fruit-drift"><g transform="translate(456 184)"><g fill="#e1ad34"><ellipse cy="-52" rx="18" ry="43"/><ellipse cy="-52" rx="18" ry="43" transform="rotate(45)"/><ellipse cy="-52" rx="18" ry="43" transform="rotate(90)"/><ellipse cy="-52" rx="18" ry="43" transform="rotate(135)"/></g><circle r="33" fill="#75502f"/><g fill="#d2a14d"><circle cx="-10" cy="-7" r="3"/><circle cx="4" cy="-14" r="3"/><circle cx="13" cy="0" r="3"/><circle cx="-5" cy="8" r="3"/><circle cx="8" cy="15" r="3"/></g></g></g>
+  <path class="fruit-drift" d="M480 249c45-20 85 10 76 48-8 32-52 48-83 27-25-16-24-54 7-75Z" fill="#d9b945"/><path class="fruit-drift" d="M493 265c21 14 29 33 26 54" fill="none" stroke="#896a35" stroke-width="4"/>
 </svg>

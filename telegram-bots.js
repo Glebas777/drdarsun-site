@@ -1,15 +1,29 @@
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
-const { VOLUME_OPTIONS } = require('./oil-product-options');
+let nodeFetchPromise;
+const fetch = globalThis.fetch || ((...args) => {
+    nodeFetchPromise ||= import('node-fetch').then(({ default: nodeFetch }) => nodeFetch);
+    return nodeFetchPromise.then(nodeFetch => nodeFetch(...args));
+});
+const crypto = require('crypto');
+const {
+    PACKAGING_TYPES,
+    PRESSING_TYPES,
+    SHELF_LIFE_MONTHS,
+    VOLUME_OPTIONS
+} = require('./oil-product-options');
 
 const BOT_DEFINITIONS = [
-    { role: 'client', tokenEnv: 'CLIENT_BOT_TOKEN', usernameEnv: 'CLIENT_BOT_USERNAME' },
     { role: 'admin', tokenEnv: 'ADMIN_BOT_TOKEN', usernameEnv: 'ADMIN_BOT_USERNAME' },
-    { role: 'panel', tokenEnv: 'PANEL_BOT_TOKEN', usernameEnv: 'PANEL_BOT_USERNAME' },
-    { role: 'auth', tokenEnv: 'CODE_BOT_TOKEN', usernameEnv: 'AUTH_BOT_USERNAME' },
-    { role: 'support', tokenEnv: 'HELP_BOT_TOKEN', usernameEnv: 'SUPPORT_BOT_USERNAME' }
+    { role: 'support', tokenEnv: 'HELP_BOT_TOKEN', usernameEnv: 'SUPPORT_BOT_USERNAME' },
+    { role: 'client', tokenEnv: 'CLIENT_BOT_TOKEN', usernameEnv: 'CLIENT_BOT_USERNAME' }
 ];
+const SUPPORT_TELEGRAM_USERNAME = 'darsunhelp';
 const TOPICS = ['Заказ', 'Доставка', 'Оплата', 'Товар', 'Аккаунт', 'Другое'];
 const ORDER_STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+const STATE_TTL = 30 * 60 * 1000;
+const USAGE_WINDOW = 5 * 60 * 1000;
+const NOTIFICATION_TTL = 7 * 24 * 60 * 60 * 1000;
+const CLEANUP_INTERVAL = 5 * 60 * 1000;
+const TELEGRAM_CHAT_SEND_INTERVAL = 1000;
 const MAINTENANCE_MODE_LABELS = {
     planned: 'плановые работы',
     emergency: 'срочный техперерыв'
@@ -23,21 +37,98 @@ const histories = new Map();
 const assistantUsage = new Map();
 const supportUsage = new Map();
 const botUsernames = new Map();
-const notified = { tickets: new Map(), reviews: new Set() };
+const notified = { reviews: new Map() };
+const configuredUsernameEnvs = new WeakSet();
+let lastCleanupAt = 0;
 
 function stateKey(role, chatId) {
     return `${role}:${chatId}`;
 }
 
+function durableStateRole(role) {
+    return role === 'panel' ? 'admin' : role;
+}
+
 function getState(role, chatId) {
-    return states.get(stateKey(role, chatId)) || {};
+    const entry = states.get(stateKey(durableStateRole(role), chatId));
+    if (!entry) return {};
+    entry.lastUsedAt = Date.now();
+    return entry.value;
 }
 
 function setState(role, chatId, state) {
-    const key = stateKey(role, chatId);
-    if (state && Object.keys(state).length) states.set(key, state);
+    const key = stateKey(durableStateRole(role), chatId);
+    if (state && Object.keys(state).length) states.set(key, { value: state, lastUsedAt: Date.now() });
     else states.delete(key);
 }
+
+function getHistory(chatId) {
+    const entry = histories.get(chatId);
+    if (!entry) return [];
+    entry.lastUsedAt = Date.now();
+    return entry.value;
+}
+
+function setHistory(chatId, history) {
+    if (history.length) histories.set(chatId, { value: history, lastUsedAt: Date.now() });
+    else histories.delete(chatId);
+}
+
+function cleanupExpiredEntries(now) {
+    for (const [key, entry] of states) {
+        if (now - entry.lastUsedAt >= STATE_TTL) states.delete(key);
+    }
+    for (const [key, entry] of histories) {
+        if (now - entry.lastUsedAt >= STATE_TTL) histories.delete(key);
+    }
+    for (const [key, timestamp] of telegramLastSendAt) {
+        if (now - timestamp >= STATE_TTL) telegramLastSendAt.delete(key);
+    }
+    for (const [key, timestamps] of assistantUsage) {
+        const active = timestamps.filter(timestamp => now - timestamp < USAGE_WINDOW);
+        if (active.length) assistantUsage.set(key, active);
+        else assistantUsage.delete(key);
+    }
+    for (const [key, timestamps] of supportUsage) {
+        const active = timestamps.filter(timestamp => now - timestamp < USAGE_WINDOW);
+        if (active.length) supportUsage.set(key, active);
+        else supportUsage.delete(key);
+    }
+    for (const [key, timestamps] of updateRateLimits) {
+        const active = timestamps.filter(timestamp => now - timestamp < 5000);
+        if (active.length) updateRateLimits.set(key, active);
+        else updateRateLimits.delete(key);
+    }
+    for (const [key, notifiedAt] of notified.reviews) {
+        if (now - notifiedAt >= NOTIFICATION_TTL) notified.reviews.delete(key);
+    }
+}
+
+function cleanupExpiredEntriesIfDue() {
+    const now = Date.now();
+    if (now - lastCleanupAt < CLEANUP_INTERVAL) return;
+    lastCleanupAt = now;
+    cleanupExpiredEntries(now);
+}
+
+function cacheConfiguredBotUsernames(env) {
+    if (!env || (typeof env !== 'object' && typeof env !== 'function') ||
+        configuredUsernameEnvs.has(env)) return;
+    configuredUsernameEnvs.add(env);
+    for (const candidate of BOT_DEFINITIONS) {
+        const configuredUsername = candidate.usernameEnv ? env[candidate.usernameEnv] : '';
+        const username = candidate.role === 'support' && !configuredUsername
+            ? SUPPORT_TELEGRAM_USERNAME
+            : configuredUsername;
+        if (typeof username === 'string' && /^[A-Za-z0-9_]{5,32}$/.test(username.trim())) {
+            botUsernames.set(candidate.role, username.trim());
+        } else {
+            botUsernames.delete(candidate.role);
+        }
+    }
+}
+
+cacheConfiguredBotUsernames(process.env);
 
 function isPrivateUpdate(update) {
     const chat = update.message?.chat || update.callback_query?.message?.chat;
@@ -69,29 +160,16 @@ function allowChatUpdate(role, chatId) {
 }
 
 function configuredPanelChatIds(env) {
-    return [...new Set([env.M_CHAT_ID, env.PANEL_CHAT_ID]
-        .flatMap(value => String(value || '').split(','))
-        .map(value => value.trim())
-        .filter(Boolean))];
+    const ownerChatId = String(env.MY_CHAT_ID || env.PANEL_CHAT_ID || env.M_CHAT_ID || '').trim();
+    return ownerChatId ? [ownerChatId] : [];
 }
 
 function ownerAllowed(role, chatId, env) {
-    if (role === 'admin') return Boolean(env.MY_CHAT_ID) && chatId === env.MY_CHAT_ID;
-    if (role === 'panel') return configuredPanelChatIds(env).includes(chatId);
+    if (role === 'admin' || role === 'panel') return configuredPanelChatIds(env).includes(chatId);
     return true;
 }
 
 function menuKeyboard(role) {
-    if (role === 'client') {
-        return {
-            keyboard: [
-                [{ text: '📚 Каталог' }, { text: '📦 Мои заказы' }],
-                [{ text: 'Найти товар' }, { text: 'Уведомления' }],
-                [{ text: '🔗 Связать аккаунт' }, { text: 'ℹ️ Помощь' }]
-            ],
-            resize_keyboard: true
-        };
-    }
     if (role === 'support') {
         return {
             keyboard: [
@@ -105,9 +183,11 @@ function menuKeyboard(role) {
     if (role === 'admin') {
         return {
             keyboard: [
-                [{ text: '🆘 Обращения' }, { text: '✍️ Отзывы' }],
-                [{ text: '📦 Заказы' }, { text: '🛠 Техперерыв' }],
-                [{ text: '🔔 Уведомление' }]
+                [{ text: '✍️ Отзывы' }, { text: '📋 Уведомления' }],
+                [{ text: '📦 Заказы' }, { text: '➕ Новый заказ' }],
+                [{ text: '🛍 Товары' }, { text: '➕ Новый товар' }],
+                [{ text: '🧾 История' }, { text: '🛠 Техперерыв' }],
+                [{ text: '🔔 Создать уведомление' }]
             ],
             resize_keyboard: true
         };
@@ -122,39 +202,11 @@ function menuKeyboard(role) {
             resize_keyboard: true
         };
     }
-    return { keyboard: [[{ text: '🔗 Связать аккаунт' }, { text: 'ℹ️ Помощь' }]], resize_keyboard: true };
+    return { keyboard: [], resize_keyboard: true };
 }
 
 function inline(rows) {
     return { inline_keyboard: rows };
-}
-
-function publicBotLinks(env = process.env) {
-    return [
-        ['client', 'Клиентский бот'],
-        ['support', 'Бот-помощник'],
-        ['auth', 'Бот привязки аккаунта']
-    ].flatMap(([role, label]) => {
-        const definition = BOT_DEFINITIONS.find(bot => bot.role === role);
-        const configuredUsername = definition?.usernameEnv ? env[definition.usernameEnv] : '';
-        const username = botUsernames.get(role) || (typeof configuredUsername === 'string' ? configuredUsername.trim() : '');
-        return /^[A-Za-z0-9_]{5,32}$/.test(username)
-            ? [{ role, label, username, url: `https://t.me/${username}` }]
-            : [];
-    });
-}
-
-function botLinksKeyboard() {
-    return inline(publicBotLinks().map(bot => [{
-        text: `${bot.label} · @${bot.username}`,
-        url: bot.url
-    }]));
-}
-
-function botLinksMessage() {
-    const bots = publicBotLinks();
-    if (!bots.length) return 'Ссылки на ботов сейчас недоступны. Напишите позже или обратитесь в поддержку: @darsunhelp.';
-    return `Боты Dr. DarSun:\n\n${bots.map(bot => `${bot.label}: @${bot.username}\n${bot.url}`).join('\n\n')}`;
 }
 
 async function showAdminMaintenanceMenu(bot, chatId) {
@@ -169,10 +221,6 @@ async function showAdminMaintenanceMenu(bot, chatId) {
             [{ text: '▶️ Возобновить сайт', callback_data: 'adm:maint:off' }]
         ])
     });
-}
-
-function getPublicBotLinks(env = process.env) {
-    return publicBotLinks(env).map(({ role, label, username, url }) => ({ role, label, username, url }));
 }
 
 function safeText(value, maxLength = 1000) {
@@ -195,7 +243,6 @@ function userFacingError(error) {
     }
     if (/Backend 400 at/.test(message)) return `Запрос не принят: ${safeText(message, 500)}`;
     if (/Telegram .* failed \(401\)/.test(message)) return 'Токен этого бота недействителен. Администратору нужно проверить токен в настройках backend.';
-    if (/Telegram getUpdates failed \(409\)/.test(message)) return 'Этот бот уже запущен в другом процессе. Остановите второй экземпляр приложения и попробуйте снова.';
     if (/Telegram .* failed \(400\)/.test(message)) return `Telegram не принял запрос: ${safeText(message, 500)}`;
     if (/Сервис временно недоступен|Помощник временно недоступен/.test(message)) return message;
     return 'Не удалось выполнить действие. Проверьте ввод и попробуйте ещё раз.';
@@ -224,27 +271,34 @@ function createBotClient(config, env, request, processContext = null) {
     const baseTelegramUrl = `https://api.telegram.org/bot${token}`;
 
     async function telegram(method, body) {
-        let response;
-        try {
-            response = await request(`${baseTelegramUrl}/${method}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-                signal: body?.timeout ? AbortSignal.timeout((body.timeout + 10) * 1000) : undefined
-            });
-        } catch (error) {
-            error.retryable = true;
-            throw error;
-        }
-        const result = await response.json().catch(() => null);
-        if (!response.ok || !result?.ok) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+            let response;
+            try {
+                response = await request(`${baseTelegramUrl}/${method}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                    signal: AbortSignal.timeout(body?.timeout ? (body.timeout + 10) * 1000 : 15000)
+                });
+            } catch (error) {
+                error.retryable = true;
+                throw error;
+            }
+            const result = await response.json().catch(() => null);
+            if (response.ok && result?.ok) return result.result;
+
             const error = new Error(`Telegram ${method} failed (${response.status}): ${safeText(result?.description || 'unknown error', 240)}`);
             error.telegramStatus = response.status;
             error.telegramMethod = method;
             error.retryAfter = result?.parameters?.retry_after;
+            if (response.status === 429 && Number.isFinite(error.retryAfter) &&
+                error.retryAfter > 0 && attempt === 0) {
+                await new Promise(resolve => setTimeout(resolve, error.retryAfter * 1000));
+                continue;
+            }
             throw error;
         }
-        return result.result;
+        throw new Error(`Telegram ${method} failed after retry.`);
     }
 
     async function callApi(path, chatId, init = {}) {
@@ -279,18 +333,19 @@ function createBotClient(config, env, request, processContext = null) {
     async function send(chatId, text, options = {}) {
         const value = String(text || '').trim() || 'Не удалось подготовить ответ.';
         for (let start = 0; start < value.length; start += 3900) {
+            const end = Math.min(start + 3900, value.length);
             const payload = {
                 chat_id: chatId,
-                text: value.slice(start, start + 3900),
+                text: value.slice(start, end),
                 disable_web_page_preview: true,
-                ...options
+                ...(end === value.length ? options : {})
             };
             const key = `${config.role}:${chatId}`;
             const previous = telegramSendQueues.get(key) || Promise.resolve();
             const current = previous.catch(() => {}).then(async () => {
                 const elapsed = Date.now() - (telegramLastSendAt.get(key) || 0);
-                if (elapsed < 1100) {
-                    await new Promise(resolve => setTimeout(resolve, 1100 - elapsed));
+                if (elapsed < TELEGRAM_CHAT_SEND_INTERVAL) {
+                    await new Promise(resolve => setTimeout(resolve, TELEGRAM_CHAT_SEND_INTERVAL - elapsed));
                 }
                 try {
                     return await telegram('sendMessage', payload);
@@ -321,7 +376,17 @@ function createBotClient(config, env, request, processContext = null) {
         });
     }
 
-    return { token, telegram, callApi, send, answerCallback, editCallbackMessage, apiBase };
+    return {
+        token,
+        telegram,
+        callApi,
+        send,
+        answerCallback,
+        editCallbackMessage,
+        apiBase,
+        request,
+        sharedSecret: env.TELEGRAM_WORKER_SHARED_SECRET
+    };
 }
 
 function getBotDefinition(role) {
@@ -335,12 +400,7 @@ function createBotForRole(role, env, request, processContext) {
         : '';
     if (!definition || !token) throw new Error(`Telegram ${role} bot is not configured.`);
 
-    for (const candidate of BOT_DEFINITIONS) {
-        const username = candidate.usernameEnv ? env[candidate.usernameEnv] : '';
-        if (typeof username === 'string' && /^[A-Za-z0-9_]{5,32}$/.test(username.trim())) {
-            botUsernames.set(candidate.role, username.trim());
-        }
-    }
+    cacheConfiguredBotUsernames(env);
 
     return createBotClient({ ...definition, tokenEnv: '__NORMALIZED_TOKEN' }, {
         ...env,
@@ -349,27 +409,23 @@ function createBotForRole(role, env, request, processContext) {
 }
 
 async function processTelegramUpdateNow(role, update, options = {}) {
+    if (!getBotDefinition(role)) throw new Error('Unknown Telegram bot role.');
     const env = options.env || process.env;
     const request = options.fetch || fetch;
     const config = { role };
-    const processContext = { sideEffectAttempted: false };
-    const bot = createBotForRole(role, env, request, processContext);
     if (!isPrivateUpdate(update)) return { ignored: true };
 
     const chatId = updateChatId(update);
     if (!chatId) return { ignored: true };
     if (!ownerAllowed(role, chatId, env)) {
-        if (role === 'panel') {
-            await bot.send(chatId, `Доступ к панели ограничен.\nВаш Telegram chat ID: ${chatId}\nДобавьте это значение в PANEL_CHAT_ID или M_CHAT_ID на сервере и перезапустите бота.`);
-        } else if (role === 'admin') {
-            await bot.send(chatId, `Админ-доступ ограничен.\nВаш Telegram chat ID: ${chatId}\nЗадайте значение MY_CHAT_ID на сервере.`);
-        }
         return { ignored: true, reason: 'chat-not-allowed' };
     }
     if (!allowChatUpdate(role, chatId)) {
         console.warn(`Telegram ${role} update throttled for chat ${chatId}.`);
         return { ignored: true, reason: 'rate-limited' };
     }
+    const processContext = { sideEffectAttempted: false };
+    const bot = createBotForRole(role, env, request, processContext);
     try {
         if (update.callback_query) {
             await handleCallback(config, bot, update.callback_query, chatId);
@@ -389,6 +445,7 @@ async function processTelegramUpdateNow(role, update, options = {}) {
 }
 
 function processTelegramUpdate(role, update, options = {}) {
+    cleanupExpiredEntriesIfDue();
     const chatId = updateChatId(update);
     if (!chatId) return processTelegramUpdateNow(role, update, options);
 
@@ -403,84 +460,20 @@ function processTelegramUpdate(role, update, options = {}) {
     });
 }
 
-const CLIENT_CATALOG_PAGE_SIZE = 8;
-const CLIENT_ORDERS_PAGE_SIZE = 10;
-
-async function showCatalog(bot, chatId, { search = '', offset = 0 } = {}) {
-    const result = await bot.callApi(`/client/catalog?search=${encodeURIComponent(search)}&offset=${offset}`, chatId);
-    const products = result.products || [];
-    setState('client', chatId, { flow: 'catalog-list', products, search, offset });
-    if (!products.length) {
-        await bot.send(chatId, search ? `Ничего не найдено по запросу «${safeText(search, 80)}».` : 'Каталог пока пуст.', {
-            reply_markup: inline([[{ text: 'Искать снова', callback_data: 'cl:search' }, { text: 'Показать весь каталог', callback_data: 'cl:catalog' }]])
-        });
-        return;
-    }
-    const rows = products.map((product, index) => [{
-        text: `${safeText(product.name, 48)} · ${Number.isFinite(Number(product.price)) ? `${Number(product.price)} ₽` : 'цена уточняется'}`,
-        callback_data: `cl:product:${index}`
-    }]);
-    const navigation = [];
-    if (offset > 0) navigation.push({ text: 'Назад', callback_data: 'cl:catalog:prev' });
-    if (result.hasMore) navigation.push({ text: 'Дальше', callback_data: 'cl:catalog:next' });
-    if (navigation.length) rows.push(navigation);
-    rows.push([{ text: 'Поиск товара', callback_data: 'cl:search' }]);
-    await bot.send(chatId,
-        `Каталог${search ? ` · ${safeText(search, 80)}` : ''}\nСтраница ${Math.floor(offset / CLIENT_CATALOG_PAGE_SIZE) + 1} · найдено ${result.total}`,
-        { reply_markup: inline(rows) }
-    );
-}
-
-async function showCustomerOrders(bot, chatId, offset = 0) {
-    const result = await bot.callApi(`/client/orders?offset=${offset}`, chatId);
-    if (!result.linked) {
-        await bot.send(chatId, 'Чтобы показать ваши заказы, сначала привяжите Telegram в профиле на сайте.', {
-            reply_markup: inline([[{ text: 'Открыть профиль', url: 'https://drdarsun.ru/profile.html' }]])
-        });
-        return;
-    }
-    const orders = result.orders || [];
-    setState('client', chatId, { flow: 'orders-list', orders, offset });
-    if (!orders.length) {
-        await bot.send(chatId, 'Заказов пока нет.');
-        return;
-    }
-    const rows = orders.map((order, index) => [{
-        text: `Заказ ${safeText(order.id, 36)} · ${safeText(order.status, 32)} · ${Number(order.total) || 0} ₽`,
-        callback_data: `cl:order:${index}`
-    }]);
-    const navigation = [];
-    if (offset > 0) navigation.push({ text: 'Назад', callback_data: 'cl:orders:prev' });
-    if (result.hasMore) navigation.push({ text: 'Дальше', callback_data: 'cl:orders:next' });
-    if (navigation.length) rows.push(navigation);
-    await bot.send(chatId, 'Ваши заказы. Выберите заказ, чтобы посмотреть позиции и статус:', { reply_markup: inline(rows) });
-}
-
-async function confirmLink(bot, chatId, user, code) {
-    if (!/^[A-F0-9]{16}$/i.test(code || '')) {
-        await bot.send(chatId, 'Введите одноразовый код привязки из профиля на сайте: /link КОД');
-        return;
-    }
-    await bot.callApi('/link/confirm', chatId, {
-        method: 'POST',
-        body: JSON.stringify({ code: code.toUpperCase(), username: user?.username || '' })
-    });
-    await bot.send(chatId, 'Аккаунт успешно привязан. Теперь можно пользоваться командами бота.');
-}
-
 async function getMyTicket(bot, chatId) {
     return bot.callApi('/support/my-ticket', chatId);
 }
 
 function ticketContactLink(number) {
-    return `https://t.me/darsunhelp?text=${encodeURIComponent(`Здравствуйте, по обращению №${number}`)}`;
+    return `mailto:drdarsunhelper@gmail.com?subject=${encodeURIComponent(`Обращение №${number}`)}`;
 }
 
 const SUPPORT_FAQ = {
-    account: 'Привязка: войдите в профиль на drdarsun.ru, откройте «Безопасность», создайте код Telegram и отправьте его боту командой /link КОД. Код одноразовый и действует ограниченное время.',
-    orders: 'Заказы доступны в клиентском боте после привязки Telegram к профилю. Команда /orders показывает только заказы вашего аккаунта.',
-    notifications: 'Уведомления о заказах можно включить в профиле: «Безопасность → Telegram — управление связью», или в клиентском боте командой /notifications.',
-    storage: 'После открытия бутылки следуйте условиям на этикетке. Обычно масло хранят плотно закрытым, вдали от света и источников тепла.'
+    account: 'Для восстановления доступа используйте ссылку «Забыли пароль?» на странице входа. Не отправляйте пароли и коды подтверждения в чаты.',
+    orders: 'Актуальные сведения о заказе можно уточнить у оператора поддержки.',
+    notifications: 'Уведомления о заказах доступны на электронной почте в настройках профиля.',
+    storage: 'После открытия следуйте условиям на этикетке. Масла обычно берегут от света, тепла и воздуха; урбеч, хумус и растительные напитки храните строго по маркировке.',
+    products: 'Мы рассказываем о нескольких направлениях: растительные масла, урбеч из семян и орехов, хумус на основе нута и растительные напитки из семян или орехов. У хумуса своя основа — нут; состав конкретного продукта смотрите на этикетке. Наличие и цены уточняйте в каталоге сайта.'
 };
 
 async function showSupportFaq(bot, chatId, topic) {
@@ -490,10 +483,11 @@ async function showSupportFaq(bot, chatId, topic) {
     }
     await bot.send(chatId, 'Выберите вопрос:', {
         reply_markup: inline([
-            [{ text: 'Привязка аккаунта', callback_data: 's:faq:account' }],
+            [{ text: 'Доступ к аккаунту', callback_data: 's:faq:account' }],
             [{ text: 'Заказы', callback_data: 's:faq:orders' }],
             [{ text: 'Уведомления', callback_data: 's:faq:notifications' }],
-            [{ text: 'Хранение масла', callback_data: 's:faq:storage' }]
+            [{ text: 'Продукты', callback_data: 's:faq:products' }],
+            [{ text: 'Хранение продуктов', callback_data: 's:faq:storage' }]
         ])
     });
 }
@@ -506,14 +500,14 @@ async function createTicket(bot, chatId, user, message, topic) {
     const link = ticketContactLink(result.number);
     await bot.send(chatId,
         `Обращение №${result.number} создано${result.existing ? ' и добавлено к вашему активному обращению' : ''}.\nТема: ${topic}\n\nЕсли хотите написать лично, откройте чат с поддержкой — номер уже будет в сообщении:\n${link}`,
-        { reply_markup: inline([[{ text: 'Написать @darsunhelp', url: link }]]) }
+        { reply_markup: inline([[{ text: 'Написать на почту', url: link }]]) }
     );
     setState('support', chatId, {});
 }
 
 async function supportMessage(bot, chatId, user, message) {
     const now = Date.now();
-    const supportAttempts = (supportUsage.get(chatId) || []).filter(timestamp => now - timestamp < 5 * 60 * 1000);
+    const supportAttempts = (supportUsage.get(chatId) || []).filter(timestamp => now - timestamp < USAGE_WINDOW);
     if (supportAttempts.length >= 20) {
         supportUsage.set(chatId, supportAttempts);
         await bot.send(chatId, 'Слишком много сообщений за короткое время. Подождите несколько минут или воспользуйтесь FAQ.');
@@ -538,7 +532,7 @@ async function supportMessage(bot, chatId, user, message) {
         return;
     }
 
-    const usage = (assistantUsage.get(chatId) || []).filter(timestamp => now - timestamp < 5 * 60 * 1000);
+    const usage = (assistantUsage.get(chatId) || []).filter(timestamp => now - timestamp < USAGE_WINDOW);
     if (usage.length >= 8) {
         assistantUsage.set(chatId, usage);
         await bot.send(chatId, 'Слишком много сообщений за короткое время. Подождите несколько минут или выберите «Нужен оператор».');
@@ -547,10 +541,13 @@ async function supportMessage(bot, chatId, user, message) {
     usage.push(now);
     assistantUsage.set(chatId, usage);
 
-    const history = histories.get(chatId) || [];
-    const aiResponse = await fetch(`${bot.apiBase}/api/gigachat`, {
+    const history = getHistory(chatId);
+    const aiResponse = await bot.request(`${bot.apiBase}/api/gigachat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-Worker-Secret': bot.sharedSecret || ''
+        },
         body: JSON.stringify({ message, history, context: 'site', supportMode: true }),
         signal: AbortSignal.timeout(30000)
     });
@@ -560,7 +557,7 @@ async function supportMessage(bot, chatId, user, message) {
 
     history.push({ role: 'user', content: message.slice(0, 1000) });
     history.push({ role: 'assistant', content: response.reply.slice(0, 1000) });
-    histories.set(chatId, history.slice(-8));
+    setHistory(chatId, history.slice(-8));
 
     if (response.escalation?.required) {
         const recentQuestions = history
@@ -582,31 +579,6 @@ async function supportMessage(bot, chatId, user, message) {
     await bot.send(chatId, response.reply);
 }
 
-async function listAdminTickets(bot, chatId, { status = 'open', offset = 0 } = {}) {
-    const result = await bot.callApi(`/admin/tickets?status=${status}&offset=${offset}`, chatId);
-    const tickets = result.tickets || [];
-    setState('admin', chatId, { flow: 'admin-ticket-list', queueStatus: status, offset });
-    if (!tickets.length) {
-        await bot.send(chatId, status === 'open' ? 'Открытых обращений нет.' : 'Закрытых обращений нет.', {
-            reply_markup: inline([[{ text: status === 'open' ? 'Показать закрытые' : 'Показать открытые', callback_data: `adm:tickets:filter:${status === 'open' ? 'closed' : 'open'}` }]])
-        });
-        return;
-    }
-    for (const ticket of tickets) {
-        const text = `Обращение №${ticket.ticket_number}\nТема: ${safeText(ticket.topic, 60)}\nTelegram: ${safeText(ticket.telegram_username ? `@${ticket.telegram_username}` : ticket.telegram_chat_id, 80)}\nСоздано: ${new Date(ticket.created_at).toLocaleString('ru-RU')}`;
-        await bot.send(chatId, text, {
-            reply_markup: inline([[{ text: 'Переписка', callback_data: `adm:t:${ticket.id}` }, { text: 'Ответить', callback_data: `adm:r:${ticket.id}` }, { text: 'Закрыть', callback_data: `adm:c:${ticket.id}` }]])
-        });
-    }
-    const navigation = [];
-    if (offset > 0) navigation.push({ text: 'Назад', callback_data: 'adm:tickets:prev' });
-    if (result.hasMore) navigation.push({ text: 'Дальше', callback_data: 'adm:tickets:next' });
-    navigation.push({ text: status === 'open' ? 'Закрытые' : 'Открытые', callback_data: `adm:tickets:filter:${status === 'open' ? 'closed' : 'open'}` });
-    await bot.send(chatId, `Обращения: ${status === 'open' ? 'открытые' : 'закрытые'} · страница ${Math.floor(offset / 10) + 1}`, {
-        reply_markup: inline([navigation])
-    });
-}
-
 async function listAdminReviews(bot, chatId, offset = 0) {
     const result = await bot.callApi(`/admin/reviews?offset=${offset}`, chatId);
     const reviews = result.reviews || [];
@@ -616,7 +588,9 @@ async function listAdminReviews(bot, chatId, offset = 0) {
         return;
     }
     for (const review of reviews) {
-        const text = `${safeText(review.user_name, 80)} · ${review.rating}/5\n${safeText(review.review_text, 2500)}`;
+        const product = review.product_name ? `Товар: ${safeText(review.product_name, 100)}\n` : '';
+        const reviewText = review.review_text ? `\n\n${safeText(review.review_text, 1800)}` : '';
+        const text = `${product}${safeText(review.user_name, 80)} · ${review.rating}/5${reviewText}`;
         await bot.send(chatId, text, {
             reply_markup: inline([[{ text: '✅ Одобрить', callback_data: `adm:ra:${review.id}` }, { text: '❌ Отклонить', callback_data: `adm:rr:${review.id}` }]])
         });
@@ -627,6 +601,38 @@ async function listAdminReviews(bot, chatId, offset = 0) {
     if (navigation.length) await bot.send(chatId, `Модерация отзывов · страница ${Math.floor(offset / 10) + 1}`, { reply_markup: inline([navigation]) });
 }
 
+async function listAdminToasts(bot, chatId) {
+    const { publicToasts = [], personalToasts = [] } = await bot.callApi('/admin/toasts', chatId);
+    const notifications = [
+        ...publicToasts.map(notification => ({ ...notification, scope: 'public', audience: 'Всем посетителям' })),
+        ...personalToasts.map(notification => ({
+            ...notification,
+            scope: 'personal',
+            audience: `Аккаунт ${safeText(notification.user_id, 12)}`
+        }))
+    ];
+    setState('admin', chatId, { flow: 'admin-toasts' });
+    if (!notifications.length) {
+        setState('admin', chatId, {});
+        await bot.send(chatId, 'Уведомлений для удаления нет.', { reply_markup: menuKeyboard('admin') });
+        return;
+    }
+
+    const rows = notifications.map(notification => {
+        const expiration = notification.expires_at
+            ? new Date(notification.expires_at).toLocaleString('ru-RU')
+            : 'без срока';
+        return `${notification.scope === 'public' ? 'Публичное' : 'Личное'} · ${notification.audience}\n${safeText(notification.message, 240)}\nИстекает: ${expiration}`;
+    });
+    const buttons = notifications.map(notification => [{
+        text: `Удалить ${notification.scope === 'public' ? 'публичное' : 'личное'} · ${safeText(notification.message, 32)}`,
+        callback_data: `adm:td:${notification.scope}:${notification.id}`
+    }]);
+    await bot.send(chatId, `Уведомления сайта\n\n${rows.join('\n\n')}`, {
+        reply_markup: inline([...buttons, [{ text: 'Готово', callback_data: 'adm:toasts:done' }]])
+    });
+}
+
 async function listOrders(bot, chatId, { status = '', offset = 0 } = {}) {
     const result = await bot.callApi(`/panel/orders?offset=${offset}${status ? `&status=${encodeURIComponent(status)}` : ''}`, chatId);
     setState('panel', chatId, { flow: 'orders-list', status, offset, orders: result.orders || [] });
@@ -634,14 +640,15 @@ async function listOrders(bot, chatId, { status = '', offset = 0 } = {}) {
         await bot.send(chatId, 'Заказов пока нет.', { reply_markup: menuKeyboard('panel') });
         return;
     }
-    for (const order of result.orders.slice(0, 15)) {
+    const pageOrders = result.orders.slice(0, 15);
+    for (const [index, order] of pageOrders.entries()) {
         const text = `Заказ ${safeText(order.id, 40)}\n${formatOrders([order])}\nПокупатель: ${safeText(order.customer_name || '—', 100)}\nПочта: ${safeText(order.customer_email || '—', 180)}\nАдрес: ${safeText(order.delivery_address || '—', 300)}\nПозиции: ${Array.isArray(order.items) ? order.items.map(item => `${safeText(item.name || item.product_id, 80)} × ${item.quantity || 1}`).join(', ') : '—'}`;
         const buttons = ORDER_STATUSES.map(status => ({
             text: `${order.status === status ? '• ' : ''}${status}`,
-            callback_data: `p:o:${result.orders.indexOf(order)}:${status}`
+            callback_data: `p:o:${index}:${status}`
         }));
-        await bot.send(chatId, text, { reply_markup: inline(buttons.reduce((rows, button, index) => {
-            const row = Math.floor(index / 3);
+        await bot.send(chatId, text, { reply_markup: inline(buttons.reduce((rows, button, buttonIndex) => {
+            const row = Math.floor(buttonIndex / 3);
             rows[row] ||= [];
             rows[row].push(button);
             return rows;
@@ -668,9 +675,11 @@ async function listAuditLog(bot, chatId, offset = 0) {
         'order.updated': 'Заказ изменён',
         'product.created': 'Товар создан',
         'product.updated': 'Товар изменён',
+        'product.deleted': 'Товар удалён',
         'review.moderated': 'Отзыв модерирован',
         'ticket.closed': 'Обращение закрыто',
         'toast.sent': 'Уведомление отправлено',
+        'toast.deleted': 'Уведомление удалено',
         'maintenance.changed': 'Техперерыв изменён'
     };
     const lines = entries.map(entry => {
@@ -690,16 +699,24 @@ async function listAuditLog(bot, chatId, offset = 0) {
 const PANEL_PRODUCTS_PAGE_SIZE = 8;
 
 async function listProducts(bot, chatId, offset = 0) {
-    const { products = [], hasMore = false } = await bot.callApi(`/panel/products?limit=${PANEL_PRODUCTS_PAGE_SIZE}&offset=${offset}`, chatId);
+    let pageOffset = Math.max(0, Math.floor(Number(offset) || 0));
+    let result;
+    do {
+        result = await bot.callApi(`/panel/products?limit=${PANEL_PRODUCTS_PAGE_SIZE}&offset=${pageOffset}`, chatId);
+        if (result.products?.length || pageOffset === 0) break;
+        pageOffset = Math.max(0, pageOffset - PANEL_PRODUCTS_PAGE_SIZE);
+    } while (true);
+
+    const { products = [], hasMore = false } = result;
     if (!products.length) {
         await bot.send(chatId, 'Товаров нет.', { reply_markup: menuKeyboard('panel') });
         return;
     }
-    const pageProducts = products.slice(offset, offset + PANEL_PRODUCTS_PAGE_SIZE);
+    const pageProducts = products.slice(0, PANEL_PRODUCTS_PAGE_SIZE);
     setState('panel', chatId, {
         flow: 'products-list',
         products: pageProducts,
-        offset,
+        offset: pageOffset,
         hasNext: hasMore
     });
     const rows = pageProducts.map((product, index) => {
@@ -715,10 +732,10 @@ async function listProducts(bot, chatId, offset = 0) {
         callback_data: `p:pe:${index}`
     }]);
     const navigation = [];
-    if (offset > 0) navigation.push({ text: 'Назад', callback_data: 'p:products:prev' });
+    if (pageOffset > 0) navigation.push({ text: 'Назад', callback_data: 'p:products:prev' });
     if (hasMore) navigation.push({ text: 'Дальше', callback_data: 'p:products:next' });
     if (navigation.length) buttons.push(navigation);
-    await bot.send(chatId, `Товары · страница ${Math.floor(offset / PANEL_PRODUCTS_PAGE_SIZE) + 1}\n\n${rows.join('\n\n')}`, {
+    await bot.send(chatId, `Товары · страница ${Math.floor(pageOffset / PANEL_PRODUCTS_PAGE_SIZE) + 1}\n\n${rows.join('\n\n')}`, {
         reply_markup: inline(buttons)
     });
 }
@@ -731,25 +748,22 @@ async function startNewOrder(bot, chatId) {
 async function startNewProduct(bot, chatId) {
     const options = await bot.callApi('/panel/oil-types', chatId);
     const oils = Array.isArray(options.oils) ? options.oils : [];
-    if (!oils.length) {
-        await bot.send(chatId, 'Не удалось загрузить список масел. Попробуйте позже.');
-        return;
-    }
-    setState('panel', chatId, { flow: 'new-product-oil', oils, options });
-    const rows = [];
-    for (let index = 0; index < oils.length; index += 2) {
-        rows.push(oils.slice(index, index + 2).map((oil, offset) => ({
-            text: safeText(oil.name, 28),
-            callback_data: `p:oil:${index + offset}`
-        })));
-    }
-    await bot.send(chatId, 'Выберите масло из справочника. Настройки товара можно отменить командой /cancel.', {
-        reply_markup: inline(rows)
+    setState('panel', chatId, { flow: 'new-product-kind', oils, options });
+    await bot.send(chatId, 'Выберите направление нового товара:', {
+        reply_markup: inline([
+            [{ text: 'Растительное масло', callback_data: 'p:product-type:oil' }],
+            [{ text: 'Урбеч', callback_data: 'p:product-type:urbech' }, { text: 'Хумус', callback_data: 'p:product-type:hummus' }],
+            [{ text: 'Растительное молоко', callback_data: 'p:product-type:milk' }]
+        ])
     });
 }
 
 function productPreview(product) {
-    return `Проверьте товар перед публикацией:\n\n${safeText(product.name, 160)}\n${safeText(product.category, 80)} · ${Number(product.price)} ₽\nОбъём: ${product.volume} мл\nУпаковка: ${safeText(product.packaging_type, 60)}\nОтжим: ${safeText(product.pressing_type, 60)}\nСрок хранения: ${product.shelf_life_months} мес.\n\n${safeText(product.description, 700) || 'Описание не добавлено.'}\n\nИзображение: ${safeText(product.image_url, 300)}`;
+    const volume = typeof product.volume === 'number' ? `${product.volume} мл` : product.volume || '—';
+    const shelfLife = product.shelf_life_months != null && Number.isSafeInteger(Number(product.shelf_life_months))
+        ? `${Number(product.shelf_life_months)} мес.`
+        : 'по маркировке';
+    return `Проверьте товар перед публикацией:\n\n${safeText(product.name, 160)}\n${safeText(product.category, 80)} · ${Number(product.price)} ₽\nФасовка: ${safeText(volume, 40)}\nУпаковка: ${safeText(product.packaging_type || '—', 80)}\nСпособ обработки: ${safeText(product.pressing_type || '—', 80)}\nСрок хранения: ${shelfLife}\n\n${safeText(product.description, 700) || 'Описание не добавлено.'}\n\nИзображение: ${safeText(product.image_url, 300)}`;
 }
 
 async function processPanelText(bot, chatId, text) {
@@ -762,6 +776,77 @@ async function processPanelText(bot, chatId, text) {
         setState('panel', chatId, {});
         await bot.send(chatId, 'Действие отменено.', { reply_markup: menuKeyboard('panel') });
         return;
+    }
+    if (state.flow.startsWith('new-product-general-')) {
+        const categoryByKind = {
+            urbech: { category: 'Урбеч', image: 'urbech' },
+            hummus: { category: 'Хумус', image: 'hummus' },
+            milk: { category: 'Растительное молоко', image: 'plant-milk' }
+        };
+        const kind = categoryByKind[state.product?.kind];
+        if (!kind) {
+            setState('panel', chatId, {});
+            await bot.send(chatId, 'Сценарий добавления товара устарел. Запустите /newproduct заново.');
+            return;
+        }
+        if (state.flow === 'new-product-general-name') {
+            if (text.length < 2 || text.length > 160 || /[\u0000-\u001f\u007f]/.test(text)) {
+                await bot.send(chatId, 'Введите название длиной от 2 до 160 символов.');
+                return;
+            }
+            state.product.name = text;
+            state.flow = 'new-product-general-volume';
+            setState('panel', chatId, state);
+            await bot.send(chatId, 'Укажите фасовку с единицей измерения, например 200 г или 750 мл.');
+            return;
+        }
+        if (state.flow === 'new-product-general-volume') {
+            const match = /^(\d{1,4})\s*(мл|г)$/i.exec(text);
+            const amount = match ? Number(match[1]) : Number.NaN;
+            if (!Number.isSafeInteger(amount) || amount < 10 || amount > 5000) {
+                await bot.send(chatId, 'Введите фасовку от 10 до 5000 г или мл, например 200 г.');
+                return;
+            }
+            state.product.volume = `${amount} ${match[2].toLowerCase()}`;
+            state.flow = 'new-product-general-packaging';
+            setState('panel', chatId, state);
+            await bot.send(chatId, 'Укажите тип упаковки, например банка или бутылка.');
+            return;
+        }
+        if (state.flow === 'new-product-general-packaging') {
+            if (text.length < 2 || text.length > 80 || /[\u0000-\u001f\u007f]/.test(text)) {
+                await bot.send(chatId, 'Введите название упаковки длиной от 2 до 80 символов.');
+                return;
+            }
+            state.product.packaging_type = text;
+            state.flow = 'new-product-general-processing';
+            setState('panel', chatId, state);
+            await bot.send(chatId, 'Кратко укажите обработку/приготовление по вашей рецептуре или /skip.');
+            return;
+        }
+        if (state.flow === 'new-product-general-processing') {
+            if (text !== '/skip' && (text.length > 80 || /[\u0000-\u001f\u007f]/.test(text))) {
+                await bot.send(chatId, 'Слишком длинное описание обработки. Максимум 80 символов или /skip.');
+                return;
+            }
+            state.product.pressing_type = text === '/skip' ? null : text;
+            state.flow = 'new-product-general-shelf-life';
+            setState('panel', chatId, state);
+            await bot.send(chatId, 'Укажите срок хранения в месяцах с маркировки или /skip, если он ещё не определён.');
+            return;
+        }
+        if (state.flow === 'new-product-general-shelf-life') {
+            const months = text === '/skip' ? null : Number(text);
+            if (months !== null && (!Number.isSafeInteger(months) || months < 1 || months > 60)) {
+                await bot.send(chatId, 'Введите целое число месяцев от 1 до 60 или /skip.');
+                return;
+            }
+            state.product.shelf_life_months = months;
+            state.flow = 'new-product-price';
+            setState('panel', chatId, state);
+            await bot.send(chatId, 'Введите цену товара в рублях (от 1 до 10 000 000).');
+            return;
+        }
     }
     if (state.flow === 'new-order-user') {
         if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(text)) {
@@ -832,11 +917,11 @@ async function processPanelText(bot, chatId, text) {
             state.product = product;
             state.flow = 'new-product-image';
             setState('panel', chatId, state);
-            await bot.send(chatId, 'Отправьте URL фото товара или /skip, чтобы использовать иллюстрацию выбранного масла.');
+            await bot.send(chatId, 'Отправьте URL фото товара или /skip, чтобы использовать подходящую иллюстрацию.');
             return;
         }
-        if (text !== '/skip' && !/^https?:\/\/\S+$/i.test(text)) {
-            await bot.send(chatId, 'Отправьте ссылку https://… или /skip.');
+        if (text !== '/skip' && !/^(?:https?:\/\/\S+|assets\/images\/(?:oils\/[a-z-]+|encyclopedia\/[a-z-]+)\.svg)$/i.test(text)) {
+            await bot.send(chatId, 'Отправьте ссылку https://…, путь к иллюстрации продукции или /skip.');
             return;
         }
         if (text !== '/skip') product.image_url = text;
@@ -856,14 +941,37 @@ async function processPanelText(bot, chatId, text) {
                 await bot.send(chatId, 'Введите цену числом от 0 до 10 000 000.');
                 return;
             }
+        } else if (field === 'volume') {
+            const match = /^(\d{1,4})\s*(мл|г)?$/i.exec(text);
+            const volume = match ? Number(match[1]) : Number.NaN;
+            if (!Number.isSafeInteger(volume) || volume < 10 || volume > 5000) {
+                await bot.send(chatId, 'Введите фасовку от 10 до 5000 г или мл, например 200 г.');
+                return;
+            }
+            value = `${volume} ${(match[2] || 'мл').toLowerCase()}`;
+        } else if (field === 'shelf_life_months') {
+            if (text === '/skip') {
+                value = null;
+            } else {
+                const match = /^(\d{1,2})(?:\s*мес\.?)?$/i.exec(text);
+                const months = match ? Number(match[1]) : Number.NaN;
+                if (!Number.isSafeInteger(months) || months < 1 || months > 60) {
+                    await bot.send(chatId, 'Укажите срок от 1 до 60 месяцев или /skip, если он ещё не определён.');
+                    return;
+                }
+                value = months;
+            }
         } else {
-            const maxLength = field === 'name' ? 160 : field === 'category' ? 80 : 2000;
-            if (value.length > maxLength || (field !== 'description' && field !== 'image_url' && !value)) {
+            const maxLength = field === 'name' ? 160 :
+                ['category', 'packaging_type', 'pressing_type'].includes(field) ? 80 : 2000;
+            if (value.length > maxLength || (field !== 'description' && field !== 'image_url' && !value) ||
+                (['packaging_type', 'pressing_type'].includes(field) && /[\u0000-\u001f\u007f]/.test(value))) {
                 await bot.send(chatId, `Проверьте значение: максимум ${maxLength} символов.`);
                 return;
             }
-            if (field === 'image_url' && value && !/^https?:\/\/\S+$/i.test(value)) {
-                await bot.send(chatId, 'Укажите ссылку https://… или пустое значение.');
+            if (field === 'image_url' && value &&
+                !/^(?:https?:\/\/\S+|assets\/images\/(?:oils\/[a-z-]+|encyclopedia\/[a-z-]+)\.svg)$/i.test(value)) {
+                await bot.send(chatId, 'Укажите URL https://… или путь к иллюстрации продукции.');
                 return;
             }
         }
@@ -875,8 +983,20 @@ async function processPanelText(bot, chatId, text) {
 }
 
 async function handleCallback(config, bot, callback, chatId) {
+    if (config.role === 'admin' && String(callback.data || '').startsWith('p:')) {
+        config = { role: 'panel' };
+    }
     const data = String(callback.data || '');
     await bot.answerCallback(callback.id);
+    if (data === 'p:products:next' || data === 'p:products:prev') {
+        const state = getState('panel', chatId);
+        if (state.flow !== 'products-list') return;
+        if (data.endsWith('next') && state.hasNext !== true) return;
+        if (data.endsWith('prev') && state.offset < PANEL_PRODUCTS_PAGE_SIZE) return;
+        const offset = Math.max(0, state.offset + (data.endsWith('next') ? PANEL_PRODUCTS_PAGE_SIZE : -PANEL_PRODUCTS_PAGE_SIZE));
+        await listProducts(bot, chatId, offset);
+        return;
+    }
     if (config.role === 'support') {
         if (data === 's:faq') {
             await showSupportFaq(bot, chatId);
@@ -916,88 +1036,21 @@ async function handleCallback(config, bot, callback, chatId) {
         }
         return;
     }
-    if (config.role === 'client') {
-        const state = getState('client', chatId);
-        if (data === 'cl:search') {
-            setState('client', chatId, { flow: 'catalog-search' });
-            await bot.send(chatId, 'Введите название товара или категорию. Для отмены отправьте /cancel.');
-        } else if (data === 'cl:catalog') {
-            await showCatalog(bot, chatId);
-        } else if (data === 'cl:catalog:next' || data === 'cl:catalog:prev') {
-            await showCatalog(bot, chatId, {
-                search: state.search || '',
-                offset: Math.max(0, (state.offset || 0) + (data.endsWith('next') ? CLIENT_CATALOG_PAGE_SIZE : -CLIENT_CATALOG_PAGE_SIZE))
-            });
-        } else if (data.startsWith('cl:product:')) {
-            const product = state.products?.[Number(data.slice('cl:product:'.length))];
-            if (!product) return;
-            const description = safeText(product.description, 1200) || 'Описание пока не добавлено.';
-            await bot.send(chatId,
-                `${safeText(product.name, 120)}\n${safeText(product.category, 80)} · ${Number(product.price) || 0} ₽\n\n${description}`,
-                { reply_markup: inline([[{ text: 'Назад к каталогу', callback_data: 'cl:catalog' }, { text: 'Поиск товара', callback_data: 'cl:search' }]]) }
-            );
-        } else if (data === 'cl:orders:next' || data === 'cl:orders:prev') {
-            await showCustomerOrders(bot, chatId, Math.max(0, (state.offset || 0) + (data.endsWith('next') ? CLIENT_ORDERS_PAGE_SIZE : -CLIENT_ORDERS_PAGE_SIZE)));
-        } else if (data.startsWith('cl:order:')) {
-            const order = state.orders?.[Number(data.slice('cl:order:'.length))];
-            if (!order) return;
-            const items = Array.isArray(order.items)
-                ? order.items.map(item => `${safeText(item.name || item.product_id, 100)} × ${Number(item.quantity) || 1}`).join('\n')
-                : 'Состав заказа недоступен.';
-            await bot.send(chatId,
-                `Заказ ${safeText(order.id, 80)}\nСтатус: ${safeText(order.status, 32)}\nДата: ${new Date(order.created_at).toLocaleDateString('ru-RU')}\nСумма: ${Number(order.total) || 0} ₽\n\n${items}`,
-                { reply_markup: inline([[{ text: 'Назад к заказам', callback_data: 'cl:orders:prev' }]]) }
-            );
-        } else if (data === 'cl:notifications') {
-            const preferences = await bot.callApi('/client/notifications', chatId);
-            if (!preferences.linked) {
-                await bot.send(chatId, 'Сначала привяжите Telegram в профиле на сайте, чтобы управлять уведомлениями.');
-                return;
-            }
-            setState('client', chatId, { ...state, notificationsEnabled: preferences.enabled });
-            await bot.send(chatId, `Уведомления о заказах: ${preferences.enabled ? 'включены' : 'выключены'}.`, {
-                reply_markup: inline([[{ text: preferences.enabled ? 'Выключить уведомления' : 'Включить уведомления', callback_data: 'cl:notifications:toggle' }]])
-            });
-        } else if (data === 'cl:notifications:toggle') {
-            const preferences = await bot.callApi('/client/notifications', chatId);
-            if (!preferences.linked) {
-                await bot.send(chatId, 'Сначала привяжите Telegram в профиле на сайте, чтобы управлять уведомлениями.');
-                return;
-            }
-            const updated = await bot.callApi('/client/notifications', chatId, {
-                method: 'PATCH',
-                body: JSON.stringify({ enabled: !preferences.enabled })
-            });
-            setState('client', chatId, { ...state, notificationsEnabled: updated.enabled });
-            await bot.editCallbackMessage(callback, `Уведомления о заказах ${updated.enabled ? 'включены' : 'выключены'}.`);
-        }
-        return;
-    }
     if (config.role === 'admin') {
-        if (data.startsWith('adm:tickets:filter:')) {
-            const status = data.slice('adm:tickets:filter:'.length);
-            if (!['open', 'closed'].includes(status)) return;
-            await listAdminTickets(bot, chatId, { status, offset: 0 });
-            return;
-        }
-        if (data === 'adm:tickets:next' || data === 'adm:tickets:prev') {
-            const state = getState('admin', chatId);
-            if (state.flow !== 'admin-ticket-list') return;
-            await listAdminTickets(bot, chatId, {
-                status: state.queueStatus,
-                offset: Math.max(0, state.offset + (data.endsWith('next') ? 10 : -10))
-            });
-            return;
-        }
         if (data === 'adm:reviews:next' || data === 'adm:reviews:prev') {
             const state = getState('admin', chatId);
             if (state.flow !== 'admin-review-list') return;
             await listAdminReviews(bot, chatId, Math.max(0, state.offset + (data.endsWith('next') ? 10 : -10)));
             return;
         }
-        if (data === 'adm:review:cancel' || data === 'adm:ticket:cancel') {
+        if (data === 'adm:review:cancel' || data === 'adm:toast:delete:cancel') {
             setState('admin', chatId, {});
             await bot.editCallbackMessage(callback, 'Действие отменено.');
+            return;
+        }
+        if (data === 'adm:toasts:done') {
+            setState('admin', chatId, {});
+            await bot.editCallbackMessage(callback, 'Готово.');
             return;
         }
         if (data === 'adm:review:confirm') {
@@ -1011,15 +1064,32 @@ async function handleCallback(config, bot, callback, chatId) {
             await bot.editCallbackMessage(callback, state.status === 'approved' ? 'Отзыв опубликован.' : 'Отзыв отклонён.');
             return;
         }
-        if (data === 'adm:ticket:confirm') {
+        if (data === 'adm:toast:delete:confirm') {
             const state = getState('admin', chatId);
-            if (state.flow !== 'confirm-ticket-close') return;
-            await bot.callApi(`/admin/tickets/${state.ticketId}`, chatId, {
-                method: 'PATCH',
-                body: JSON.stringify({ status: 'closed' })
-            });
+            if (state.flow !== 'confirm-toast-delete') return;
+            try {
+                await bot.callApi(`/admin/toasts/${state.scope}/${encodeURIComponent(state.toastId)}`, chatId, {
+                    method: 'DELETE'
+                });
+            } catch (error) {
+                setState('admin', chatId, state);
+                throw error;
+            }
             setState('admin', chatId, {});
-            await bot.editCallbackMessage(callback, 'Обращение закрыто.');
+            await bot.editCallbackMessage(callback, 'Уведомление удалено.');
+            await listAdminToasts(bot, chatId);
+            return;
+        }
+        const toastDeleteMatch = /^adm:td:(public|personal):([0-9a-f-]{36})$/i.exec(data);
+        if (toastDeleteMatch) {
+            const [, scope, toastId] = toastDeleteMatch;
+            setState('admin', chatId, { flow: 'confirm-toast-delete', scope, toastId });
+            await bot.send(chatId, 'Точно удалить это уведомление с сайта?', {
+                reply_markup: inline([[
+                    { text: 'Удалить уведомление', callback_data: 'adm:toast:delete:confirm' },
+                    { text: 'Отмена', callback_data: 'adm:toast:delete:cancel' }
+                ]])
+            });
             return;
         }
         if (data === 'adm:toast') {
@@ -1062,6 +1132,7 @@ async function handleCallback(config, bot, callback, chatId) {
                 : `Уведомление создано.\nПолучателей: ${result.sent}\nСрок показа: ${result.durationSeconds} сек.`, { reply_markup: menuKeyboard('admin') });
             return;
         }
+        if (data === 'adm:toasts') return listAdminToasts(bot, chatId);
         if (data === 'adm:maintenance') {
             return showAdminMaintenanceMenu(bot, chatId);
         }
@@ -1076,7 +1147,6 @@ async function handleCallback(config, bot, callback, chatId) {
             return;
         }
         if (data === 'adm:reviews') return listAdminReviews(bot, chatId);
-        if (data === 'adm:tickets') return listAdminTickets(bot, chatId);
         const [, action, id] = data.split(':');
         if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return;
         if (action === 'ra' || action === 'rr') {
@@ -1085,24 +1155,51 @@ async function handleCallback(config, bot, callback, chatId) {
             await bot.send(chatId, `${status === 'approved' ? 'Опубликовать' : 'Отклонить'} этот отзыв?`, {
                 reply_markup: inline([[{ text: 'Подтвердить', callback_data: 'adm:review:confirm' }, { text: 'Отмена', callback_data: 'adm:review:cancel' }]])
             });
-        } else if (action === 'c') {
-            setState('admin', chatId, { flow: 'confirm-ticket-close', ticketId: id });
-            await bot.send(chatId, 'Закрыть это обращение?', {
-                reply_markup: inline([[{ text: 'Подтвердить закрытие', callback_data: 'adm:ticket:confirm' }, { text: 'Отмена', callback_data: 'adm:ticket:cancel' }]])
-            });
-        } else if (action === 't') {
-            const { messages = [] } = await bot.callApi(`/admin/tickets/${id}/messages`, chatId);
-            const text = messages.map(message => `${message.sender_role === 'customer' ? 'Клиент' : 'Поддержка'}: ${safeText(message.message, 1200)}`).join('\n\n');
-            await bot.send(chatId, text || 'В обращении пока нет сообщений.', {
-                reply_markup: inline([[{ text: 'Ответить клиенту', callback_data: `adm:r:${id}` }]])
-            });
-        } else if (action === 'r') {
-            setState('admin', chatId, { flow: 'ticket-reply', ticketId: id });
-            await bot.send(chatId, 'Введите ответ для выбранного обращения. Для отмены отправьте /cancel.');
         }
         return;
     }
-    if (config.role === 'panel') {
+
+    if (config.role === 'panel' || config.role === 'admin') {
+        const productTypeMatch = /^p:product-type:(oil|urbech|hummus|milk)$/.exec(data);
+        if (productTypeMatch) {
+            const state = getState('panel', chatId);
+            if (state.flow !== 'new-product-kind') return;
+            const kind = productTypeMatch[1];
+            if (kind === 'oil') {
+                if (!state.oils?.length) {
+                    await bot.send(chatId, 'Список масел пока не настроен. Попробуйте позже или выберите другое направление.');
+                    return;
+                }
+                setState('panel', chatId, { ...state, flow: 'new-product-oil' });
+                const rows = [];
+                for (let index = 0; index < state.oils.length; index += 2) {
+                    rows.push(state.oils.slice(index, index + 2).map((oil, offset) => ({
+                        text: safeText(oil.name, 28),
+                        callback_data: `p:oil:${index + offset}`
+                    })));
+                }
+                await bot.editCallbackMessage(callback, 'Выбрано: растительное масло.');
+                await bot.send(chatId, 'Выберите масло из справочника. Настройки товара можно отменить командой /cancel.', {
+                    reply_markup: inline(rows)
+                });
+                return;
+            }
+            const categories = {
+                urbech: 'Урбеч',
+                hummus: 'Хумус',
+                milk: 'Растительное молоко'
+            };
+            const imageName = kind === 'milk' ? 'plant-milk' : kind;
+            const product = {
+                kind,
+                category: categories[kind],
+                image_url: `assets/images/encyclopedia/${imageName}.svg`
+            };
+            setState('panel', chatId, { ...state, product, flow: 'new-product-general-name' });
+            await bot.editCallbackMessage(callback, `Выбрано направление: ${categories[kind]}.`);
+            await bot.send(chatId, 'Введите название товара. Для отмены отправьте /cancel.');
+            return;
+        }
         if (data === 'p:products:next' || data === 'p:products:prev') {
             const state = getState('panel', chatId);
             if (state.flow !== 'products-list') return;
@@ -1233,7 +1330,8 @@ async function handleCallback(config, bot, callback, chatId) {
             await bot.editCallbackMessage(callback, `Статус заказа изменён: ${state.status}.`);
             return;
         }
-        if (data === 'p:status:cancel' || data === 'p:product:create:cancel' || data === 'p:product:update:cancel') {
+        if (data === 'p:status:cancel' || data === 'p:product:create:cancel' ||
+            data === 'p:product:update:cancel' || data === 'p:product:delete:cancel') {
             setState('panel', chatId, {});
             await bot.editCallbackMessage(callback, 'Действие отменено.');
             return;
@@ -1265,6 +1363,23 @@ async function handleCallback(config, bot, callback, chatId) {
             });
             setState('panel', chatId, {});
             await bot.editCallbackMessage(callback, 'Изменение товара сохранено.');
+            return;
+        }
+        if (data === 'p:product:delete:confirm') {
+            const state = getState('panel', chatId);
+            if (state.flow !== 'confirm-product-delete') return;
+            setState('panel', chatId, { ...state, flow: 'deleting-product' });
+            try {
+                await bot.callApi(`/panel/products/${encodeURIComponent(state.productId)}`, chatId, {
+                    method: 'DELETE'
+                });
+            } catch (error) {
+                setState('panel', chatId, { ...state, flow: 'confirm-product-delete' });
+                throw error;
+            }
+            setState('panel', chatId, {});
+            await bot.editCallbackMessage(callback, `Товар «${safeText(state.productName, 120)}» удалён.`);
+            await listProducts(bot, chatId, state.offset || 0);
             return;
         }
         if (data === 'p:done') {
@@ -1322,18 +1437,60 @@ async function handleCallback(config, bot, callback, chatId) {
             const state = getState('panel', chatId);
             const product = state.products?.[Number(editMatch[1])];
             if (!product) return;
-            const fields = [['name', 'Название'], ['price', 'Цена'], ['category', 'Категория'], ['description', 'Описание'], ['image_url', 'Изображение']];
+            const fields = [
+                ['name', 'Название'],
+                ['price', 'Цена'],
+                ['volume', 'Объём'],
+                ['packaging_type', 'Упаковка'],
+                ['pressing_type', 'Отжим'],
+                ['shelf_life_months', 'Срок хранения'],
+                ['category', 'Категория'],
+                ['description', 'Описание'],
+                ['image_url', 'Изображение']
+            ];
             await bot.send(chatId, `Что изменить у «${safeText(product.name, 100)}»?`, {
-                reply_markup: inline(fields.map(([field, label]) => [{ text: label, callback_data: `p:pf:${editMatch[1]}:${field}` }]))
+                reply_markup: inline([
+                    ...fields.map(([field, label]) => [{ text: label, callback_data: `p:pf:${editMatch[1]}:${field}` }]),
+                    [{ text: 'Удалить товар', callback_data: `p:pd:${editMatch[1]}` }]
+                ])
             });
             return;
         }
-        const fieldMatch = /^p:pf:(\d+):(name|price|category|description|image_url)$/.exec(data);
+        const deleteProductMatch = /^p:pd:(\d+)$/.exec(data);
+        if (deleteProductMatch) {
+            const state = getState('panel', chatId);
+            const product = state.products?.[Number(deleteProductMatch[1])];
+            if (!product) return;
+            setState('panel', chatId, {
+                flow: 'confirm-product-delete',
+                productId: product.id,
+                productName: product.name,
+                offset: state.offset
+            });
+            await bot.send(chatId, `Удалить товар «${safeText(product.name, 120)}»? Это действие нельзя отменить.`, {
+                reply_markup: inline([[
+                    { text: 'Удалить товар', callback_data: 'p:product:delete:confirm' },
+                    { text: 'Отмена', callback_data: 'p:product:delete:cancel' }
+                ]])
+            });
+            return;
+        }
+        const fieldMatch = /^p:pf:(\d+):(name|price|volume|packaging_type|pressing_type|shelf_life_months|category|description|image_url)$/.exec(data);
         if (fieldMatch) {
             const state = getState('panel', chatId);
             const product = state.products?.[Number(fieldMatch[1])];
             if (!product) return;
-            const labels = { name: 'новое название', price: 'новую цену', category: 'новую категорию', description: 'новое описание', image_url: 'URL изображения или пустое значение' };
+            const labels = {
+                name: 'новое название',
+                price: 'новую цену',
+                volume: 'новый объём в мл',
+                packaging_type: 'тип упаковки',
+                pressing_type: 'способ обработки / приготовления',
+                shelf_life_months: 'срок хранения в месяцах или /skip',
+                category: 'новую категорию',
+                description: 'новое описание',
+                image_url: 'URL изображения, путь к иллюстрации продукции или пустое значение'
+            };
             setState('panel', chatId, { flow: 'edit-product-value', productId: product.id, field: fieldMatch[2] });
             await bot.send(chatId, `Введите ${labels[fieldMatch[2]]}. Для отмены: /cancel.`);
         }
@@ -1349,132 +1506,51 @@ async function handleMessage(config, bot, message) {
         return;
     }
 
-    if (config.role === 'client' || config.role === 'auth') {
-        if (config.role === 'client' && getState('client', chatId).flow === 'catalog-search') {
-            if (text === '/cancel') {
-                setState('client', chatId, {});
-                await bot.send(chatId, 'Поиск отменён.', { reply_markup: menuKeyboard('client') });
-                return;
-            }
-            if (!text || text.length > 80) {
-                await bot.send(chatId, 'Введите запрос длиной до 80 символов.');
-                return;
-            }
-            setState('client', chatId, {});
-            await showCatalog(bot, chatId, { search: text });
+    if (config.role === 'client') {
+        const startCommand = text.match(/^\/start(?:@\w+)?(?:\s+([A-Za-z0-9_-]+))?$/i);
+        const startPayload = startCommand?.[1] || '';
+        const linkMatch = startPayload.match(/^link_([a-f0-9]{48})$/);
+        if (linkMatch) {
+            await bot.callApi('/client/link/confirm', chatId, {
+                method: 'POST',
+                body: JSON.stringify({ code: linkMatch[1], username: user.username || null })
+            });
+            await bot.send(chatId, 'Telegram подключён к вашему аккаунту Dr. DarSun. Теперь здесь можно получать выбранные уведомления и коды входа.');
             return;
         }
-        if (text.startsWith('/link')) {
-            const code = text.split(/\s+/)[1] || '';
-            try {
-                await confirmLink(bot, chatId, user, code);
-            } catch (error) {
-                await bot.send(chatId, error.message || 'Не удалось привязать аккаунт. Проверьте код и попробуйте снова.');
-            }
+
+        const loginMatch = startPayload.match(/^login_([a-f0-9]{48})$/);
+        if (loginMatch) {
+            const result = await bot.callApi('/client/login/code', chatId, {
+                method: 'POST',
+                body: JSON.stringify({ id: loginMatch[1] })
+            });
+            await bot.send(chatId, `Код для входа в Dr. DarSun: ${result.code}\n\nВведите его только на drdarsun.ru. Код одноразовый и действует 5 минут. Если вы не начинали вход, проигнорируйте это сообщение.`);
             return;
         }
-        if (text.startsWith('/start')) {
-            const startCode = text.split(/\s+/)[1] || '';
-            if (['auth', 'client'].includes(config.role) && startCode) {
-                try {
-                    await confirmLink(bot, chatId, user, startCode);
-                } catch (error) {
-                    await bot.send(chatId, error.message || 'Не удалось привязать аккаунт. Проверьте код и попробуйте снова.');
-                }
-                return;
+
+        if (startCommand || text === '/help') {
+            const buttons = [{ text: 'Открыть каталог', url: 'https://drdarsun.ru/catalog.html' }];
+            const supportUsername = botUsernames.get('support');
+            if (supportUsername) {
+                buttons.push({ text: 'Поддержка', url: `https://t.me/${supportUsername}` });
             }
-            await bot.send(chatId,
-                config.role === 'client'
-                    ? 'Добро пожаловать! Здесь можно посмотреть каталог, проверить заказы и связать аккаунт сайта.'
-                    : 'Бот привязки аккаунта Dr. DarSun. Отправьте одноразовый код из профиля командой /link КОД.',
-                { reply_markup: menuKeyboard(config.role) }
-            );
-            if (config.role === 'client' && botUsernames.has('support')) {
-                await bot.send(chatId, 'Нужна помощь? Напишите помощнику:', {
-                    reply_markup: inline([[{
-                        text: `Перейти к помощнику · @${botUsernames.get('support')}`,
-                        url: `https://t.me/${botUsernames.get('support')}`
-                    }]])
-                });
-            }
-            return;
-        }
-        if (config.role === 'auth' && text === '🔗 Связать аккаунт') {
-            await bot.send(chatId, 'Создайте одноразовый код привязки в профиле на сайте и отправьте его сюда командой /link КОД.');
-            return;
-        }
-        if (config.role === 'client') {
-            if (text === '📚 Каталог' || text === '/catalog') return showCatalog(bot, chatId);
-            if (text === 'Найти товар' || text === '/search') {
-                setState('client', chatId, { flow: 'catalog-search' });
-                await bot.send(chatId, 'Введите название товара или категорию. Для отмены отправьте /cancel.');
-                return;
-            }
-            if (text.startsWith('/search ')) return showCatalog(bot, chatId, { search: text.slice('/search '.length).trim().slice(0, 80) });
-            if (text === '📦 Мои заказы' || text === '/orders') return showCustomerOrders(bot, chatId);
-            if (text === 'Уведомления' || text === '/notifications') {
-                const preferences = await bot.callApi('/client/notifications', chatId);
-                if (!preferences.linked) {
-                    await bot.send(chatId, 'Сначала привяжите Telegram в профиле на сайте, чтобы управлять уведомлениями.');
-                    return;
-                }
-                setState('client', chatId, { flow: 'notifications', notificationsEnabled: preferences.enabled });
-                await bot.send(chatId, `Уведомления о заказах: ${preferences.enabled ? 'включены' : 'выключены'}.`, {
-                    reply_markup: inline([[{ text: preferences.enabled ? 'Выключить уведомления' : 'Включить уведомления', callback_data: 'cl:notifications:toggle' }]])
-                });
-                return;
-            }
-            if (text === '🔗 Связать аккаунт') {
-                const profileUrl = 'https://drdarsun.ru/profile.html';
-                await bot.send(chatId, 'Откройте профиль → «Безопасность» → «Telegram — управление связью», создайте код привязки и отправьте его сюда командой /link КОД.', {
-                    reply_markup: inline([[{ text: 'Открыть профиль', url: profileUrl }]])
-                });
-                return;
-            }
-            if (text === 'ℹ️ Помощь' || text === '/help') {
-                const username = botUsernames.get('support');
-                await bot.send(chatId, username
-                    ? 'Каталог: /catalog · поиск: /search запрос · заказы: /orders · управление уведомлениями: /notifications · привязка: /link КОД.\nДля вопроса откройте бота-помощника.'
-                    : 'Каталог: /catalog · поиск: /search запрос · заказы: /orders · уведомления: /notifications · привязка: /link КОД.\nДля поддержки напишите @darsunhelp.',
-                {
-                    ...(username ? { reply_markup: inline([[{ text: 'Открыть помощника', url: `https://t.me/${username}` }]]) } : {})
-                });
-                return;
-            }
-            if (config.role === 'client') {
-                if (text.startsWith('/')) {
-                    await bot.send(chatId, 'Не знаю эту команду. Используйте /help, чтобы увидеть доступные действия.', {
-                        reply_markup: menuKeyboard('client')
-                    });
-                    return;
-                }
-                await showCatalog(bot, chatId, { search: text.slice(0, 80) });
-                return;
-            }
-        }
-        if (text === '/help') {
-            await bot.send(chatId, 'Создайте код привязки в настройках профиля на сайте, затем отправьте /link КОД.');
-        } else if (text.startsWith('/')) {
-            await bot.send(chatId, 'Для привязки откройте профиль на сайте, создайте код и отправьте /link КОД. Для команд отправьте /help.');
+            await bot.send(chatId, 'Здравствуйте! Это клиентский бот Dr. DarSun. Привяжите его в личном кабинете, чтобы получать выбранные уведомления и использовать безопасный вход по одноразовому коду.', {
+                reply_markup: inline([buttons])
+            });
         } else {
-            await bot.send(chatId, 'Этот бот принимает только код привязки. Откройте профиль сайта, создайте код и отправьте /link КОД.');
+            await bot.send(chatId, 'Этот бот отправляет коды только в ответ на запрос входа, начатый на drdarsun.ru. Для уведомлений сначала привяжите Telegram в личном кабинете. Не отправляйте сюда пароль.');
         }
         return;
     }
 
     if (config.role === 'support') {
         if (text.startsWith('/start')) {
-            await bot.send(chatId, `Я помощник Dr. DarSun${botUsernames.has('support') ? ` · @${botUsernames.get('support')}` : ''}. Постараюсь решить вопрос, а если потребуется оператор — создам обращение с темой и номером. Чтобы получить ссылки на все боты, отправьте /bots.`, { reply_markup: menuKeyboard('support') });
+            await bot.send(chatId, `Поддержка Dr. DarSun${botUsernames.has('support') ? ` · @${botUsernames.get('support')}` : ''} поможет разобраться с вопросом или передаст его оператору.`, { reply_markup: menuKeyboard('support') });
             return;
         }
         if (text === '/faq' || text === '🧾 Частые вопросы') {
             await showSupportFaq(bot, chatId);
-            return;
-        }
-        if (text === '/bots' || /(?:какие|где).{0,30}бот|ссылк.{0,30}бот|бот.{0,30}(?:ссылк|юзер|username)/i.test(text)) {
-            await bot.send(chatId, botLinksMessage(), {
-                ...(publicBotLinks().length ? { reply_markup: botLinksKeyboard() } : {})
-            });
             return;
         }
         if (text === '/help') {
@@ -1594,37 +1670,31 @@ async function handleMessage(config, bot, message) {
         }
         if (text.startsWith('/start')) {
             await bot.send(chatId, 'Админ-панель Dr. DarSun. Доступ разрешён только владельцу.', { reply_markup: menuKeyboard('admin') });
-        } else if (text === '🆘 Обращения' || text === '/tickets' || text.startsWith('/tickets ')) {
-            const requestedStatus = text.split(/\s+/)[1] === 'closed' ? 'closed' : 'open';
-            await listAdminTickets(bot, chatId, { status: requestedStatus });
         } else if (text === '✍️ Отзывы' || text === '/reviews') {
             await listAdminReviews(bot, chatId);
-        } else if (text === '📦 Заказы' || text === '/orders') {
-            const { orders = [] } = await bot.callApi('/admin/orders?offset=0', chatId);
-            await bot.send(chatId, formatOrders(orders), { reply_markup: menuKeyboard('admin') });
+        } else if (text === '📋 Уведомления' || text === '/toasts') {
+            await listAdminToasts(bot, chatId);
+        } else if (text === '📦 Заказы' || text === '/orders' || text.startsWith('/orders ')) {
+            const requestedStatus = text.split(/\s+/)[1];
+            const status = ORDER_STATUSES.includes(requestedStatus) ? requestedStatus : '';
+            await listOrders(bot, chatId, { status });
+        } else if (text === '➕ Новый заказ' || text === '/neworder') {
+            await startNewOrder(bot, chatId);
+        } else if (text === '🛍 Товары' || text === '/products') {
+            await listProducts(bot, chatId);
+        } else if (text === '➕ Новый товар' || text === '/newproduct') {
+            await startNewProduct(bot, chatId);
+        } else if (text === '🧾 История' || text === '/history') {
+            await listAuditLog(bot, chatId);
         } else if (text === '🛠 Техперерыв' || text === '/maintenance') {
             await showAdminMaintenanceMenu(bot, chatId);
-        } else if (text === '🔔 Уведомление' || text === '/toast') {
+        } else if (text === '🔔 Создать уведомление' || text === '/toast') {
             setState('admin', chatId, { flow: 'toast-recipient' });
             await bot.send(chatId, 'Кому показать уведомление? Отправьте email аккаунта или `all` для публичного объявления всем посетителям сайта, включая гостей. Для отмены: /cancel.');
         } else if (text === '/help') {
-            await bot.send(chatId, 'Команды: /tickets [open|closed] — обращения, /reviews — отзывы, /orders — заказы, /maintenance — режим сайта, /toast — уведомление на сайте. Для отмены текущего ввода: /cancel.');
-        } else if (getState('admin', chatId).flow === 'ticket-reply') {
-            const state = getState('admin', chatId);
-            if (text === '/cancel') {
-                setState('admin', chatId, {});
-                await bot.send(chatId, 'Ответ отменён.');
-                return;
-            }
-            const result = await bot.callApi(`/admin/tickets/${state.ticketId}/reply`, chatId, {
-                method: 'POST',
-                body: JSON.stringify({ message: text })
-            });
-            if (result.updated_at) notified.tickets.set(state.ticketId, result.updated_at);
-            setState('admin', chatId, {});
-            await bot.send(chatId, result.delivered
-                ? 'Ответ отправлен клиенту.'
-                : 'Ответ сохранён в обращении, но Telegram не подтвердил доставку. Проверьте HELP_BOT_TOKEN.');
+            await bot.send(chatId, 'Команды: /reviews — отзывы, /orders [pending|processing|shipped|delivered|cancelled] — заказы, /neworder — новый заказ, /products — товары, /newproduct — новый товар, /history — история, /maintenance — режим сайта, /toast — создать уведомление, /toasts — удалить уведомления. Для отмены текущего ввода: /cancel.');
+        } else if (getState('panel', chatId).flow) {
+            await processPanelText(bot, chatId, text);
         } else {
             await bot.send(chatId, 'Не распознал команду. Отправьте /help или используйте кнопки меню.', {
                 reply_markup: menuKeyboard('admin')
@@ -1665,164 +1735,46 @@ async function handleMessage(config, bot, message) {
 }
 
 async function notifyAdmin(bot, chatId, env) {
-    const ownerChat = env.MY_CHAT_ID;
+    const ownerChat = String(env.MY_CHAT_ID || '').trim();
     if (!ownerChat || chatId !== ownerChat) return;
-    let tickets = [];
     let reviews = [];
-    try {
-        ({ tickets = [] } = await bot.callApi('/admin/tickets', chatId));
-    } catch (error) {
-        console.error('Telegram admin ticket queue failed:', safeError(error, bot.token));
-    }
     try {
         ({ reviews = [] } = await bot.callApi('/admin/reviews', chatId));
     } catch (error) {
         console.error('Telegram admin review queue failed:', safeError(error, bot.token));
     }
-    for (const ticket of tickets) {
-        if (notified.tickets.get(ticket.id) === ticket.updated_at) continue;
-        const isNew = !notified.tickets.has(ticket.id);
-        await bot.send(chatId,
-            `${isNew ? 'Новое обращение' : 'Обращение обновлено'} №${ticket.ticket_number}\nТема: ${safeText(ticket.topic, 60)}\n${safeText(ticket.telegram_username ? `@${ticket.telegram_username}` : ticket.telegram_chat_id, 80)}${ticket.last_message?.message ? `\n\n${ticket.last_message.sender_role === 'customer' ? 'Клиент' : 'Поддержка'}: ${safeText(ticket.last_message.message, 1200)}` : ''}`,
-            { reply_markup: inline([[{ text: 'Открыть переписку', callback_data: `adm:t:${ticket.id}` }, { text: 'Ответить', callback_data: `adm:r:${ticket.id}` }, { text: 'Закрыть', callback_data: `adm:c:${ticket.id}` }]]) }
-        );
-        notified.tickets.set(ticket.id, ticket.updated_at);
-    }
     for (const review of reviews) {
         if (notified.reviews.has(review.id)) continue;
         await bot.send(chatId,
-            `Новый отзыв на модерации\n${safeText(review.user_name, 80)} · ${review.rating}/5\n${safeText(review.review_text, 1500)}`,
+            `Новый отзыв на модерации\n${safeText(review.user_name, 80)} · ${review.rating}/5${review.review_text ? `\n\n${safeText(review.review_text, 1800)}` : ''}`,
             { reply_markup: inline([[{ text: '✅ Одобрить', callback_data: `adm:ra:${review.id}` }, { text: '❌ Отклонить', callback_data: `adm:rr:${review.id}` }]]) }
         );
-        notified.reviews.add(review.id);
+        notified.reviews.set(review.id, Date.now());
     }
 }
 
-function startTelegramBots(options = {}) {
+async function sendToUser(role, chatId, text, extra = {}, options = {}) {
+    const definition = getBotDefinition(role);
     const env = options.env || process.env;
-    const request = options.fetch || fetch;
-    const bots = new Map();
-    const timers = [];
-    const seenTokens = new Map();
-    const ambiguousTokens = new Set();
-    let stopping = false;
-
-    for (const definition of BOT_DEFINITIONS) {
-        const token = typeof env[definition.tokenEnv] === 'string' ? env[definition.tokenEnv].trim() : '';
-        if (!token) continue;
-        if (definition.role === 'admin' && !env.MY_CHAT_ID) {
-            console.warn('Telegram admin bot not started: MY_CHAT_ID is not configured.');
-            continue;
-        }
-        if (definition.role === 'panel' && configuredPanelChatIds(env).length === 0) {
-            console.warn('Telegram panel bot not started: M_CHAT_ID or PANEL_CHAT_ID is not configured.');
-            continue;
-        }
-        const duplicateRole = seenTokens.get(token);
-        if (duplicateRole) {
-            bots.delete(duplicateRole);
-            ambiguousTokens.add(token);
-            console.error(`Telegram ${definition.role} and ${duplicateRole} bots not started: they use the same token. Create a distinct token for each bot.`);
-            continue;
-        }
-        if (ambiguousTokens.has(token)) continue;
-        seenTokens.set(token, definition.role);
-        const bot = createBotClient({ ...definition, tokenEnv: '__NORMALIZED_TOKEN' }, {
-            ...env,
-            __NORMALIZED_TOKEN: token
-        }, request);
-        bots.set(definition.role, bot);
+    const token = definition?.tokenEnv ? String(env[definition.tokenEnv] || '').trim() : '';
+    if (!definition || !token) throw new Error(`Telegram ${role} bot is not configured.`);
+    const request = options.fetch || ((...args) => fetch(...args));
+    const response = await request(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text, ...extra }),
+        signal: AbortSignal.timeout(10000)
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok || !result?.ok) {
+        throw new Error(`Telegram sendMessage failed with status ${response.status}.`);
     }
-
-    for (const [role, bot] of bots) {
-        (async () => {
-            let offset = 0;
-            let retryDelay = 3000;
-            try {
-                const me = await bot.telegram('getMe', {});
-                if (!me?.is_bot || typeof me.username !== 'string') {
-                    console.error(`Telegram ${role} identity check failed: getMe returned invalid bot data.`);
-                    return;
-                }
-                botUsernames.set(role, me.username);
-                console.log(`Telegram ${role} bot authenticated as @${me.username}.`);
-                await bot.telegram('deleteWebhook', { drop_pending_updates: false });
-                console.log(`Telegram ${role} webhook cleared; long polling is active.`);
-                try {
-                    await bot.telegram('setMyCommands', {
-                        commands: role === 'panel'
-                            ? [{ command: 'start', description: 'Открыть меню' }, { command: 'orders', description: 'Заказы' }, { command: 'neworder', description: 'Создать заказ' }, { command: 'products', description: 'Товары' }, { command: 'newproduct', description: 'Создать товар' }]
-                            : role === 'admin'
-                                ? [{ command: 'start', description: 'Открыть админ-меню' }, { command: 'tickets', description: 'Обращения' }, { command: 'reviews', description: 'Отзывы на модерации' }, { command: 'orders', description: 'Заказы' }, { command: 'maintenance', description: 'Техперерыв сайта' }, { command: 'toast', description: 'Уведомление на сайте' }]
-                                : role === 'support'
-                                    ? [{ command: 'start', description: 'Начать общение' }, { command: 'ticket', description: 'Моё обращение' }, { command: 'operator', description: 'Позвать оператора' }, { command: 'bots', description: 'Ссылки на ботов' }, { command: 'help', description: 'Помощь' }]
-                                    : [{ command: 'start', description: 'Открыть меню' }, { command: 'link', description: 'Привязать аккаунт: /link КОД' }, { command: 'help', description: 'Помощь' }]
-                    });
-                } catch (error) {
-                    console.error(`Telegram ${role} command setup failed:`, safeError(error, bot.token));
-                }
-            } catch (error) {
-                console.error(`Telegram ${role} token check failed:`, safeError(error, bot.token));
-                return;
-            }
-
-            if (role === 'admin' && env.MY_CHAT_ID) {
-                const notify = () => notifyAdmin(bot, env.MY_CHAT_ID, env).catch(error =>
-                    console.error('Telegram admin notifications failed:', safeError(error, bot.token))
-                );
-                const timer = setInterval(notify, 15000);
-                timer.unref?.();
-                timers.push(timer);
-                notify();
-            }
-
-            while (!stopping) {
-                try {
-                    const updates = await bot.telegram('getUpdates', {
-                        offset,
-                        timeout: 25,
-                        allowed_updates: ['message', 'callback_query']
-                    });
-                    for (const update of updates) {
-                        offset = update.update_id + 1;
-                        if (!isPrivateUpdate(update)) continue;
-                        const chatId = updateChatId(update);
-                        if (!ownerAllowed(role, chatId, env)) continue;
-                        try {
-                            await processTelegramUpdate(role, update, { env, fetch: request });
-                        } catch (error) {
-                            console.error(`Telegram ${role} update failed:`, safeError(error, bot.token));
-                            const userMessage = userFacingError(error);
-                            if (chatId) await bot.send(chatId, userMessage).catch(() => {});
-                        }
-                    }
-                    retryDelay = 3000;
-                } catch (error) {
-                    console.error(`Telegram ${role} polling failed:`, safeError(error, bot.token));
-                    if (stopping || [400, 401, 409].includes(error.telegramStatus)) break;
-                    const delay = error.retryAfter
-                        ? Math.min(60000, error.retryAfter * 1000)
-                        : retryDelay;
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    retryDelay = Math.min(60000, retryDelay * 2);
-                }
-            }
-        })();
-    }
-
-    return {
-        stop() {
-            stopping = true;
-            for (const timer of timers) clearInterval(timer);
-        },
-        roles: [...bots.keys()]
-    };
+    return result.result;
 }
 
 module.exports = {
-    startTelegramBots,
-    getPublicBotLinks,
     processTelegramUpdate,
+    sendToUser,
     getBotState: (role, chatId) => getState(role, chatId),
     setBotState: (role, chatId, state) => setState(role, chatId, state)
 };

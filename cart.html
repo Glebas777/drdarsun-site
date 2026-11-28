@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Dr. DarSun | Корзина</title>
-    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/base.css?v=chat-ui-fix-1">
     <link rel="stylesheet" href="css/cart.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 <div id="preloader">
-    <div class="bg-image" id="bg-load_morning" style="background-image: url('assets/images/load_morning.png');"></div>
-    <div class="bg-image" id="bg-load_day" style="background-image: url('assets/images/load_day.png');"></div>
-    <div class="bg-image" id="bg-load_evening" style="background-image: url('assets/images/load_evening.png');"></div>
-    <div class="bg-image" id="bg-load_night" style="background-image: url('assets/images/load_night.png');"></div>
+    <div class="bg-image" id="bg-load_morning" data-background="assets/images/load_morning.png"></div>
+    <div class="bg-image" id="bg-load_day" data-background="assets/images/load_day.png"></div>
+    <div class="bg-image" id="bg-load_evening" data-background="assets/images/load_evening.png"></div>
+    <div class="bg-image" id="bg-load_night" data-background="assets/images/load_night.png"></div>
 
     <img src="assets/images/load_doctor.png" class="preloader-side left" alt="">
 
@@ -33,13 +33,13 @@
             <a href="index.html">Главная</a>
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
+            <a href="production.html">Производство</a>
             <a href="scientists-about-oils.html">Учёные о маслах</a>
             <a href="delivery.html">Доставка</a>
-            <a href="index.html#news">Новости</a>
         </nav>
 <div class="header__actions">
     <button class="theme-toggle" id="theme-toggle"></button>
-    <a href="cart.html" class="icon-btn">🛒</a>
+    <a href="cart.html" class="icon-btn" aria-label="Корзина"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h8.5a2 2 0 0 0 1.9-1.5L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg></a>
     <div id="auth-buttons"></div> 
     <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
 </div>
@@ -49,9 +49,9 @@
         <a href="index.html">Главная</a>
         <a href="catalog.html">Каталог</a>
         <a href="about.html">О нас</a>
+        <a href="production.html">Производство</a>
         <a href="scientists-about-oils.html">Учёные о маслах</a>
         <a href="delivery.html">Доставка</a>
-        <a href="index.html#news">Новости</a>
     </div>
 </header>
 
@@ -71,7 +71,7 @@
                 <div class="summary-row"><span>Товары</span><span id="sum-subtotal">0 ₽</span></div>
                 <div class="summary-row total"><span>К оплате</span><span id="sum-total">0 ₽</span></div>
                 
-                <button class="btn btn--primary checkout-start" id="checkout-btn">Перейти к оформлению</button>
+                <button class="btn btn--primary checkout-start" id="checkout-btn">Проверяем способы заказа…</button>
                 
                 <form id="checkout-form" class="checkout-form" hidden>
                     <label for="order-name">Ваше имя</label>
@@ -79,12 +79,29 @@
                     <label class="checkout-email-label" for="order-email">Почта аккаунта</label>
                     <input type="email" id="order-email" class="checkout-email" placeholder="Загрузка почты..." readonly required>
                     <p class="checkout-email-help">Чтобы изменить адрес почты, зайдите в <a href="profile.html#settings">настройки профиля</a>.</p>
+                    <label for="order-phone">Телефон для курьера</label>
+                    <input type="tel" id="order-phone" autocomplete="tel" inputmode="tel" placeholder="+7 999 123-45-67" required maxlength="20">
                     <label for="order-address">Адрес доставки</label>
                     <input type="text" id="order-address" placeholder="Город, улица, дом" required maxlength="300">
                     
-                    <p class="checkout-payment-help">После отправки заявки поддержка подтвердит наличие, доставку и доступный способ оплаты по почте аккаунта.</p>
+                    <fieldset class="checkout-payment-options" aria-describedby="checkout-payment-help">
+                        <legend>Способ оплаты</legend>
+                        <label class="checkout-payment">
+                            <input type="radio" name="payment_method" value="card" disabled>
+                            <span>Банковская карта <small>онлайн</small></span>
+                        </label>
+                        <label class="checkout-payment">
+                            <input type="radio" name="payment_method" value="sbp" disabled>
+                            <span>СБП <small>онлайн</small></span>
+                        </label>
+                        <label class="checkout-payment">
+                            <input type="radio" name="payment_method" value="cash" disabled>
+                            <span>При получении <small>оплата курьеру</small></span>
+                        </label>
+                    </fieldset>
+                    <p class="checkout-payment-help" id="checkout-payment-help" aria-live="polite">Загружаем доступные способы заказа…</p>
 
-                    <button type="submit" class="btn btn--primary checkout-start">Отправить заказ</button>
+                    <button type="submit" class="btn btn--primary checkout-start" disabled>Способы заказа недоступны</button>
                 </form>
             </div>
         </div>
@@ -97,14 +114,15 @@
                     <img src="assets/images/logo_full.png" alt="Dr. DarSun">
                     <span class="footer__brand-text">Dr. DarSun</span>
                 </div>
-                <p class="footer__desc">Премиальные растительные масла. Сделано с душой.</p>
+                <p class="footer__desc">Растительные масла и продукты из семян. Сделано с душой.</p>
             </div>
             <div class="footer__col">
                 <h4>Покупателям</h4>
                 <a href="catalog.html">Каталог</a>
-                <a href="oil-catalog.html">Справочник масел</a>
+                <a href="oil-catalog.html">Энциклопедия продуктов</a>
                 <a href="delivery.html">Доставка</a>
                 <a href="about.html">О нас</a>
+                <a href="courier-login.html">Курьер</a>
             </div>
             <div class="footer__col">
                 <h4>Контакты</h4>
@@ -112,9 +130,9 @@
                 <div class="socials">
                     <a href="https://vk.ru/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="ВКонтакте"><img class="theme-asset-light" src="assets/images/vk.png" alt="ВКонтакте"><img class="theme-asset-dark" src="assets/images/vk_dark.png" alt=""></a>
                     <a href="https://t.me/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="Telegram"><img class="theme-asset-light" src="assets/images/telegram.png" alt="Telegram"><img class="theme-asset-dark" src="assets/images/telegram_dark.png" alt=""></a>
-                    <a href="https://www.instagram.com/drdarsun/" target="_blank" rel="noopener noreferrer" class="social-link">Instagram*</a>
+                    <span class="social-link">Instagram*</span>
                 </div>
-                <p class="social-disclaimer">* Instagram — продукт Meta, организации, деятельность которой запрещена на территории РФ. Аккаунт ведётся с соблюдением требований законодательства РФ.</p>
+                <p class="social-disclaimer">* Instagram — сервис Meta Platforms Inc., признанной экстремистской организацией; её деятельность запрещена на территории РФ.</p>
             </div>
         </div>
         <div class="footer__bottom">
@@ -123,10 +141,11 @@
     </footer>
 
     <script src="js/main.js"></script>
-    <script type="module" src="js/cart-page.js"></script>
-    <script src="js/burger.js"></script>
-    <script type="module" src="js/auth-header.js"></script>
-    <script src="js/preloader.js"></script>
-    <script src="js/site-status.js"></script>
+    <script type="module" src="js/cart-page.js?v=service-timeouts-2"></script>
+    <script src="js/burger.js?v=production-nav-2"></script>
+    <script type="module" src="js/auth-header.js?v=site-toast-singleton-1"></script>
+    <script src="js/preloader.js?v=asset-load-optimization-1"></script>
+    <script src="js/site-status.js?v=service-timeouts-2"></script>
+    <script type="module" src="js/temporary-payment-notice.js?v=service-timeouts-2"></script>
 </body>
 </html>

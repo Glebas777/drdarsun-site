@@ -1,5 +1,9 @@
 .settings-form {
-    max-width: 520px;
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+    gap: 12px;
+    margin-bottom: 16px;
     padding: 22px;
     border: 1px solid var(--border);
     border-radius: 16px;
@@ -13,6 +17,8 @@
 }
 
 .settings-form input {
+    width: 100%;
+    box-sizing: border-box;
     min-height: 48px;
     border-radius: 12px;
     transition: border-color .2s ease, box-shadow .2s ease;
@@ -22,6 +28,118 @@
     border-color: var(--accent-green);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-green) 14%, transparent);
     outline: none;
+}
+
+.settings-form .security-help {
+    margin: 0;
+}
+
+.settings-card,
+.security-card {
+    display: grid;
+    min-width: 0;
+    gap: 12px;
+    margin: 0 0 16px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--bg-card) 88%, var(--bg-color));
+}
+
+.security-card__heading {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.security-card__heading > div {
+    min-width: 0;
+}
+
+.security-card .security-heading,
+.settings-card h4 {
+    margin: 0;
+}
+
+.security-card .security-help,
+.settings-card__description {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.security-card__refresh {
+    min-height: 40px;
+    flex: 0 0 auto;
+    padding: 8px 13px;
+    border: 1px solid var(--border);
+}
+
+.security-card #devices-list:empty,
+.security-card #passkeys-list:empty,
+.security-card #passkeys-status:empty,
+.security-card #qr-scan-result:empty {
+    display: none;
+}
+
+.security-logout {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+
+.security-logout__button,
+.settings-card__danger-button {
+    border: 1px solid color-mix(in srgb, #f44336 60%, var(--border));
+    color: #e34747;
+}
+
+.security-logout__button {
+    width: 100%;
+}
+
+.settings-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.settings-card__delete-button {
+    justify-self: start;
+    background: #e34747;
+    color: #fff;
+}
+
+.settings-card__delete-button:hover {
+    background: #cf3535;
+}
+
+.settings-card__description strong {
+    overflow-wrap: anywhere;
+    color: var(--text-main);
+}
+
+.password-hints {
+    display: grid;
+    gap: 6px;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.password-hints > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.password-hints [data-valid="true"] {
+    color: var(--accent-green);
+}
+
+.password-hints [data-valid="false"] {
+    color: #d65b50;
 }
 
 .session-help {
@@ -225,6 +343,30 @@
     font-size: 12px;
 }
 
+.telegram-mark {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, #1689c5 38%, var(--border));
+    border-radius: 14px;
+    background: linear-gradient(145deg, #39aee5, #1689c5);
+    color: #fff;
+    font-size: 19px;
+    box-shadow: 0 6px 16px rgba(22, 137, 197, .2);
+}
+
+.telegram-link-open {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-color: color-mix(in srgb, #1689c5 38%, var(--border));
+    text-decoration: none;
+}
+
+.telegram-link-open[hidden] { display: none !important; }
+
 .telegram-notification-settings {
     display: flex;
     align-items: center;
@@ -238,6 +380,15 @@
 .telegram-notification-settings > div {
     min-width: 0;
 }
+
+.telegram-notification-settings > span:first-child {
+    display: grid;
+    gap: 3px;
+}
+
+.telegram-notification-settings > span:first-child strong { font-size: 14px; }
+.telegram-notification-settings > span:first-child small { font-size: 12px; }
+.telegram-notification-settings input { accent-color: var(--accent-green); }
 
 .telegram-notification-settings .security-help {
     margin-bottom: 0;
@@ -518,6 +669,24 @@
 @media (max-width: 600px) {
     .settings-form {
         padding: 18px;
+    }
+
+    .security-card,
+    .settings-card {
+        padding: 16px;
+    }
+
+    .security-card__heading {
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .security-card__refresh {
+        padding-inline: 10px;
+    }
+
+    .settings-card__actions {
+        display: grid;
     }
 
     .session-controls {

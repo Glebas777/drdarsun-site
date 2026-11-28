@@ -1,7 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">
+  <style>
+    .plant-sway { transform-box: fill-box; transform-origin: 50% 100%; animation: plant-sway 4.8s ease-in-out infinite; }
+    .fruit-drift { transform-box: fill-box; transform-origin: 50% 70%; animation: fruit-drift 3.6s ease-in-out infinite; }
+    @keyframes plant-sway { 0%,100% { transform: rotate(-1.6deg); } 50% { transform: rotate(1.8deg); } }
+    @keyframes fruit-drift { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+    @media (prefers-reduced-motion: reduce) { .plant-sway,.fruit-drift { animation: none; } }
+  </style>
   <rect width="640" height="360" rx="28" fill="#f5e9dd"/><circle cx="500" cy="80" r="120" fill="#fff5e8"/>
   <path d="M126 307c41-106 117-174 235-205M163 284c79-70 156-94 254-89" fill="none" stroke="#6b8158" stroke-width="8" stroke-linecap="round"/>
-  <g fill="#83956a"><ellipse cx="190" cy="224" rx="60" ry="20" transform="rotate(-44 190 224)"/><ellipse cx="267" cy="160" rx="57" ry="20" transform="rotate(-30 267 160)"/><ellipse cx="350" cy="116" rx="59" ry="21" transform="rotate(-24 350 116)"/></g>
-  <path d="M408 262c-12-47 15-93 62-98 45-5 80 37 67 81-10 36-51 63-89 53-19-5-33-18-40-36Z" fill="#e9a47e"/><path d="M470 168c-3-22 5-39 24-53 4 23-5 42-24 53Z" fill="#68804d"/><path d="M462 211c25 15 36 42 27 72" fill="none" stroke="#cc8062" stroke-width="5"/>
+  <g class="plant-sway" fill="#83956a"><ellipse cx="190" cy="224" rx="60" ry="20" transform="rotate(-44 190 224)"/><ellipse cx="267" cy="160" rx="57" ry="20" transform="rotate(-30 267 160)"/><ellipse cx="350" cy="116" rx="59" ry="21" transform="rotate(-24 350 116)"/></g>
+  <path class="fruit-drift" d="M408 262c-12-47 15-93 62-98 45-5 80 37 67 81-10 36-51 63-89 53-19-5-33-18-40-36Z" fill="#e9a47e"/><path class="plant-sway" d="M470 168c-3-22 5-39 24-53 4 23-5 42-24 53Z" fill="#68804d"/><path class="fruit-drift" d="M462 211c25 15 36 42 27 72" fill="none" stroke="#cc8062" stroke-width="5"/>
   <ellipse cx="466" cy="277" rx="29" ry="17" fill="#b17c55" transform="rotate(-18 466 277)"/><path d="M442 273c14-11 34-15 49-10" fill="none" stroke="#e1bd8e" stroke-width="4"/>
 </svg>

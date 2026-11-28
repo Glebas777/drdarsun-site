@@ -1,5 +1,7 @@
 import { supabase } from './supabase-client.js';
 import { validateNewPassword } from './password-policy.mjs';
+import { initializeTelegramBotLinks } from './telegram-bot-links.js';
+import { initializeTelegramLogin } from './telegram-login.js?v=telegram-account-auth-1';
 import {
     cancelQrLoginRequest,
     approveQrLogin,
@@ -10,7 +12,8 @@ import {
     waitForQrLoginApproval
 } from './qr-login.js';
 
-let isEmailVerified = false;
+const AUTH_CONFIRM_URL = 'https://drdarsun.ru/auth/confirm.html';
+const AUTH_RESET_URL = 'https://drdarsun.ru/reset.html';
 const captchaSiteKey = document.querySelector('meta[name="turnstile-site-key"]')?.content.trim() || '';
 const captchaStates = new Map();
 let turnstileLoadPromise;
@@ -36,39 +39,56 @@ function loadTurnstile() {
 function setupCaptcha() {
     if (!captchaSiteKey) return;
     document.querySelectorAll('[data-turnstile]').forEach(async (element) => {
-        const state = { token: null, widgetId: null, waiters: [] };
+        const state = { token: null, widgetId: null, waiters: [], initialization: null };
         captchaStates.set(element.id, state);
         element.hidden = false;
-        try {
-            const turnstile = await loadTurnstile();
-            state.widgetId = turnstile.render(element, {
-                sitekey: captchaSiteKey,
-                action: element.dataset.action,
-                callback: token => {
-                    state.token = token;
-                    state.waiters.splice(0).forEach(resolve => resolve(token));
-                },
-                'expired-callback': () => { state.token = null; },
-                'error-callback': () => {
-                    state.token = null;
-                    state.waiters.splice(0).forEach(resolve => resolve(null));
-                }
-            });
-        } catch (error) {
-            console.error('CAPTCHA initialization failed:', error);
-            element.dataset.error = 'true';
-        }
+        state.initialization = (async () => {
+            try {
+                const turnstile = await loadTurnstile();
+                state.widgetId = turnstile.render(element, {
+                    sitekey: captchaSiteKey,
+                    action: element.dataset.action,
+                    callback: token => {
+                        state.token = token;
+                        state.waiters.splice(0).forEach(resolve => resolve(token));
+                    },
+                    'expired-callback': () => { state.token = null; },
+                    'error-callback': () => {
+                        state.token = null;
+                        element.hidden = true;
+                        state.waiters.splice(0).forEach(resolve => resolve(null));
+                    }
+                });
+            } catch (error) {
+                console.error('CAPTCHA initialization failed:', error);
+                element.dataset.error = 'true';
+                element.hidden = true;
+            }
+        })();
+        await state.initialization;
     });
 }
 
-function getCaptchaToken(elementId) {
-    if (!captchaSiteKey) return Promise.resolve(undefined);
+async function getCaptchaToken(elementId) {
+    if (!captchaSiteKey) return undefined;
     const state = captchaStates.get(elementId);
-    if (!state?.widgetId) {
-        return Promise.reject(new Error('Проверка CAPTCHA пока не готова. Обновите страницу.'));
-    }
-    if (state.token) return Promise.resolve(state.token);
-    return new Promise(resolve => state.waiters.push(resolve));
+    if (!state) return undefined;
+    await state.initialization;
+    if (!state.widgetId) return undefined;
+    if (state.token) return state.token;
+    return new Promise(resolve => {
+        const waiter = token => {
+            window.clearTimeout(timeoutId);
+            resolve(token);
+        };
+        const timeoutId = window.setTimeout(() => {
+            const waiterIndex = state.waiters.indexOf(waiter);
+            if (waiterIndex !== -1) state.waiters.splice(waiterIndex, 1);
+            console.warn('CAPTCHA verification timed out; the auth service will validate the request.');
+            resolve(null);
+        }, 15000);
+        state.waiters.push(waiter);
+    });
 }
 
 function resetCaptcha(elementId) {
@@ -76,6 +96,72 @@ function resetCaptcha(elementId) {
     if (!state) return;
     state.token = null;
     if (state.widgetId && window.turnstile) window.turnstile.reset(state.widgetId);
+}
+
+function showAuthMessage(elementId, message, kind = 'error') {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    element.textContent = message;
+    element.hidden = !message;
+    element.dataset.state = kind;
+}
+
+function setFormPending(form, pending, pendingText = 'Проверяем…') {
+    const button = form.querySelector('button[type="submit"]');
+    if (!button) return;
+    const label = button.querySelector('.auth-submit-btn__label') || button;
+    if (pending) {
+        if (!button.dataset.idleLabel) button.dataset.idleLabel = label.textContent.trim();
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        label.textContent = pendingText;
+        return;
+    }
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+    if (button.dataset.idleLabel) label.textContent = button.dataset.idleLabel;
+}
+
+function getAuthErrorMessage(error, flow) {
+    const message = String(error?.message || '').toLowerCase();
+    const code = String(error?.code || '').toLowerCase();
+    console.error(`Authentication ${flow} failed:`, {
+        status: error?.status,
+        code: error?.code,
+        name: error?.name
+    });
+
+    if (flow === 'login' && /invalid login credentials|invalid_credentials/.test(`${message} ${code}`)) {
+        return 'Email или пароль указаны неверно.';
+    }
+    if (/email not confirmed|email_not_confirmed/.test(`${message} ${code}`)) {
+        return 'Подтвердите email по ссылке из письма, затем войдите снова.';
+    }
+    if (/otp_expired|token has expired|expired or invalid/.test(`${message} ${code}`)) {
+        return 'Ссылка или код уже истекли. Запросите новое письмо и используйте его сразу.';
+    }
+    if (/captcha|turnstile/.test(`${message} ${code}`)) {
+        return 'Проверка безопасности не пройдена или не загрузилась. Обновите страницу и попробуйте снова.';
+    }
+    if (/rate limit|too many requests|security purposes/.test(`${message} ${code}`)) {
+        return 'Слишком много попыток. Подождите немного и попробуйте снова.';
+    }
+    if (/^пароль должен|^добавьте заглавную|^этот пароль найден|^не удалось проверить пароль/.test(message)) {
+        return error.message;
+    }
+    if (/weak_password|password should be at least|password is too weak/.test(`${message} ${code}`)) {
+        return 'Выберите более надёжный пароль: от 12 символов, с заглавной и строчной буквами, цифрой и символом.';
+    }
+    if (/redirect.*(not allowed|invalid)|invalid.*redirect/.test(`${message} ${code}`)) {
+        return 'Ссылка возврата не разрешена в настройках авторизации. Обратитесь к администратору.';
+    }
+    if (/mfa assurance|two-factor assurance/.test(message)) {
+        return 'Не удалось безопасно проверить двухфакторную защиту. Не закрывайте страницу и попробуйте снова.';
+    }
+    if (error?.name === 'TypeError' || /network|fetch|timeout|timed out/.test(message)) {
+        return 'Сервис входа временно недоступен. Проверьте соединение и попробуйте снова.';
+    }
+    return 'Не удалось выполнить запрос. Проверьте данные и попробуйте позже.';
 }
 
 function createOAuthState(provider) {
@@ -101,6 +187,8 @@ const oauthErrorMessages = {
     no_code: 'Провайдер не вернул код авторизации. Начните вход ещё раз.',
     oauth_state_invalid: 'Попытка входа устарела или не подтверждена. Начните вход заново.'
 };
+
+initializeTelegramBotLinks();
 const oauthErrorCode = new URLSearchParams(window.location.search).get('error');
 if (oauthError && oauthErrorMessages[oauthErrorCode]) {
     oauthError.textContent = oauthErrorMessages[oauthErrorCode];
@@ -141,139 +229,6 @@ function markDeviceRegistrationPending(userId) {
     }
 }
 
-const telegramAuthEndpoint = 'https://drdarsun-site-main.layero.app/api/telegram-auth';
-const telegramAuthForm = document.getElementById('telegram-auth-form');
-const telegramAuthStatus = document.getElementById('telegram-auth-status');
-let telegramAuthMode = 'login';
-
-function showTelegramAuth(mode) {
-    telegramAuthMode = mode;
-    document.getElementById('login-form').style.display = 'none';
-    document.getElementById('forgot-form').style.display = 'none';
-    telegramAuthForm.style.display = 'block';
-    document.getElementById('telegram-auth-description').textContent = mode === 'recovery'
-        ? 'Укажите username Telegram, привязанный к аккаунту. Код придёт в Telegram и позволит задать новый пароль.'
-        : 'Укажите username Telegram, привязанный к аккаунту. Код придёт в Telegram для входа.';
-    document.getElementById('telegram-auth-send').textContent = 'Отправить код';
-    document.getElementById('telegram-auth-code-group').hidden = true;
-    document.getElementById('telegram-auth-verify-actions').hidden = true;
-    document.getElementById('telegram-new-password-group').hidden = true;
-    document.getElementById('telegram-auth-code').required = false;
-    document.getElementById('telegram-auth-code').value = '';
-    document.getElementById('telegram-new-password').required = false;
-    telegramAuthStatus.hidden = true;
-    telegramAuthStatus.textContent = '';
-    document.getElementById('telegram-auth-username').focus();
-}
-
-document.getElementById('telegram-login-trigger')?.addEventListener('click', event => {
-    event.preventDefault();
-    showTelegramAuth('login');
-});
-
-document.getElementById('telegram-recovery-trigger')?.addEventListener('click', () => showTelegramAuth('recovery'));
-document.getElementById('telegram-auth-back')?.addEventListener('click', event => {
-    event.preventDefault();
-    telegramAuthForm.style.display = 'none';
-    document.getElementById('telegram-new-password').required = false;
-    document.getElementById(telegramAuthMode === 'recovery' ? 'forgot-form' : 'login-form').style.display = 'block';
-});
-
-document.getElementById('telegram-auth-send')?.addEventListener('click', async event => {
-    const button = event.currentTarget;
-    const username = document.getElementById('telegram-auth-username').value.trim().replace(/^@/, '');
-    if (!/^[a-zA-Z0-9_]{5,32}$/.test(username)) {
-        telegramAuthStatus.textContent = 'Введите корректный Telegram username (5–32 символа).';
-        telegramAuthStatus.hidden = false;
-        return;
-    }
-
-    button.disabled = true;
-    telegramAuthStatus.hidden = true;
-    try {
-        const response = await fetch(`${telegramAuthEndpoint}/request`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, mode: telegramAuthMode })
-        });
-        const result = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(result?.error || 'Не удалось отправить код.');
-        document.getElementById('telegram-auth-code-group').hidden = false;
-        document.getElementById('telegram-auth-verify-actions').hidden = false;
-        document.getElementById('telegram-auth-code').required = true;
-        telegramAuthStatus.textContent = result.message || 'Если username привязан к аккаунту, код отправлен в Telegram.';
-        telegramAuthStatus.hidden = false;
-        document.getElementById('telegram-auth-code').focus();
-    } catch (error) {
-        telegramAuthStatus.textContent = error.message || 'Не удалось отправить код. Попробуйте позже.';
-        telegramAuthStatus.hidden = false;
-    } finally {
-        button.disabled = false;
-    }
-});
-
-telegramAuthForm?.addEventListener('submit', async event => {
-    event.preventDefault();
-    const submitButton = document.getElementById('telegram-auth-verify');
-    const username = document.getElementById('telegram-auth-username').value.trim().replace(/^@/, '');
-    const code = document.getElementById('telegram-auth-code').value.trim();
-    submitButton.disabled = true;
-    telegramAuthStatus.hidden = true;
-    try {
-        const response = await fetch(`${telegramAuthEndpoint}/verify`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, code, mode: telegramAuthMode })
-        });
-        const result = await response.json().catch(() => null);
-        if (!response.ok || !result?.session?.access_token || !result?.session?.refresh_token) {
-            throw new Error(result?.error || 'Не удалось подтвердить код.');
-        }
-
-        const { data, error } = await supabase.auth.setSession(result.session);
-        if (error) throw error;
-        if (!data.session) throw new Error('Сессию не удалось создать.');
-        document.getElementById('telegram-auth-code').value = '';
-
-        if (telegramAuthMode === 'recovery') {
-            document.getElementById('telegram-auth-code-group').hidden = true;
-            document.getElementById('telegram-auth-verify-actions').hidden = true;
-            document.getElementById('telegram-new-password-group').hidden = false;
-            document.getElementById('telegram-new-password').required = true;
-            document.getElementById('telegram-auth-description').textContent = 'Код подтверждён. Придумайте новый пароль для аккаунта.';
-            document.getElementById('telegram-new-password').focus();
-            return;
-        }
-        markDeviceRegistrationPending(data.session.user.id);
-        await check2FAAndRedirect();
-    } catch (error) {
-        telegramAuthStatus.textContent = error.message || 'Код неверный или устарел.';
-        telegramAuthStatus.hidden = false;
-    } finally {
-        submitButton.disabled = false;
-    }
-});
-
-document.getElementById('telegram-new-password-save')?.addEventListener('click', async event => {
-    const button = event.currentTarget;
-    const password = document.getElementById('telegram-new-password').value;
-    button.disabled = true;
-    try {
-        await validateNewPassword(password);
-        const { error } = await supabase.auth.updateUser({ password });
-        if (error) throw error;
-        document.getElementById('telegram-new-password').value = '';
-        telegramAuthStatus.textContent = 'Пароль изменён. Выполняем вход…';
-        telegramAuthStatus.hidden = false;
-        await check2FAAndRedirect();
-    } catch (error) {
-        telegramAuthStatus.textContent = error.message || 'Не удалось сохранить новый пароль.';
-        telegramAuthStatus.hidden = false;
-    } finally {
-        button.disabled = false;
-    }
-});
-
 // ==========================================
 // 1. ВХОД ЧЕРЕЗ ЯНДЕКС И GOOGLE (оставляем как было)
 // ==========================================
@@ -309,71 +264,121 @@ document.getElementById('btn-google')?.addEventListener('click', () => {
 // ==========================================
 document.getElementById('register-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = document.getElementById('reg-name').value;
-    const email = document.getElementById('reg-email').value;
+    const form = e.currentTarget;
+    const name = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim().toLowerCase();
     const password = document.getElementById('reg-password').value;
+    showAuthMessage('register-message', '');
+    setFormPending(form, true, 'Проверяем пароль…');
+
     try {
         await validateNewPassword(password);
+        const captchaToken = await getCaptchaToken('captcha-register');
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: { full_name: name },
+                emailRedirectTo: AUTH_CONFIRM_URL,
+                ...(captchaToken ? { captchaToken } : {})
+            }
+        });
+        resetCaptcha('captcha-register');
+        if (error) throw error;
+
+        document.getElementById('reg-password').value = '';
+        if (data.session?.user?.id) {
+            await check2FAAndRedirect();
+            return;
+        }
+
+        showAuthMessage(
+            'register-message',
+            'Если этот адрес можно зарегистрировать, письмо для подтверждения уже отправлено. Проверьте входящие и папку «Спам», затем перейдите по ссылке.',
+            'success'
+        );
+        document.getElementById('resend-confirmation').hidden = false;
     } catch (error) {
-        alert(error.message);
-        return;
-    }
-    const captchaToken = await getCaptchaToken('captcha-register').catch(error => {
-        alert(error.message);
-        return null;
-    });
-    if (captchaSiteKey && !captchaToken) return;
-
-    const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: name }, captchaToken }
-    });
-    resetCaptcha('captcha-register');
-
-    if (error) return alert('Ошибка: ' + error.message);
-
-    // Supabase отправил письмо с кодом/ссылкой
-    alert('Проверьте почту. Мы отправили код подтверждения.');
-    // Если у тебя в Supabase включено подтверждение почты — код придёт.
-    // Если нет — пользователь сразу залогинен.
-    if (data.session) {
-        markDeviceRegistrationPending(data.session.user.id);
-        window.location.href = getPostLoginRedirect();
-    } else {
-        // Показываем форму для ввода кода (если она есть)
-        const verifyBlock = document.getElementById('verify-block');
-        if (verifyBlock) verifyBlock.style.display = 'block';
+        resetCaptcha('captcha-register');
+        showAuthMessage('register-message', getAuthErrorMessage(error, 'registration'));
+    } finally {
+        setFormPending(form, false);
     }
 });
+
+const resendConfirmationButton = document.getElementById('resend-confirmation');
+if (resendConfirmationButton) {
+    if (new URLSearchParams(window.location.search).get('resend') === '1') {
+        resendConfirmationButton.hidden = false;
+        showAuthMessage('register-message', 'Введите email регистрации и запросите новое письмо подтверждения.', 'success');
+    }
+
+    resendConfirmationButton.addEventListener('click', async () => {
+        const email = document.getElementById('reg-email').value.trim().toLowerCase();
+        if (!email) {
+            showAuthMessage('register-message', 'Введите email, на который нужно отправить письмо.');
+            document.getElementById('reg-email').focus();
+            return;
+        }
+
+        resendConfirmationButton.disabled = true;
+        resendConfirmationButton.setAttribute('aria-busy', 'true');
+        showAuthMessage('register-message', '');
+        try {
+            const captchaToken = await getCaptchaToken('captcha-register');
+            const { error } = await supabase.auth.resend({
+                type: 'signup',
+                email,
+                options: {
+                    emailRedirectTo: AUTH_CONFIRM_URL,
+                    ...(captchaToken ? { captchaToken } : {})
+                }
+            });
+            resetCaptcha('captcha-register');
+            if (error) throw error;
+            showAuthMessage(
+                'register-message',
+                'Если для этого адреса есть неподтверждённая регистрация, новое письмо отправлено. Проверьте входящие и папку «Спам».',
+                'success'
+            );
+        } catch (error) {
+            resetCaptcha('captcha-register');
+            showAuthMessage('register-message', getAuthErrorMessage(error, 'resend confirmation'));
+        } finally {
+            resendConfirmationButton.disabled = false;
+            resendConfirmationButton.removeAttribute('aria-busy');
+        }
+    });
+}
 
 // ==========================================
 // 3. ВХОД ПО ПАРОЛЮ
 // ==========================================
 document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const email = document.getElementById('login-email').value;
+    const form = e.currentTarget;
+    const email = document.getElementById('login-email').value.trim().toLowerCase();
     const password = document.getElementById('login-password').value;
-    const captchaToken = await getCaptchaToken('captcha-login').catch(error => {
-        alert(error.message);
-        return null;
-    });
-    if (captchaSiteKey && !captchaToken) return;
+    showAuthMessage('login-message', '');
+    setFormPending(form, true, 'Входим…');
 
-    const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-        options: { captchaToken }
-    });
-    resetCaptcha('captcha-login');
-    if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-            // ... OTP логика (оставь как есть)
-        }
-        return alert('Ошибка: ' + error.message);
+    try {
+        const captchaToken = await getCaptchaToken('captcha-login');
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+            options: captchaToken ? { captchaToken } : undefined
+        });
+        resetCaptcha('captcha-login');
+        if (error) throw error;
+        if (!data?.session) throw new Error('Вход не создал сессию.');
+        await check2FAAndRedirect();
+    } catch (error) {
+        resetCaptcha('captcha-login');
+        showAuthMessage('login-message', getAuthErrorMessage(error, 'login'));
+    } finally {
+        setFormPending(form, false);
     }
-
-    await check2FAAndRedirect(); // <--- ВМЕСТО старой проверки
 });
 
 document.getElementById('btn-passkey')?.addEventListener('click', async (event) => {
@@ -403,13 +408,26 @@ document.getElementById('btn-passkey')?.addEventListener('click', async (event) 
 // ==========================================
 document.getElementById('otp-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const form = e.currentTarget;
     const email = document.getElementById('login-email').value;
     const token = document.getElementById('otp-code').value;
 
-    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
-    if (error) return alert('Неверный код: ' + error.message);
-
-    await check2FAAndRedirect(); // <--- ДОБАВИТЬ
+    setFormPending(form, true, 'Проверяем код…');
+    showAuthMessage('login-message', '');
+    try {
+        const { data, error } = await supabase.auth.verifyOtp({
+            email: email.trim().toLowerCase(),
+            token: token.trim(),
+            type: 'email'
+        });
+        if (error) throw error;
+        if (!data?.session) throw new Error('Email OTP did not create an auth session.');
+        await check2FAAndRedirect();
+    } catch (error) {
+        showAuthMessage('login-message', getAuthErrorMessage(error, 'login'));
+    } finally {
+        setFormPending(form, false);
+    }
 });
 
 document.getElementById('back-to-login-from-otp')?.addEventListener('click', (e) => {
@@ -476,32 +494,33 @@ let cooldown = false;
 
 forgotForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (cooldown) return alert('Подождите    немного');
+    if (cooldown) return showAuthMessage('forgot-message', 'Подождите немного перед следующей попыткой.');
+    const email = document.getElementById('forgot-email').value.trim().toLowerCase();
+    showAuthMessage('forgot-message', '');
+    setFormPending(forgotForm, true, 'Отправляем…');
 
-    const email = document.getElementById('forgot-email').value;
-    const captchaToken = await getCaptchaToken('captcha-forgot').catch(error => {
-        alert(error.message);
-        return null;
-    });
-    if (captchaSiteKey && !captchaToken) return;
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://drdarsun.ru/reset.html',
-        captchaToken
-    });
-    resetCaptcha('captcha-forgot');
+    try {
+        const captchaToken = await getCaptchaToken('captcha-forgot');
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: AUTH_RESET_URL,
+            ...(captchaToken ? { captchaToken } : {})
+        });
+        resetCaptcha('captcha-forgot');
+        if (error) throw error;
 
-    if (error) {
-        if (error.message.includes('For security purposes')) {
-            alert('Код уже отправлен. Подожди минуту.');
-        } else {
-            alert('Ошибка: ' + error.message);
-        }
-        return;
+        cooldown = true;
+        window.setTimeout(() => { cooldown = false; }, 60000);
+        showAuthMessage(
+            'forgot-message',
+            'Если для этого адреса есть аккаунт, письмо со ссылкой восстановления отправлено. Проверьте входящие и папку «Спам».',
+            'success'
+        );
+    } catch (error) {
+        resetCaptcha('captcha-forgot');
+        showAuthMessage('forgot-message', getAuthErrorMessage(error, 'password recovery'));
+    } finally {
+        setFormPending(forgotForm, false);
     }
-
-    cooldown = true;
-    setTimeout(() => { cooldown = false; }, 60000);
-    alert('Ссылка отправлена на почту.');
 });
 }
 
@@ -525,20 +544,32 @@ document.getElementById('back-to-login')?.addEventListener('click', (e) => {
 // ==========================================
 document.getElementById('mfa-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const code = document.getElementById('mfa-code').value;
-    if (code.length !== 6) return alert('Введите 6 цифр');
+    const form = e.currentTarget;
+    const code = document.getElementById('mfa-code').value.trim();
+    showAuthMessage('mfa-message', '');
+    if (!/^\d{6}$/.test(code)) {
+        showAuthMessage('mfa-message', 'Введите шестизначный код.');
+        return;
+    }
 
-    const { data: factors } = await supabase.auth.mfa.listFactors();
-    const totpFactor = factors.totp[0];
-    if (!totpFactor) return alert('Фактор не найден');
+    setFormPending(form, true, 'Проверяем код…');
+    try {
+        const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+        if (factorsError) throw factorsError;
+        const factor = factors?.totp?.find(item => item.status === 'verified');
+        if (!factor) throw new Error('Verified TOTP factor not found.');
 
-    const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
-        factorId: totpFactor.id,
-        code: code
-    });
-
-    if (verifyError) alert('Неверный код: ' + verifyError.message);
-    else window.location.href = getPostLoginRedirect();
+        const { error } = await supabase.auth.mfa.challengeAndVerify({
+            factorId: factor.id,
+            code
+        });
+        if (error) throw error;
+        await check2FAAndRedirect();
+    } catch (error) {
+        showAuthMessage('mfa-message', getAuthErrorMessage(error, 'mfa'));
+    } finally {
+        setFormPending(form, false);
+    }
 });
 
 // QR-вход: запрос создаётся на этом устройстве и подтверждается уже вошедшим телефоном.
@@ -720,25 +751,40 @@ document.addEventListener('keydown', (event) => {
 // Универсальная проверка 2FA после любого входа
 async function check2FAAndRedirect() {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) {
-        console.error('Login session lookup failed:', sessionError);
-    } else if (sessionData.session) {
-        markDeviceRegistrationPending(sessionData.session.user.id);
-    }
+    if (sessionError) throw new Error('Authentication session check failed.');
+    if (!sessionData?.session?.user?.id) throw new Error('Authentication session is missing.');
 
     const { data: mfaData, error: mfaError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (mfaError || !mfaData?.nextLevel) {
+        console.error('MFA assurance lookup failed:', {
+            status: mfaError?.status,
+            code: mfaError?.code
+        });
+        throw new Error('MFA assurance check failed.');
+    }
 
-    if (!mfaError && mfaData.nextLevel === 'aal2' && mfaData.currentLevel !== 'aal2') {
-        // 2FA включена, но не пройдена — показываем форму
+    if (mfaData.nextLevel === 'aal2' && mfaData.currentLevel !== 'aal2') {
         document.getElementById('login-form').style.display = 'none';
-        document.getElementById('telegram-auth-form').style.display = 'none';
         document.getElementById('forgot-form').style.display = 'none';
         document.getElementById('otp-form').style.display = 'none';
         document.getElementById('mfa-form').style.display = 'block';
-        return true; // 2FA нужна
+        document.getElementById('mfa-code')?.focus();
+        showAuthMessage('mfa-message', 'Введите код из приложения для двухфакторной аутентификации.', 'success');
+        return true;
     }
 
-    // 2FA не нужна — пускаем
+    markDeviceRegistrationPending(sessionData.session.user.id);
     window.location.href = getPostLoginRedirect();
     return false;
+}
+
+initializeTelegramLogin(check2FAAndRedirect);
+
+const loginForm = document.getElementById('login-form');
+if (loginForm && new URLSearchParams(window.location.search).get('mfa') === 'required') {
+    loginForm.style.display = 'none';
+    check2FAAndRedirect().catch(error => {
+        loginForm.style.display = 'block';
+        showAuthMessage('login-message', getAuthErrorMessage(error, 'mfa'));
+    });
 }

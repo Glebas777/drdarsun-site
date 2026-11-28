@@ -69,28 +69,61 @@ function createReviewsApi(options = {}) {
         if (!supabaseUrl || !anonKey || !serviceRoleKey) {
             return res.status(503).json({ error: 'Отправка отзывов временно недоступна.' });
         }
+        const hasProductId = Object.hasOwn(req.body || {}, 'product_id');
+        const productId = hasProductId && typeof req.body.product_id === 'string'
+            ? req.body.product_id.trim()
+            : null;
         const rating = Number(req.body?.rating);
         const reviewText = typeof req.body?.review_text === 'string' ? req.body.review_text.trim() : '';
         const userName = typeof req.body?.user_name === 'string' ? req.body.user_name.trim() : '';
         if (!Number.isInteger(rating) || rating < 1 || rating > 5 ||
-            reviewText.length < 20 || reviewText.length > 2000 ||
             !userName || userName.length > 60 ||
-            /[\u0000-\u001f\u007f]/.test(userName) ||
-            /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(reviewText)) {
-            return res.status(400).json({ error: 'Укажите имя до 60 символов, оценку от 1 до 5 и отзыв от 20 до 2000 символов.' });
+            (hasProductId && (!productId || !/^[A-Za-z0-9_-]{1,120}$/.test(productId))) ||
+            /[\u0000-\u001f\u007f]/.test(userName)) {
+            return res.status(400).json({ error: 'Укажите имя до 60 символов и оценку от 1 до 5.' });
+        }
+        if (!productId && (reviewText.length < 10 || reviewText.length > 2000 ||
+            /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(reviewText))) {
+            return res.status(400).json({ error: 'Добавьте текст отзыва от 10 до 2000 символов.' });
         }
 
         try {
             const user = await getAuthenticatedUser(authorization);
             if (!user) return res.status(401).json({ error: 'Войдите в аккаунт, чтобы оставить отзыв.' });
-            const [review] = await databaseRequest('brand_reviews?select=id,created_at', {
+            if (productId) {
+                const products = await databaseRequest(`products?select=id&id=eq.${encodeURIComponent(productId)}&limit=1`);
+                if (!products?.length) return res.status(404).json({ error: 'Товар не найден.' });
+            }
+            const duplicateFilter = productId
+                ? `user_id=eq.${encodeURIComponent(user.id)}&product_id=eq.${encodeURIComponent(productId)}&limit=1`
+                : `user_id=eq.${encodeURIComponent(user.id)}&product_id=is.null&limit=1`;
+            const [existingReview] = await databaseRequest(`brand_reviews?select=id,status,review_text&${duplicateFilter}`);
+            if (existingReview?.status === 'pending' && !existingReview.review_text && !productId) {
+                const [review] = await databaseRequest(`brand_reviews?id=eq.${encodeURIComponent(existingReview.id)}&status=eq.pending&user_id=eq.${encodeURIComponent(user.id)}`, {
+                    method: 'PATCH',
+                    headers: { Prefer: 'return=representation' },
+                    body: JSON.stringify({
+                        user_name: userName,
+                        rating,
+                        review_text: reviewText,
+                        updated_at: new Date().toISOString()
+                    })
+                });
+                if (!review?.id) return res.status(409).json({ error: 'Отзыв уже обработан. Обновите страницу и проверьте его статус.' });
+                return res.status(201).json({ success: true, review });
+            }
+            if (existingReview) {
+                return res.status(409).json({ error: 'Вы уже отправили отзыв. Он появится после проверки модератором.' });
+            }
+            const [review] = await databaseRequest('brand_reviews?select=id,created_at,product_id', {
                 method: 'POST',
                 headers: { Prefer: 'return=representation' },
                 body: JSON.stringify({
                     user_id: user.id,
                     user_name: userName,
                     rating,
-                    review_text: reviewText,
+                    review_text: reviewText || null,
+                    product_id: productId,
                     status: 'pending'
                 })
             });
@@ -105,10 +138,22 @@ function createReviewsApi(options = {}) {
     router.get('/moderation', requireModerator, async (req, res) => {
         try {
             const reviews = await databaseRequest(
-                'brand_reviews?select=id,user_id,user_name,rating,review_text,created_at&status=eq.pending&order=created_at.asc&limit=100'
+                'brand_reviews?select=id,user_id,user_name,rating,review_text,created_at,product_id&status=eq.pending&order=created_at.asc&limit=100'
             );
+            const productIds = [...new Set(reviews
+                .map(review => review.product_id)
+                .filter(id => typeof id === 'string' && /^[A-Za-z0-9_-]{1,120}$/.test(id)))];
+            const products = productIds.length
+                ? await databaseRequest(`products?select=id,name&id=in.(${productIds.join(',')})`)
+                : [];
+            const productNames = new Map(products.map(product => [product.id, product.name]));
             res.setHeader('Cache-Control', 'no-store');
-            res.json({ reviews });
+            res.json({
+                reviews: reviews.map(review => ({
+                    ...review,
+                    product_name: review.product_id ? productNames.get(review.product_id) || 'Товар удалён' : null
+                }))
+            });
         } catch (error) {
             console.error('Pending reviews lookup failed:', error);
             res.status(503).json({ error: 'Не удалось загрузить отзывы на модерацию.' });

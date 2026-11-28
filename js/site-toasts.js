@@ -1,5 +1,9 @@
 import { supabase } from './supabase-client.js';
 
+const initializationKey = Symbol.for('drdarsun.site-toasts.initialized');
+const shouldInitializeToasts = !window[initializationKey];
+if (shouldInitializeToasts) window[initializationKey] = true;
+
 const shownToastIds = new Set();
 let publicToastChannel;
 let privateToastChannel;
@@ -100,8 +104,8 @@ async function startPublicToasts() {
         if (error) {
             try {
                 const response = await fetch('https://drdarsun-site-main.layero.app/api/public-toasts', {
-                    cache: 'no-store',
-                    signal: AbortSignal.timeout(4000)
+                    cache: 'default',
+                    signal: AbortSignal.timeout(15_000)
                 });
                 if (response.ok) {
                     const fallback = await response.json();
@@ -141,6 +145,29 @@ async function startPrivateToasts(session) {
             table: 'site_toast_notifications',
             filter: `user_id=eq.${userId}`
         }, payload => showSiteToast(payload.new))
+        .on('postgres_changes', {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'site_toast_notifications',
+            filter: `user_id=eq.${userId}`
+        }, payload => {
+            const id = payload.old?.id;
+            if (!id) return;
+            shownToastIds.delete(id);
+            document.querySelectorAll('.toast[data-toast-id]')
+                .forEach(toast => { if (toast.dataset.toastId === id) toast.remove(); });
+        })
+        .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'site_toast_notifications',
+            filter: `user_id=eq.${userId}`
+        }, payload => {
+            if (!payload.new?.dismissed_at || !payload.new?.id) return;
+            shownToastIds.delete(payload.new.id);
+            document.querySelectorAll('.toast[data-toast-id]')
+                .forEach(toast => { if (toast.dataset.toastId === payload.new.id) toast.remove(); });
+        })
         .subscribe(status => {
             if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
                 console.warn('Personal site notifications are unavailable:', status);
@@ -166,21 +193,23 @@ async function startPrivateToasts(session) {
     await loadActivePrivateToasts();
 }
 
-startPublicToasts().catch(error => {
-    console.error('Public site notifications could not be initialized:', error);
-});
+if (shouldInitializeToasts) {
+    startPublicToasts().catch(error => {
+        console.error('Public site notifications could not be initialized:', error);
+    });
 
-supabase.auth.getSession()
-    .then(({ data, error }) => {
-        if (error) console.warn('Site notification session lookup failed:', error.message);
-        return startPrivateToasts(data?.session);
-    })
-    .catch(error => console.warn('Site notifications could not be initialized:', error));
+    supabase.auth.getSession()
+        .then(({ data, error }) => {
+            if (error) console.warn('Site notification session lookup failed:', error.message);
+            return startPrivateToasts(data?.session);
+        })
+        .catch(error => console.warn('Site notifications could not be initialized:', error));
 
-supabase.auth.onAuthStateChange((_event, session) => {
-    queueMicrotask(() => {
-        startPrivateToasts(session).catch(error => {
-            console.warn('Site notifications could not be updated:', error);
+    supabase.auth.onAuthStateChange((_event, session) => {
+        queueMicrotask(() => {
+            startPrivateToasts(session).catch(error => {
+                console.warn('Site notifications could not be updated:', error);
+            });
         });
     });
-});
+}

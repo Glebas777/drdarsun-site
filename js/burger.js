@@ -4,23 +4,34 @@ document.addEventListener('DOMContentLoaded', () => {
     if (burgerBtn && mobileMenu) {
         const desktopNav = document.querySelector('.header .nav');
         if (desktopNav) {
-            const oilUrl = new URL('oil-catalog.html', window.location.href).href;
-            let oilLink = [...desktopNav.querySelectorAll('a')].find(link => link.href === oilUrl);
-            if (!oilLink) {
-                oilLink = document.createElement('a');
-                oilLink.href = 'oil-catalog.html';
-                oilLink.textContent = 'Масла';
-                const scientistsUrl = new URL('scientists-about-oils.html', window.location.href).href;
-                const scientistsLink = [...desktopNav.querySelectorAll('a')].find(link => link.href === scientistsUrl);
-                scientistsLink ? scientistsLink.after(oilLink) : desktopNav.appendChild(oilLink);
-            }
+            const canonicalLinks = [
+                ['index.html', 'Главная'],
+                ['catalog.html', 'Каталог'],
+                ['oil-catalog.html', 'Энциклопедия'],
+                ['scientists-about-oils.html', 'Учёные о маслах'],
+                ['about.html', 'О нас'],
+                ['production.html', 'Производство'],
+                ['delivery.html', 'Доставка'],
+                ['faq.html', 'Вопросы']
+            ];
+            const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+            const desktopLinks = canonicalLinks.map(([href, text]) => {
+                const link = document.createElement('a');
+                link.href = href;
+                link.textContent = text;
+                if (href === currentPage) {
+                    link.classList.add('active');
+                    link.setAttribute('aria-current', 'page');
+                }
+                return link;
+            });
+            desktopNav.replaceChildren(...desktopLinks);
 
             const closeButton = mobileMenu.querySelector('#mobile-close-btn, .mobile-close');
             const accountLink = mobileMenu.querySelector('[data-mobile-account]');
-            const links = [...desktopNav.querySelectorAll('a')].map(link => link.cloneNode(true));
             mobileMenu.replaceChildren(
                 ...(closeButton ? [closeButton] : []),
-                ...links,
+                ...desktopLinks.map(link => link.cloneNode(true)),
                 ...(accountLink ? [accountLink] : [])
             );
         }

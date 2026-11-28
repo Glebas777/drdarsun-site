@@ -1,5 +1,4 @@
 import { supabase } from './supabase-client.js';
-import './site-toasts.js';
 
 const container = document.getElementById('auth-buttons');
 
@@ -127,5 +126,5 @@ if (container) {
         const { data, error } = await supabase.auth.getSession();
         if (error) console.warn('Device session lookup failed:', error);
         else checkDeviceAlive(data?.session);
-    }, 5000);
+    }, 300000);
 }

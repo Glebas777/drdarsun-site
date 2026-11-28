@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Dr. DarSun | Личный кабинет</title>
-    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/base.css?v=chat-ui-fix-1">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         .profile-layout { display: flex; gap: 40px; padding: 40px 0; }
@@ -25,14 +25,14 @@
         .order-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
         @media (max-width: 768px) { .profile-layout { flex-direction: column; padding: 100px 20px 40px; } .profile-sidebar { width: 100%; } .profile-nav-btn { display: inline-block; width: auto; margin-right: 5px; } }
     </style>
-    <link rel="stylesheet" href="css/profile.css">
+    <link rel="stylesheet" href="css/profile.css?v=telegram-account-auth-1">
 </head>
 <body>
 <div id="preloader">
-    <div class="bg-image" id="bg-load_morning" style="background-image: url('assets/images/load_morning.png');"></div>
-    <div class="bg-image" id="bg-load_day" style="background-image: url('assets/images/load_day.png');"></div>
-    <div class="bg-image" id="bg-load_evening" style="background-image: url('assets/images/load_evening.png');"></div>
-    <div class="bg-image" id="bg-load_night" style="background-image: url('assets/images/load_night.png');"></div>
+    <div class="bg-image" id="bg-load_morning" data-background="assets/images/load_morning.png"></div>
+    <div class="bg-image" id="bg-load_day" data-background="assets/images/load_day.png"></div>
+    <div class="bg-image" id="bg-load_evening" data-background="assets/images/load_evening.png"></div>
+    <div class="bg-image" id="bg-load_night" data-background="assets/images/load_night.png"></div>
     <img src="assets/images/load_doctor.png" class="preloader-side left" alt="">
     <div class="preloader-content">
         <img src="assets/images/load_ring.png" class="preloader-ring" alt="">
@@ -49,13 +49,13 @@
             <a href="index.html">Главная</a>
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
+            <a href="production.html">Производство</a>
             <a href="scientists-about-oils.html">Учёные о маслах</a>
             <a href="delivery.html">Доставка</a>
-            <a href="index.html#news">Новости</a>
         </nav>
         <div class="header__actions">
             <button class="theme-toggle" id="theme-toggle"></button>
-            <a href="cart.html" class="icon-btn">🛒</a>
+            <a href="cart.html" class="icon-btn" aria-label="Корзина"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h8.5a2 2 0 0 0 1.9-1.5L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg></a>
             <div id="auth-buttons"></div>
             <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
         </div>
@@ -65,9 +65,9 @@
         <a href="index.html">Главная</a>
         <a href="catalog.html">Каталог</a>
         <a href="about.html">О нас</a>
+        <a href="production.html">Производство</a>
         <a href="scientists-about-oils.html">Учёные о маслах</a>
         <a href="delivery.html">Доставка</a>
-        <a href="index.html#news">Новости</a>
     </div>
 </header>
 
@@ -78,7 +78,6 @@
             <button class="profile-nav-btn active" data-tab="info">Личные данные</button>
             <button class="profile-nav-btn" data-tab="orders">История заказов</button>
             <button class="profile-nav-btn" data-tab="favorites">Избранное</button>
-            <button class="profile-nav-btn" data-tab="wallet">Кошелек</button>
             <button class="profile-nav-btn" data-tab="security">Безопасность</button>
             <button class="profile-nav-btn" data-tab="settings">Настройки</button>
         </aside>
@@ -144,48 +143,51 @@
                 </div>
             </div>
 
-            <!-- Вкладка: Кошелек -->
-            <div class="profile-tab" id="tab-wallet">
-                <h2 class="tab-title">Кошелек</h2>
-                <div style="text-align: center; padding: 30px; background: var(--bg-color); border-radius: 16px; border: 1px solid var(--border); margin-bottom: 20px;">
-                    <p style="color: var(--text-muted);">Доступно средств</p>
-                    <h1 style="font-size: 48px; color: var(--accent-green);" id="wallet-balance">0 ₽</h1>
-                </div>
-                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                    <button class="btn" style="flex: 1; background: #4CAF50; color: #fff;">СБП</button>
-                    <button class="btn" style="flex: 1; background: #2196F3; color: #fff;">Сбер</button>
-                    <button class="btn" style="flex: 1; background: #FFA600; color: #000;">Карта</button>
-                </div>
-                <h3>История операций</h3>
-                <div id="transactions-list" style="margin-top: 15px;">Загрузка...</div>
-            </div>
-
             <!-- Вкладка: Безопасность -->
             <div class="profile-tab" id="tab-security">
                 <h2 class="tab-title">Безопасность</h2>
                 
-<div style="margin-bottom: 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <h4 class="security-heading" style="margin: 0;"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-lock-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-lock-dark.png" alt=""><span>Активные сессии</span></h4>
-        <button id="refresh-devices-btn" class="btn" style="padding: 5px 10px; font-size: 12px; border: 1px solid var(--border);">Обновить</button>
+<section class="security-card">
+    <div class="security-card__heading">
+        <div>
+            <h4 class="security-heading">
+                <span class="telegram-mark" aria-hidden="true">➤</span>
+                <span>Telegram — вход и уведомления</span>
+            </h4>
+            <p class="security-help">Привяжите свой аккаунт. Коды входа будут приходить только по вашему запросу; уведомления можно включить отдельно.</p>
+        </div>
+    </div>
+    <p id="telegram-account-status" class="security-help" aria-live="polite">Проверяем подключение…</p>
+    <div class="telegram-link-card__actions">
+        <button id="telegram-account-start" class="btn btn--primary" type="button">Подключить Telegram</button>
+        <a id="telegram-account-open" class="btn telegram-link-open" href="#" target="_blank" rel="noopener noreferrer" hidden>Открыть Telegram и подтвердить</a>
+        <button id="telegram-account-check" class="btn" type="button">Проверить привязку</button>
+        <button id="telegram-account-remove" class="btn settings-card__danger-button" type="button" hidden>Отключить Telegram</button>
+    </div>
+</section>
+
+<section class="security-card">
+    <div class="security-card__heading">
+        <h4 class="security-heading"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-lock-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-lock-dark.png" alt=""><span>Активные сессии</span></h4>
+        <button id="refresh-devices-btn" class="btn security-card__refresh" type="button">Обновить</button>
     </div>
     <p class="session-help">Сессии проверяются автоматически. Завершённое устройство выйдет из аккаунта в течение нескольких секунд.</p>
     <div id="devices-list">Загрузка...</div>
-</div>
+</section>
 
-<div style="margin-bottom: 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
+<section class="security-card">
+    <div class="security-card__heading">
         <div>
-            <h4 class="security-heading" style="margin: 0;"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-lock-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-lock-dark.png" alt=""><span>Двухфакторная аутентификация (2FA)</span></h4>
-            <p style="font-size: 13px; color: var(--text-muted); margin: 5px 0 0;">Защитите аккаунт дополнительным кодом</p>
+            <h4 class="security-heading"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-lock-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-lock-dark.png" alt=""><span>Двухфакторная аутентификация (2FA)</span></h4>
+            <p class="security-help">Защитите аккаунт дополнительным кодом</p>
         </div>
         <label class="toggle-switch">
             <input type="checkbox" id="2fa-toggle">
             <span class="toggle-slider"></span>
         </label>
     </div>
-    <div id="2fa-status" style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">Проверка...</div>
-</div>
+    <div id="2fa-status" class="security-help">Проверка...</div>
+</section>
 
     <section class="recovery-codes-card" aria-labelledby="recovery-codes-title">
         <h4 id="recovery-codes-title" class="security-heading"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-key-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-key-dark.png" alt=""><span>Резервные коды</span></h4>
@@ -205,57 +207,22 @@
         <ol id="recovery-codes-list" class="recovery-codes-card__list" aria-live="polite"></ol>
     </section>
 
-                    <section class="telegram-link-card" aria-labelledby="telegram-link-title">
-                    <h4 id="telegram-link-title" class="security-heading"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-phone-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-phone-dark.png" alt=""><span>Telegram — управление связью</span></h4>
-                    <p class="security-help">Одна привязка аккаунта работает с клиентским ботом и ботом кодов. Бот-помощник доступен отдельно для вопросов и обращений.</p>
-                    <div class="telegram-link-steps" aria-label="Как связать аккаунт с Telegram">
-                        <span><b>1</b> Создайте одноразовый код</span>
-                        <span><b>2</b> Откройте клиентского бота или бота привязки</span>
-                        <span><b>3</b> Управляйте заказами и уведомлениями здесь</span>
-                    </div>
-                    <div id="telegram-public-bots" class="telegram-link-card__actions" aria-label="Telegram-боты"></div>
-                    <div id="telegram-link-status" class="security-help" aria-live="polite">Проверка подключения...</div>
-                    <div class="telegram-link-card__actions">
-                        <button class="btn" id="telegram-link-check" type="button">Проверить связь</button>
-                        <button class="btn btn--primary" id="telegram-link-start" type="button">Создать код привязки</button>
-                        <button class="btn" id="telegram-link-remove" type="button" hidden>Отключить Telegram</button>
-                    </div>
-                    <div class="telegram-link-code" id="telegram-link-code" hidden>
-                        <p class="security-help">Код действует 10 минут. Откройте бота привязки или клиентского бота по кнопке ниже. Код отправится автоматически; вручную можно ввести <code>/link КОД</code>.</p>
-                        <strong id="telegram-link-code-value"></strong>
-                        <div id="telegram-link-code-actions" class="telegram-link-card__actions"></div>
-                        <button class="btn" id="telegram-link-copy" type="button">Скопировать код</button>
-                    </div>
-                    <div class="telegram-notification-settings">
-                        <div>
-                            <strong>Уведомления о заказах</strong>
-                            <p class="security-help" id="telegram-notification-help">Получайте в клиентском боте сообщения об изменении статуса заказа. Настройка действует только для привязанного Telegram.</p>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="telegram-notifications-enabled" aria-label="Присылать обновления заказов в Telegram" disabled>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                </section>
-
-                <div style="margin-bottom: 20px;">
+                <section class="security-card">
                     <h4 class="security-heading"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-eye-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-eye-dark.png" alt=""><span>Face ID / Отпечаток (Passkey)</span></h4>
                     <p class="security-help">Входите с помощью Face ID, отпечатка пальца или PIN-кода устройства. Доступность зависит от браузера и устройства.</p>
                     <button class="btn btn--primary" id="enable-passkey-btn" type="button">Добавить Passkey</button>
                     <div id="passkeys-status" class="security-help" aria-live="polite"></div>
                     <div id="passkeys-list" class="passkeys-list"></div>
-                </div>
+                </section>
 
-<div style="margin-top: 20px;">
+<section class="security-card">
     <h4 class="security-heading"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-phone-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-phone-dark.png" alt=""><span>QR-код</span></h4>
-    <p style="font-size: 13px; color: var(--text-muted);">Чтобы безопасно войти на другом устройстве, откройте там QR-вход и отсканируйте код здесь. Подтверждение возможно только после входа в аккаунт.</p>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
-        <button class="btn btn--primary" id="scan-qr-btn">Сканировать QR и подтвердить вход</button>
-    </div>
-    <div id="qr-scan-result" style="margin-top: 10px; font-size: 14px; color: var(--text-muted);" aria-live="polite"></div>
-</div>
-<div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border);">
-    <button id="logout-btn" class="btn" style="border: 1px solid #F44336; color: #F44336; width: 100%;">
+    <p class="security-help">Чтобы безопасно войти на другом устройстве, откройте там QR-вход и отсканируйте код здесь. Подтверждение возможно только после входа в аккаунт.</p>
+    <button class="btn btn--primary" id="scan-qr-btn" type="button">Сканировать QR и подтвердить вход</button>
+    <div id="qr-scan-result" class="security-help" aria-live="polite"></div>
+</section>
+<div class="security-logout">
+    <button id="logout-btn" class="btn security-logout__button" type="button">
         Выйти из аккаунта
     </button>
 </div>
@@ -281,32 +248,45 @@
                 <form class="settings-form" id="password-form">
                     <label for="new-password" class="security-heading"><img class="theme-asset-light security-heading__icon" src="assets/images/icon-key-light.png" alt=""><img class="theme-asset-dark security-heading__icon" src="assets/images/icon-key-dark.png" alt=""><span>Новый пароль</span></label>
                     <input type="password" id="new-password" placeholder="Минимум 12 символов" minlength="12" autocomplete="new-password" required>
-                    <div id="password-hints" style="font-size: 12px; color: #888; margin-top: 5px; display: flex; flex-direction: column; gap: 4px;">
-                        <div id="hint-length" style="display: flex; align-items: center; gap: 5px;">❌ Минимум 12 символов</div>
-                        <div id="hint-upper" style="display: flex; align-items: center; gap: 5px;">❌ Заглавная буква</div>
-                        <div id="hint-lower" style="display: flex; align-items: center; gap: 5px;">❌ Строчная буква</div>
-                        <div id="hint-digit" style="display: flex; align-items: center; gap: 5px;">❌ Цифра</div>
-                        <div id="hint-symbol" style="display: flex; align-items: center; gap: 5px;">❌ Специальный символ</div>
-                        <div id="hint-pwned" style="display: flex; align-items: center; gap: 5px;">❌ Проверка на утечки</div>
+                    <div id="password-hints" class="password-hints">
+                        <div id="hint-length">❌ Минимум 12 символов</div>
+                        <div id="hint-upper">❌ Заглавная буква</div>
+                        <div id="hint-lower">❌ Строчная буква</div>
+                        <div id="hint-digit">❌ Цифра</div>
+                        <div id="hint-symbol">❌ Специальный символ</div>
+                        <div id="hint-pwned">❌ Проверка на утечки</div>
                     </div>
                     <p class="security-help">Для проверки утечек пароль не отправляется: используется только префикс его SHA-1-хеша.</p>
                     <button type="submit" class="btn btn--primary">Сменить пароль</button>
                 </form>
 
-<div style="margin-top: 40px; border-top: 1px solid var(--border); padding-top: 20px;">
+<section class="settings-card">
     <h4>Уведомления на почту</h4>
-    <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 15px;">
+    <p class="settings-card__description">
         Текущая почта для уведомлений: <strong id="notify-email">Загрузка...</strong>
     </p>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <button class="btn btn--primary" id="enable-notify-btn">Включить уведомления</button>
-        <button class="btn" id="disable-notify" style="border: 1px solid #F44336; color: #F44336;">Отключить уведомления</button>
+    <div class="settings-card__actions">
+        <button class="btn btn--primary" id="enable-notify-btn" type="button">Включить уведомления</button>
+        <button class="btn settings-card__danger-button" id="disable-notify" type="button">Отключить уведомления</button>
     </div>
-</div>
-                <div style="margin-top: 40px; border-top: 1px solid var(--border); padding-top: 20px;">
-                    <h4 style="color: #F44336;">Удаление аккаунта</h4>
-                    <button class="btn" id="delete-account-btn" style="background: #F44336; color: #fff;">Удалить аккаунт</button>
-                </div>
+</section>
+<section class="settings-card">
+    <h4>Уведомления в Telegram</h4>
+    <label class="telegram-notification-settings" for="telegram-notifications-toggle">
+        <span>
+            <strong>Заказы и личные уведомления</strong>
+            <small id="telegram-notification-help" class="security-help">Сначала подключите Telegram во вкладке «Безопасность».</small>
+        </span>
+        <span class="toggle-switch">
+            <input type="checkbox" id="telegram-notifications-toggle" disabled>
+            <span class="toggle-slider"></span>
+        </span>
+    </label>
+</section>
+<section class="settings-card settings-card--danger">
+    <h4>Удаление аккаунта</h4>
+    <button class="btn settings-card__delete-button" id="delete-account-btn" type="button">Удалить аккаунт</button>
+</section>
             </div>
         </div>
     </div>
@@ -319,14 +299,15 @@
                 <img src="assets/images/logo_full.png" alt="Dr. DarSun">
                 <span class="footer__brand-text">Dr. DarSun</span>
             </div>
-            <p class="footer__desc">Премиальные растительные масла. Сделано с душой.</p>
+            <p class="footer__desc">Растительные масла и продукты из семян. Сделано с душой.</p>
         </div>
         <div class="footer__col">
             <h4>Покупателям</h4>
             <a href="catalog.html">Каталог</a>
-            <a href="oil-catalog.html">Справочник масел</a>
+            <a href="oil-catalog.html">Энциклопедия продуктов</a>
             <a href="delivery.html">Доставка</a>
             <a href="about.html">О нас</a>
+            <a href="courier-login.html">Курьер</a>
         </div>
         <div class="footer__col">
             <h4>Контакты</h4>
@@ -334,9 +315,9 @@
             <div class="socials">
                 <a href="https://vk.ru/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="ВКонтакте"><img class="theme-asset-light" src="assets/images/vk.png" alt="ВКонтакте"><img class="theme-asset-dark" src="assets/images/vk_dark.png" alt=""></a>
                 <a href="https://t.me/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="Telegram"><img class="theme-asset-light" src="assets/images/telegram.png" alt="Telegram"><img class="theme-asset-dark" src="assets/images/telegram_dark.png" alt=""></a>
-                <a href="https://www.instagram.com/drdarsun/" target="_blank" rel="noopener noreferrer" class="social-link">Instagram*</a>
+                <span class="social-link">Instagram*</span>
             </div>
-            <p class="social-disclaimer">* Instagram — продукт Meta, организации, деятельность которой запрещена на территории РФ. Аккаунт ведётся с соблюдением требований законодательства РФ.</p>
+            <p class="social-disclaimer">* Instagram — сервис Meta Platforms Inc., признанной экстремистской организацией; её деятельность запрещена на территории РФ.</p>
         </div>
     </div>
     <div class="footer__bottom">
@@ -368,12 +349,13 @@
 </div>
 
 <script type="module" src="js/main.js"></script>
-<script type="module" src="js/profile.js"></script>
-<script src="js/burger.js"></script>
-<script type="module" src="js/auth-header.js"></script>
-<script src="js/preloader.js"></script>
+<script type="module" src="js/profile.js?v=auth-reliability-2"></script>
+<script src="js/burger.js?v=production-nav-2"></script>
+<script type="module" src="js/auth-header.js?v=site-toast-singleton-1"></script>
+<script src="js/preloader.js?v=asset-load-optimization-1"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="js/site-status.js"></script>
+    <script src="js/site-status.js?v=service-timeouts-2"></script>
+    <script type="module" src="js/temporary-payment-notice.js?v=service-timeouts-2"></script>
 </body>
 </html>

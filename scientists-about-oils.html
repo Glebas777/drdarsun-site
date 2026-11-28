@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" class="oils-book-document">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="Научно-популярный раздел о составе растительных масел, жирных кислотах, окислении и хранении.">
     <title>Учёные о маслах | Dr. DarSun</title>
-    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/base.css?v=chat-ui-fix-1">
     <link rel="stylesheet" href="css/about.css">
-    <link rel="stylesheet" href="css/oils.css">
+    <link rel="stylesheet" href="css/oils.css?v=book-reader-1">
 </head>
-<body>
+<body class="oils-book-page">
     <header class="header">
         <div class="container header__inner">
             <a href="index.html" class="logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
@@ -19,7 +19,6 @@
                 <a href="about.html">О нас</a>
                 <a href="scientists-about-oils.html" aria-current="page">Учёные о маслах</a>
                 <a href="delivery.html">Доставка</a>
-                <a href="index.html#news">Новости</a>
             </nav>
             <div class="header__actions">
                 <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Переключить тему"></button>
@@ -35,142 +34,204 @@
             <a href="about.html">О нас</a>
             <a href="scientists-about-oils.html" aria-current="page">Учёные о маслах</a>
             <a href="delivery.html">Доставка</a>
-            <a href="index.html#news">Новости</a>
         </nav>
     </header>
 
-    <main class="container oils-page">
-        <section class="oils-intro">
-            <div class="oils-intro__copy">
+    <main class="oils-book-main container" data-oils-book>
+        <div class="oils-book__heading">
+            <div>
                 <p class="eyebrow">НАУЧНО-ПОПУЛЯРНЫЙ РАЗБОР</p>
                 <h1>Учёные о маслах</h1>
-                <p class="oils-intro__lead">Из чего состоят растительные масла, почему одни быстрее окисляются и как сохранить их качество.</p>
-                <p class="oils-note">Справочная информация не заменяет рекомендации врача и не описывает состав конкретной партии. Для точных значений нужны этикетка и лабораторный анализ.</p>
             </div>
-            <div class="oils-intro__art" aria-hidden="true">
-                <img src="assets/images/sunflower2.png" alt="">
-            </div>
-        </section>
+            <div class="oils-book__progress" aria-hidden="true"><span data-book-progress></span></div>
+            <output class="oils-book__counter" data-book-counter aria-live="polite" aria-label="Страница 1 из 9: Обложка">1 / 9</output>
+        </div>
 
-        <nav class="oils-index" aria-label="Содержание">
-            <a href="#role">Биологическая роль</a>
-            <a href="#composition">Жирные кислоты</a>
-            <a href="#oxidation">Окисление</a>
-            <a href="#stability">Стабильность</a>
-            <a href="oil-catalog.html">Каталог масел</a>
+        <div class="oils-book__stage" data-book-stage tabindex="0" aria-label="Книга «Учёные о маслах». Листайте стрелками клавиатуры или свайпом">
+            <article class="oils-book__page oils-book__page--cover" data-book-page data-page-title="Обложка" aria-hidden="false">
+                <div class="oils-book__page-copy">
+                    <p class="oils-book__kicker">ПОЛЕВОЙ АТЛАС · 01</p>
+                    <h2>Из чего состоит<br>и как хранится масло</h2>
+                        <p class="oils-book__lead">Состав, окисление и хранение растительных масел — коротко и по существу.</p>
+                        <p class="oils-book__note">Справка не заменяет рекомендации врача. Состав конкретной партии проверяйте по этикетке и лабораторному анализу.</p>
+                    <button class="oils-book__start" type="button" data-book-go="1">Открыть книгу <span aria-hidden="true">→</span></button>
+                </div>
+                <div class="oils-book__art" aria-hidden="true">
+                    <span class="oils-book__orbit oils-book__orbit--outer"></span>
+                    <span class="oils-book__orbit oils-book__orbit--inner"></span>
+                    <img src="assets/images/sunflower2.png" alt="">
+                    <span class="oils-book__art-caption">Знание растёт<br>из хорошего сырья</span>
+                </div>
+            </article>
+
+            <article class="oils-book__page" data-book-page data-page-title="Роль жиров" aria-hidden="true" hidden>
+                <header class="oils-book__page-head">
+                    <p class="oils-book__kicker">01 · ОСНОВЫ</p>
+                    <h2>Жиры — часть сбалансированного рациона</h2>
+                </header>
+                <div class="oils-book__two-cards">
+                    <section class="oils-book__info-card">
+                        <span class="oils-book__card-mark" aria-hidden="true">A</span>
+                        <h3>Зачем нужны жиры</h3>
+                        <p>Жиры дают энергию, входят в мембраны клеток и помогают усваивать жирорастворимые витамины.</p>
+                    </section>
+                    <section class="oils-book__info-card oils-book__info-card--gold">
+                        <span class="oils-book__card-mark" aria-hidden="true">B</span>
+                        <h3>Незаменимые кислоты</h3>
+                        <p>Линолевая (омега‑6) и альфа-линоленовая (омега‑3) кислоты должны поступать с пищей. Источники ALA — лён, соя и рапс.</p>
+                    </section>
+                    <p class="oils-book__footnote">Необходимость полиненасыщенных кислот не означает, что масла нужно больше: важен общий рацион.</p>
+                </div>
+            </article>
+
+            <article class="oils-book__page" data-book-page data-page-title="Жирные кислоты" aria-hidden="true" hidden>
+                <header class="oils-book__page-head">
+                    <p class="oils-book__kicker">02 · СОСТАВ</p>
+                    <h2>Две группы жирных кислот</h2>
+                    <p>В большинстве пищевых масел основную долю составляют триацилглицерины. Их свойства зависят от связанных с глицерином жирных кислот.</p>
+                </header>
+                <div class="oils-book__acid-grid oils-book__acid-grid--pair">
+                    <section class="oils-book__info-card">
+                        <span class="oils-book__acid-symbol" aria-hidden="true">—</span>
+                        <h3>Насыщенные</h3>
+                        <p>Нет двойных связей. Их доля влияет на консистенцию и плавление.</p>
+                    </section>
+                    <section class="oils-book__info-card oils-book__info-card--green">
+                        <span class="oils-book__acid-symbol" aria-hidden="true">=</span>
+                        <h3>Мононенасыщенные</h3>
+                        <p>Одна связь. Олеиновая кислота характерна, например, для оливкового масла.</p>
+                    </section>
+                    <p class="oils-book__footnote">Количество двойных связей влияет на физические свойства и устойчивость масла.</p>
+                </div>
+            </article>
+
+            <article class="oils-book__page" data-book-page data-page-title="Полиненасыщенные кислоты" aria-hidden="true" hidden>
+                <header class="oils-book__page-head">
+                    <p class="oils-book__kicker">02 · СОСТАВ</p>
+                    <h2>Полиненасыщенные кислоты</h2>
+                </header>
+                <div class="oils-book__acid-grid oils-book__acid-grid--single">
+                    <section class="oils-book__info-card oils-book__info-card--gold">
+                        <span class="oils-book__acid-symbol" aria-hidden="true">≋</span>
+                        <h3>Несколько двойных связей</h3>
+                        <p>Линолевая кислота относится к омега‑6, альфа-линоленовая — к омега‑3. Они необходимы и должны поступать с пищей.</p>
+                    </section>
+                    <p class="oils-book__footnote">Состав масла зависит от сорта, климата, зрелости сырья и технологии. Справочные профили — ориентиры, а не гарантия состава конкретного товара.</p>
+                </div>
+            </article>
+
+            <article class="oils-book__page" data-book-page data-page-title="Окисление: начало" aria-hidden="true" hidden>
+                <header class="oils-book__page-head">
+                    <p class="oils-book__kicker">03 · ХИМИЯ</p>
+                    <h2>Окисление меняет аромат и вкус</h2>
+                    <p>Со временем оно снижает качество масла. На реакции влияют кислород, свет, нагрев и ферменты.</p>
+                </header>
+                <div class="oils-book__mechanism-grid">
+                    <section class="oils-book__info-card">
+                        <span class="oils-book__card-mark" aria-hidden="true">01</span>
+                        <h3>Автоокисление</h3>
+                        <p>Цепная реакция с участием радикалов и кислорода образует гидроперекиси; при распаде возникают летучие соединения, меняющие запах и вкус.</p>
+                    </section>
+                    <section class="oils-book__info-card oils-book__info-card--gold">
+                        <span class="oils-book__card-mark" aria-hidden="true">02</span>
+                        <h3>Фотоокисление</h3>
+                        <p>Свет и вещества-сенсибилизаторы могут образовывать синглетный кислород, ускоряющий реакции с ненасыщенными кислотами.</p>
+                    </section>
+                </div>
+            </article>
+
+            <article class="oils-book__page" data-book-page data-page-title="Окисление: продолжение" aria-hidden="true" hidden>
+                <header class="oils-book__page-head">
+                    <p class="oils-book__kicker">03 · ХИМИЯ</p>
+                    <h2>Нагрев и ферменты тоже важны</h2>
+                </header>
+                <div class="oils-book__mechanism-grid">
+                    <section class="oils-book__info-card oils-book__info-card--green">
+                        <span class="oils-book__card-mark" aria-hidden="true">03</span>
+                        <h3>Термическое</h3>
+                        <p>Нагрев ускоряет окисление и распад его продуктов. При долгом или повторном нагреве накапливаются полярные и полимерные соединения.</p>
+                    </section>
+                    <section class="oils-book__info-card">
+                        <span class="oils-book__card-mark" aria-hidden="true">04</span>
+                        <h3>Ферментативное</h3>
+                        <p>Липоксигеназы могут участвовать в окислении некоторых полиненасыщенных кислот в сырье и необработанных продуктах.</p>
+                    </section>
+                </div>
+            </article>
+
+            <article class="oils-book__page" data-book-page data-page-title="Факторы устойчивости" aria-hidden="true" hidden>
+                <header class="oils-book__page-head">
+                    <p class="oils-book__kicker">04 · УСТОЙЧИВОСТЬ</p>
+                    <h2>На что обратить внимание</h2>
+                </header>
+                <div class="oils-book__factor-grid">
+                    <section class="oils-book__factor"><h3>Состав</h3><p>Больше полиненасыщенных кислот — обычно ниже устойчивость к окислению.</p></section>
+                    <section class="oils-book__factor"><h3>Свет и тепло</h3><p>Тепло ускоряет реакции, свет запускает фотоокисление.</p></section>
+                    <section class="oils-book__factor"><h3>Воздух</h3><p>Кислород попадает при частом открывании упаковки.</p></section>
+                    <section class="oils-book__factor"><h3>Примеси и антиоксиданты</h3><p>Железо и медь ускоряют окисление; токоферолы могут его замедлять.</p></section>
+                </div>
+            </article>
+
+            <article class="oils-book__page" data-book-page data-page-title="Практика хранения" aria-hidden="true" hidden>
+                <header class="oils-book__page-head">
+                    <p class="oils-book__kicker">05 · ПРАКТИКА</p>
+                    <h2>Берегите масло от света, тепла и воздуха</h2>
+                </header>
+                <div class="oils-book__storage-layout">
+                    <aside class="oils-book__storage-tip">
+                        <span aria-hidden="true">✦</span>
+                        <div><h3>Как хранить</h3><p>Следуйте маркировке производителя. Обычно масло лучше держать плотно закрытым, вдали от света и источников тепла; не использовать повторно после многократного сильного нагревания.</p></div>
+                    </aside>
+                    <a class="oils-book__catalog-link" href="oil-catalog.html"><span>Продолжить чтение</span><strong>Энциклопедия продуктов</strong><span aria-hidden="true">↗</span></a>
+                </div>
+            </article>
+
+            <article class="oils-book__page oils-book__page--sources" data-book-page data-page-title="Источники" aria-hidden="true" hidden>
+                <header class="oils-book__page-head">
+                    <p class="oils-book__kicker">06 · ИСТОЧНИКИ</p>
+                    <h2>Проверяйте источник и маркировку</h2>
+                </header>
+                <div class="oils-book__sources-layout">
+                    <section class="oils-book__source-book">
+                        <p class="oils-book__source-label">ОСНОВНОЙ ИСТОЧНИК</p>
+                        <h3>Растительные масла: свойства, технологии получения и хранения, окислительная стабильность</h3>
+                        <p>Ю.Э. Бурункова, М.В. Успенская, Е.О. Самуйлова</p>
+                        <a href="https://share.google/uj3A6dgKZNHK8YG1I" target="_blank" rel="noopener noreferrer">Открыть источник <span aria-hidden="true">↗</span></a>
+                    </section>
+                    <section class="oils-book__references">
+                        <h3>Дополнительные источники</h3>
+                        <a href="https://www.who.int/news-room/fact-sheets/detail/healthy-diet" target="_blank" rel="noopener noreferrer">ВОЗ · здоровое питание и качество жиров</a>
+                        <a href="https://ods.od.nih.gov/factsheets/Omega3FattyAcids-HealthProfessional/" target="_blank" rel="noopener noreferrer">NIH · омега‑3 жирные кислоты</a>
+                        <a href="https://fdc.nal.usda.gov/" target="_blank" rel="noopener noreferrer">USDA · справочная база пищевого состава</a>
+                        <p>Материал не заменяет консультацию специалиста. Состав продукта проверяйте по этикетке и лабораторному анализу.</p>
+                    </section>
+                </div>
+            </article>
+        </div>
+
+        <nav class="oils-book__controls" aria-label="Перелистывание книги">
+            <button class="oils-book__arrow" type="button" data-book-prev aria-label="Предыдущая страница" disabled>←</button>
+            <div class="oils-book__dots">
+                <button type="button" data-book-go="0" aria-label="Страница 1: Обложка" aria-current="page"></button>
+                <button type="button" data-book-go="1" aria-label="Страница 2: Роль жиров"></button>
+                <button type="button" data-book-go="2" aria-label="Страница 3: Жирные кислоты"></button>
+                <button type="button" data-book-go="3" aria-label="Страница 4: Полиненасыщенные кислоты"></button>
+                <button type="button" data-book-go="4" aria-label="Страница 5: Окисление — начало"></button>
+                <button type="button" data-book-go="5" aria-label="Страница 6: Окисление — продолжение"></button>
+                <button type="button" data-book-go="6" aria-label="Страница 7: Факторы устойчивости"></button>
+                <button type="button" data-book-go="7" aria-label="Страница 8: Практика хранения"></button>
+                <button type="button" data-book-go="8" aria-label="Страница 9: Источники"></button>
+            </div>
+            <button class="oils-book__arrow" type="button" data-book-next aria-label="Следующая страница">→</button>
+            <span class="oils-book__hint">Стрелки · свайп</span>
         </nav>
-
-        <section class="oils-section" id="role">
-            <p class="eyebrow">01 · ОСНОВЫ</p>
-            <h2>Биологическая роль жиров</h2>
-            <div class="oils-text-grid">
-                <p>Пищевые жиры дают организму энергию, входят в состав клеточных мембран и помогают усваивать жирорастворимые витамины. Важны и количество жира в рационе, и его состав.</p>
-                <p>Линолевая кислота (омега-6) и альфа-линоленовая кислота (омега-3) незаменимы: организм не может синтезировать их в достаточном количестве, поэтому они должны поступать с пищей. Источники ALA включают льняное, соевое и рапсовое масла.</p>
-            </div>
-            <p class="oils-caution">Полиненасыщенные жирные кислоты необходимы, но это не означает, что чем больше масла, тем лучше: потребность зависит от общего рациона и состояния здоровья.</p>
-        </section>
-
-        <section class="oils-section oils-section--tinted" id="composition">
-            <p class="eyebrow">02 · СОСТАВ</p>
-            <h2>Жирные кислоты задают свойства масла</h2>
-            <p>В большинстве пищевых масел основную долю составляют триацилглицерины. Их свойства зависят от того, какие жирные кислоты связаны с глицерином.</p>
-            <div class="oils-acid-grid">
-                <article class="oils-acid"><h3>Насыщенные</h3><p>Не имеют двойных связей. Их доля влияет на консистенцию и температуру плавления жиров.</p></article>
-                <article class="oils-acid"><h3>Мононенасыщенные</h3><p>Содержат одну двойную связь. Олеиновая кислота — один из основных компонентов оливкового, авокадового и высокоолеинового масел.</p></article>
-                <article class="oils-acid"><h3>Полиненасыщенные</h3><p>Содержат несколько двойных связей. Линолевая кислота относится к омега-6, альфа-линоленовая — к омега-3.</p></article>
-            </div>
-            <p class="oils-caution">Состав зависит от сорта, климата, зрелости сырья и технологии обработки. Указанные ниже профили — ориентиры, а не гарантия состава товара.</p>
-        </section>
-
-        <section class="oils-section" id="oxidation">
-            <p class="eyebrow">03 · ХИМИЯ</p>
-            <h2>Как окисляются масла</h2>
-            <p>Окисление меняет аромат и вкус масла и со временем снижает его качество. Наиболее известны несколько путей:</p>
-            <div class="oils-process-list">
-                <article><span>01</span><div><h3>Автоокисление</h3><p>Свободнорадикальная цепная реакция: образование радикалов, их реакция с кислородом и накопление первичных продуктов — гидроперекисей. При дальнейшем распаде появляются летучие соединения, влияющие на запах и вкус.</p></div></article>
-                <article><span>02</span><div><h3>Фотоокисление</h3><p>Свет и вещества-сенсибилизаторы могут образовывать синглетный кислород. Он реагирует с двойными связями ненасыщенных жирных кислот и ускоряет порчу.</p></div></article>
-                <article><span>03</span><div><h3>Термическое окисление</h3><p>Нагрев ускоряет реакции окисления и распад их продуктов. При длительном или многократном нагревании также накапливаются полярные и полимерные соединения.</p></div></article>
-                <article><span>04</span><div><h3>Ферментативное окисление</h3><p>Липоксигеназы могут участвовать в окислении некоторых полиненасыщенных жирных кислот в сырье и необработанных продуктах.</p></div></article>
-            </div>
-        </section>
-
-        <section class="oils-section oils-section--tinted" id="stability">
-            <p class="eyebrow">04 · ХРАНЕНИЕ</p>
-            <h2>Что влияет на устойчивость</h2>
-            <div class="oils-factor-grid">
-                <article><h3>Жирнокислотный профиль</h3><p>Масла с большей долей полиненасыщенных кислот обычно чувствительнее к окислению.</p></article>
-                <article><h3>Свет и температура</h3><p>Тепло ускоряет реакции; свет важен для фотосенсибилизированного окисления.</p></article>
-                <article><h3>Воздух и упаковка</h3><p>Доступ кислорода и частое открывание увеличивают контакт масла с воздухом.</p></article>
-                <article><h3>Примеси и антиоксиданты</h3><p>Следы железа и меди могут ускорять распад гидроперекисей. Токоферолы и другие природные компоненты способны замедлять отдельные реакции.</p></article>
-            </div>
-            <div class="oils-storage"><h3>Практика хранения</h3><p>Следуйте маркировке производителя. Обычно масло лучше держать плотно закрытым, вдали от света и источников тепла; не оставлять его рядом с плитой и не использовать повторно после многократного сильного нагревания.</p></div>
-        </section>
-
-        <section class="oils-section oils-catalog-cta" id="catalog">
-            <p class="eyebrow">05 · КАТАЛОГ МАСЕЛ</p>
-            <h2>Подробный справочник по виду масла</h2>
-            <p>Технический состав, особенности производства и хранения собраны отдельно — без перегрузки научной страницы. Раздел можно дополнять по каждому маслу поэтапно.</p>
-            <a class="oils-source-book__link" href="oil-catalog.html">Открыть каталог масел</a>
-        </section>
-
-        <section class="oils-source-book" aria-labelledby="oils-source-book-title">
-            <p class="eyebrow">ОСНОВНОЙ ИСТОЧНИК</p>
-            <h2 id="oils-source-book-title">Книга, по которой подготовлен раздел</h2>
-            <p>Вся научная информация для этого раздела взята из книги:</p>
-            <blockquote>
-                Ю.Э. Бурункова, М.В. Успенская, Е.О. Самуйлова<br>
-                «Растительные масла: свойства, технологии получения и хранения, окислительная стабильность»
-            </blockquote>
-            <a class="oils-source-book__link" href="https://share.google/uj3A6dgKZNHK8YG1I" target="_blank" rel="noopener noreferrer">Открыть источник книги</a>
-        </section>
-
-        <section class="oils-sources" aria-labelledby="oils-sources-title">
-            <p class="eyebrow">ИСТОЧНИКИ</p>
-            <h2 id="oils-sources-title">На чём основан раздел</h2>
-            <ul>
-                <li><a href="https://www.who.int/news-room/fact-sheets/detail/healthy-diet" target="_blank" rel="noopener noreferrer">Всемирная организация здравоохранения: здоровое питание и качество жиров</a></li>
-                <li><a href="https://ods.od.nih.gov/factsheets/Omega3FattyAcids-HealthProfessional/" target="_blank" rel="noopener noreferrer">NIH Office of Dietary Supplements: омега-3 жирные кислоты</a></li>
-                <li><a href="https://fdc.nal.usda.gov/" target="_blank" rel="noopener noreferrer">USDA FoodData Central: справочная база пищевого состава</a></li>
-            </ul>
-            <p>Материал носит образовательный характер. Он не предназначен для диагностики, лечения или замены консультации специалиста.</p>
-        </section>
     </main>
 
-    <footer class="footer">
-        <div class="container footer__inner">
-            <div class="footer__col">
-                <div class="footer__logo-group">
-                    <img src="assets/images/logo_full.png" alt="Dr. DarSun">
-                    <span class="footer__brand-text">Dr. DarSun</span>
-                </div>
-                <p class="footer__desc">Премиальные растительные масла. Сделано с душой.</p>
-            </div>
-            <div class="footer__col">
-                <h4>Покупателям</h4>
-                <a href="catalog.html">Каталог</a>
-                <a href="oil-catalog.html">Справочник масел</a>
-                <a href="delivery.html">Доставка</a>
-                <a href="about.html">О нас</a>
-            </div>
-            <div class="footer__col">
-                <h4>Контакты</h4>
-                <a href="mailto:drdarsunhelper@gmail.com">drdarsunhelper@gmail.com</a>
-                <div class="socials">
-                    <a href="https://vk.ru/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="ВКонтакте"><img class="theme-asset-light" src="assets/images/vk.png" alt="ВКонтакте"><img class="theme-asset-dark" src="assets/images/vk_dark.png" alt=""></a>
-                    <a href="https://t.me/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="Telegram"><img class="theme-asset-light" src="assets/images/telegram.png" alt="Telegram"><img class="theme-asset-dark" src="assets/images/telegram_dark.png" alt=""></a>
-                    <a href="https://www.instagram.com/drdarsun/" target="_blank" rel="noopener noreferrer" class="social-link">Instagram*</a>
-                </div>
-                <p class="social-disclaimer">* Instagram — продукт Meta, организации, деятельность которой запрещена на территории РФ. Аккаунт ведётся с соблюдением требований законодательства РФ.</p>
-            </div>
-        </div>
-        <div class="footer__bottom">
-            <div class="container">© 2026 Dr. DarSun. Все права защищены.</div>
-        </div>
-    </footer>
-
     <script type="module" src="js/main.js"></script>
-    <script src="js/burger.js"></script>
-    <script type="module" src="js/auth-header.js"></script>
-    <script src="js/site-status.js"></script>
+    <script type="module" src="js/oils-book.js?v=book-reader-1"></script>
+    <script src="js/burger.js?v=production-nav-2"></script>
+    <script type="module" src="js/auth-header.js?v=site-toast-singleton-1"></script>
+    <script src="js/site-status.js?v=service-timeouts-2"></script>
+    <script type="module" src="js/temporary-payment-notice.js?v=service-timeouts-2"></script>
 </body>
 </html>

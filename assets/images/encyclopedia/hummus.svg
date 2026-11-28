@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">
+  <style>
+    .steam { transform-box: fill-box; transform-origin: center bottom; animation: steam 3.2s ease-in-out infinite; }
+    .seed { transform-box: fill-box; transform-origin: center; animation: seed 3.8s ease-in-out infinite; }
+    .seed:nth-of-type(2n) { animation-delay: -1.3s; }
+    @keyframes steam { 0%,100% { opacity: .25; transform: translateY(3px) rotate(-3deg); } 50% { opacity: .8; transform: translateY(-5px) rotate(3deg); } }
+    @keyframes seed { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-5px) rotate(5deg); } }
+    @media (prefers-reduced-motion: reduce) { .steam,.seed { animation: none; } }
+  </style>
+  <rect width="640" height="360" rx="28" fill="#f3ecd5"/>
+  <circle cx="496" cy="82" r="118" fill="#fff9e8"/>
+  <ellipse cx="320" cy="287" rx="203" ry="26" fill="#d8c99e" opacity=".45"/>
+  <path d="M142 191c16 91 73 137 178 137s162-46 178-137H142Z" fill="#c58655"/>
+  <path d="M128 177c0-16 86-47 192-47s192 31 192 47-86 54-192 54-192-38-192-54Z" fill="#fffdf3" stroke="#b87748" stroke-width="8"/>
+  <path d="M167 177c36-24 96-36 153-36s117 12 153 36c-30 20-91 35-153 35s-123-15-153-35Z" fill="#e7c77f"/>
+  <path d="M225 175c27-18 58-26 95-26s68 8 95 26c-28 15-61 24-95 24s-67-9-95-24Z" fill="#f1dda4"/>
+  <g class="seed" fill="#6c8c42"><ellipse cx="268" cy="168" rx="7" ry="13" transform="rotate(-32 268 168)"/><ellipse cx="319" cy="154" rx="7" ry="13" transform="rotate(18 319 154)"/><ellipse cx="361" cy="179" rx="7" ry="13" transform="rotate(48 361 179)"/></g>
+  <g class="steam" fill="none" stroke="#8c9a70" stroke-linecap="round" stroke-width="5"><path d="M257 111c-22-20 15-28-3-50"/><path d="M320 108c-18-22 16-31-1-56"/><path d="M383 111c-20-20 14-30-4-50"/></g>
+  <g fill="#c69d43"><circle cx="224" cy="181" r="5"/><circle cx="404" cy="168" r="5"/><circle cx="292" cy="190" r="4"/></g>
+  <g class="seed" fill="#d9b866"><ellipse cx="495" cy="218" rx="18" ry="9" transform="rotate(-23 495 218)"/><ellipse cx="527" cy="240" rx="18" ry="9" transform="rotate(18 527 240)"/><ellipse cx="475" cy="255" rx="18" ry="9" transform="rotate(30 475 255)"/></g>
+</svg>

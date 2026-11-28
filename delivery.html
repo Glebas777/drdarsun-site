@@ -4,15 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dr. DarSun | Доставка</title>
-    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/base.css?v=chat-ui-fix-1">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 <div id="preloader">
-    <div class="bg-image" id="bg-load_morning" style="background-image: url('assets/images/load_morning.png');"></div>
-    <div class="bg-image" id="bg-load_day" style="background-image: url('assets/images/load_day.png');"></div>
-    <div class="bg-image" id="bg-load_evening" style="background-image: url('assets/images/load_evening.png');"></div>
-    <div class="bg-image" id="bg-load_night" style="background-image: url('assets/images/load_night.png');"></div>
+    <div class="bg-image" id="bg-load_morning" data-background="assets/images/load_morning.png"></div>
+    <div class="bg-image" id="bg-load_day" data-background="assets/images/load_day.png"></div>
+    <div class="bg-image" id="bg-load_evening" data-background="assets/images/load_evening.png"></div>
+    <div class="bg-image" id="bg-load_night" data-background="assets/images/load_night.png"></div>
 
     <img src="assets/images/load_doctor.png" class="preloader-side left" alt="">
 
@@ -32,13 +32,13 @@
             <a href="index.html">Главная</a>
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
+            <a href="production.html">Производство</a>
             <a href="scientists-about-oils.html">Учёные о маслах</a>
             <a href="delivery.html">Доставка</a>
-            <a href="index.html#news">Новости</a>
         </nav>
 <div class="header__actions">
     <button class="theme-toggle" id="theme-toggle"></button>
-    <a href="cart.html" class="icon-btn">🛒</a>
+    <a href="cart.html" class="icon-btn" aria-label="Корзина"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h8.5a2 2 0 0 0 1.9-1.5L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg></a>
     <div id="auth-buttons"></div> 
     <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
 </div>
@@ -48,9 +48,9 @@
         <a href="index.html">Главная</a>
         <a href="catalog.html">Каталог</a>
         <a href="about.html">О нас</a>
+        <a href="production.html">Производство</a>
         <a href="scientists-about-oils.html">Учёные о маслах</a>
         <a href="delivery.html">Доставка</a>
-        <a href="index.html#news">Новости</a>
     </div>
 </header>
 
@@ -64,11 +64,7 @@
                 <li><strong>СДЭК:</strong> от 350 ₽, 1-3 дня.</li>
             </ul>
             <h2 style="margin-bottom: 20px;">Оплата</h2>
-            <ul style="margin-left: 20px; color: var(--text-muted); line-height: 1.8;">
-                <li>Банковской картой на сайте.</li>
-                <li>Через СБП (по QR-коду).</li>
-                <li>С кошелька Dr. DarSun.</li>
-            </ul>
+            <p style="color: var(--text-muted); line-height: 1.8;">Сейчас способы оплаты не подключены, поэтому новые заказы и пополнение кошелька временно недоступны. Мы сообщим, когда оплата станет доступна.</p>
         </div>
     </main>
 
@@ -79,14 +75,15 @@
                     <img src="assets/images/logo_full.png" alt="Dr. DarSun">
                     <span class="footer__brand-text">Dr. DarSun</span>
                 </div>
-                <p class="footer__desc">Премиальные растительные масла. Сделано с душой.</p>
+                <p class="footer__desc">Растительные масла и продукты из семян. Сделано с душой.</p>
             </div>
             <div class="footer__col">
                 <h4>Покупателям</h4>
                 <a href="catalog.html">Каталог</a>
-                <a href="oil-catalog.html">Справочник масел</a>
+                <a href="oil-catalog.html">Энциклопедия продуктов</a>
                 <a href="delivery.html">Доставка</a>
                 <a href="about.html">О нас</a>
+                <a href="courier-login.html">Курьер</a>
             </div>
             <div class="footer__col">
                 <h4>Контакты</h4>
@@ -94,9 +91,9 @@
                 <div class="socials">
                     <a href="https://vk.ru/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="ВКонтакте"><img class="theme-asset-light" src="assets/images/vk.png" alt="ВКонтакте"><img class="theme-asset-dark" src="assets/images/vk_dark.png" alt=""></a>
                     <a href="https://t.me/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="Telegram"><img class="theme-asset-light" src="assets/images/telegram.png" alt="Telegram"><img class="theme-asset-dark" src="assets/images/telegram_dark.png" alt=""></a>
-                    <a href="https://www.instagram.com/drdarsun/" target="_blank" rel="noopener noreferrer" class="social-link">Instagram*</a>
+                    <span class="social-link">Instagram*</span>
                 </div>
-                <p class="social-disclaimer">* Instagram — продукт Meta, организации, деятельность которой запрещена на территории РФ. Аккаунт ведётся с соблюдением требований законодательства РФ.</p>
+                <p class="social-disclaimer">* Instagram — сервис Meta Platforms Inc., признанной экстремистской организацией; её деятельность запрещена на территории РФ.</p>
             </div>
         </div>
         <div class="footer__bottom">
@@ -105,9 +102,10 @@
     </footer>
 
     <script type="module" src="js/main.js"></script>
-    <script src="js/burger.js"></script>
-    <script type="module" src="js/auth-header.js"></script>
-    <script src="js/preloader.js"></script>
-    <script src="js/site-status.js"></script>
+    <script src="js/burger.js?v=production-nav-2"></script>
+    <script type="module" src="js/auth-header.js?v=site-toast-singleton-1"></script>
+    <script src="js/preloader.js?v=asset-load-optimization-1"></script>
+    <script src="js/site-status.js?v=service-timeouts-2"></script>
+    <script type="module" src="js/temporary-payment-notice.js?v=service-timeouts-2"></script>
 </body>
 </html>

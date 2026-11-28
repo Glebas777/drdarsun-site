@@ -16,11 +16,15 @@ const sortSelect = document.getElementById('sort-select');
 const searchInput = document.getElementById('catalog-search');
 const resultCount = document.getElementById('catalog-result-count');
 const demoNotice = document.getElementById('catalog-demo-notice');
+const productTypeButtons = [...document.querySelectorAll('[data-product-type]')];
 
 let allProducts = [];
 let filteredProducts = [];
 let favoriteUserId = null;
 let favoriteIds = new Set();
+const allowedProductTypes = new Set(['all', 'oil', 'urbech', 'hummus', 'milk', 'other']);
+let selectedProductType = new URLSearchParams(window.location.search).get('type') || 'all';
+if (!allowedProductTypes.has(selectedProductType)) selectedProductType = 'all';
 
 function setFiltersOpen(open) {
     filtersSidebar?.classList.toggle('active', open);
@@ -42,6 +46,15 @@ function getSelectedCategories() {
     return selected.includes('all') ? [] : selected;
 }
 
+function getProductType(product) {
+    const text = `${product.category || ''} ${product.name || ''}`.toLocaleLowerCase('ru-RU');
+    if (/(хумус|hummus|нутовая паста)/i.test(text)) return 'hummus';
+    if (/(урбеч|urbech|паста из семян)/i.test(text)) return 'urbech';
+    if (/(растительн.{0,10}молок|plant.?milk|растительный напиток)/i.test(text)) return 'milk';
+    if (/(масл|oil)/i.test(text)) return 'oil';
+    return 'other';
+}
+
 function applyFilters() {
     const selectedCategories = getSelectedCategories();
     const maxPrice = Number(priceRange?.value ?? Number.MAX_SAFE_INTEGER);
@@ -51,14 +64,23 @@ function applyFilters() {
     filteredProducts = allProducts.filter((product) => {
         const category = String(product.category ?? '').trim();
         const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(category);
+        const matchesType = selectedProductType === 'all' || getProductType(product) === selectedProductType;
         const matchesPrice = Number(product.price) <= maxPrice;
-        const searchableText = `${product.name ?? ''} ${product.description ?? ''} ${product.category ?? ''}`
+        const searchableText = [
+            product.name,
+            product.description,
+            product.category,
+            product.volume,
+            product.packaging_type,
+            product.pressing_type
+        ].filter(Boolean).join(' ')
             .toLocaleLowerCase('ru-RU');
-        return matchesCategory && matchesPrice && (!query || searchableText.includes(query));
+        return matchesCategory && matchesType && matchesPrice && (!query || searchableText.includes(query));
     });
 
     if (sort === 'price-asc') filteredProducts.sort((a, b) => Number(a.price) - Number(b.price));
     if (sort === 'price-desc') filteredProducts.sort((a, b) => Number(b.price) - Number(a.price));
+    if (sort === 'name-asc') filteredProducts.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ru'));
     renderProducts();
 }
 
@@ -153,7 +175,7 @@ function createProductCard(product, index) {
     footer.className = 'product-card__footer';
 
     const price = document.createElement('strong');
-    const numericPrice = Number(product.price);
+    const numericPrice = product.price == null || product.price === '' ? Number.NaN : Number(product.price);
     price.className = 'product-card__price';
     price.textContent = Number.isFinite(numericPrice)
         ? `${new Intl.NumberFormat('ru-RU').format(numericPrice)} ₽`
@@ -183,6 +205,18 @@ function createProductCard(product, index) {
     footer.append(price, addButton);
     info.append(category, title);
     if (product.description) info.appendChild(description);
+    const metadata = [product.volume, product.packaging_type, product.pressing_type]
+        .filter(value => typeof value === 'string' && value.trim());
+    if (metadata.length) {
+        const meta = document.createElement('div');
+        meta.className = 'product-card__meta';
+        for (const value of metadata) {
+            const item = document.createElement('span');
+            item.textContent = value.trim();
+            meta.appendChild(item);
+        }
+        info.appendChild(meta);
+    }
     info.appendChild(footer);
     card.append(media, info);
 
@@ -264,12 +298,29 @@ function resetFilters() {
     });
     if (priceRange) priceRange.value = priceRange.max;
     if (priceValue) priceValue.textContent = `${new Intl.NumberFormat('ru-RU').format(Number(priceRange?.value || 0))} ₽`;
+    selectedProductType = 'all';
+    productTypeButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.productType === 'all')));
     applyFilters();
 }
+
+productTypeButtons.forEach(button => {
+    button.setAttribute('aria-pressed', String(button.dataset.productType === selectedProductType));
+    button.addEventListener('click', () => {
+        selectedProductType = button.dataset.productType || 'all';
+        productTypeButtons.forEach(option => {
+            option.setAttribute('aria-pressed', String(option === button));
+        });
+        applyFilters();
+    });
+});
 
 function renderCategories(products) {
     if (!categoryFilters) return;
     const categories = [...new Set(products.map(product => String(product.category ?? '').trim()).filter(Boolean))];
+    const categoryCounts = new Map(categories.map(category => [
+        category,
+        products.filter(product => String(product.category ?? '').trim() === category).length
+    ]));
     categoryFilters.replaceChildren();
 
     const allLabel = document.createElement('label');
@@ -278,16 +329,22 @@ function renderCategories(products) {
     allInput.className = 'filter-category';
     allInput.value = 'all';
     allInput.checked = true;
-    allLabel.append(allInput, document.createTextNode('Все товары'));
+    const allCount = document.createElement('span');
+    allCount.className = 'filter-category-count';
+    allCount.textContent = String(products.length);
+    allLabel.append(allInput, document.createTextNode('Все товары'), allCount);
     categoryFilters.appendChild(allLabel);
 
     categories.forEach((category) => {
         const label = document.createElement('label');
         const input = document.createElement('input');
+        const count = document.createElement('span');
         input.type = 'checkbox';
         input.className = 'filter-category';
         input.value = category;
-        label.append(input, document.createTextNode(category));
+        count.className = 'filter-category-count';
+        count.textContent = String(categoryCounts.get(category));
+        label.append(input, document.createTextNode(category), count);
         categoryFilters.appendChild(label);
     });
 
@@ -328,7 +385,7 @@ async function loadProducts() {
     let data;
     let error;
     try {
-        ({ data, error } = await supabase.from('products').select('*'));
+        ({ data, error } = await supabase.from('products').select('*').limit(300));
     } catch (loadError) {
         error = loadError;
     }
@@ -356,10 +413,10 @@ async function loadProducts() {
         demoNotice.textContent = demosRetired
             ? ''
             : error
-                ? 'Не удалось загрузить реальные товары. Ниже показаны 3 демо-примера; они не продаются.'
+                ? `Не удалось загрузить реальные товары. Ниже показаны ${SAMPLE_PRODUCTS.length} демонстрационных карточек; они не продаются.`
                 : usingDemoProducts
-                    ? 'Реальные товары пока не опубликованы. Ниже показаны 3 демо-примера; они не продаются.'
-                    : 'Внизу каталога — 3 демо-примера. Они нужны для показа оформления и недоступны для заказа.';
+                    ? `Реальные товары пока не опубликованы. Ниже показаны ${SAMPLE_PRODUCTS.length} демонстрационных карточек; они не продаются.`
+                    : `Внизу каталога — ${SAMPLE_PRODUCTS.length} демонстрационных карточек. Они показывают оформление и недоступны для заказа.`;
     }
     if (error) console.error('Catalog load error:', error);
 
@@ -395,100 +452,3 @@ async function loadProducts() {
 // Demo products remain visible only until the first real product is published.
 loadProducts();
 updateCartCount();
-
-// Чат каталога использует тот же серверный endpoint, что и чат на главной.
-const botToggle = document.getElementById('catalog-bot-toggle');
-const botModal = document.getElementById('catalog-bot-modal');
-const botClose = document.getElementById('catalog-bot-close');
-const chatMessages = document.getElementById('catalog-chat-messages');
-const chatInput = document.getElementById('catalog-chat-input');
-const chatSend = document.getElementById('catalog-chat-send');
-const chatHistory = [];
-let chatBusy = false;
-const catalogStickers = new Map([
-    [':hello:', 'assets/images/hello.png'],
-    [':hooray:', 'assets/images/hooray.png'],
-    [':ok:', 'assets/images/ok.png'],
-    [':oops:', 'assets/images/oops.png'],
-    [':question:', 'assets/images/question.png'],
-    [':eat:', 'assets/images/eat.png']
-]);
-
-function appendChatMessage(text, sender) {
-    const wrapper = document.createElement('div');
-    wrapper.className = `msg-wrapper ${sender}`;
-    const message = document.createElement('div');
-    message.className = 'msg';
-    const stickerPattern = /:(?:hello|hooray|ok|oops|question|eat):/g;
-    let cursor = 0;
-    for (const match of text.matchAll(stickerPattern)) {
-        message.append(document.createTextNode(text.slice(cursor, match.index)));
-        const image = document.createElement('img');
-        image.className = 'msg-sticker-img';
-        image.src = catalogStickers.get(match[0]);
-        image.alt = match[0].slice(1, -1);
-        image.width = 64;
-        image.height = 64;
-        message.appendChild(image);
-        cursor = match.index + match[0].length;
-    }
-    message.append(document.createTextNode(text.slice(cursor)));
-    wrapper.appendChild(message);
-    chatMessages.appendChild(wrapper);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-    return wrapper;
-}
-
-function setChatOpen(open) {
-    botModal?.classList.toggle('active', open);
-    botToggle?.setAttribute('aria-expanded', String(open));
-    if (open) chatInput?.focus();
-}
-
-botToggle?.addEventListener('click', () => {
-    if (!botModal) return;
-    setChatOpen(!botModal.classList.contains('active'));
-});
-botClose?.addEventListener('click', () => setChatOpen(false));
-
-async function sendCatalogMessage() {
-    const text = chatInput?.value.trim();
-    if (!text || chatBusy || !chatMessages || !chatSend) return;
-
-    chatBusy = true;
-    chatSend.disabled = true;
-    chatInput.value = '';
-    appendChatMessage(text, 'user');
-    const typing = appendChatMessage('Доктор ДарСан печатает…', 'bot');
-
-    try {
-        const response = await fetch('https://drdarsun-site-main.layero.app/api/gigachat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: text, history: chatHistory.slice(-6), context: 'catalog' })
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Сервис временно недоступен.');
-        if (typeof data.reply !== 'string' || !data.reply.trim()) throw new Error('Не удалось получить ответ.');
-
-        typing.remove();
-        appendChatMessage(data.reply.trim(), 'bot');
-        chatHistory.push({ role: 'user', content: text }, { role: 'assistant', content: data.reply.trim() });
-        if (chatHistory.length > 12) chatHistory.splice(0, chatHistory.length - 12);
-    } catch (error) {
-        typing.remove();
-        appendChatMessage(error.message || 'Не удалось связаться с помощником. Попробуйте позже.', 'bot');
-    } finally {
-        chatBusy = false;
-        chatSend.disabled = false;
-        chatInput?.focus();
-    }
-}
-
-chatSend?.addEventListener('click', sendCatalogMessage);
-chatInput?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        sendCatalogMessage();
-    }
-});

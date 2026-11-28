@@ -4,20 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dr. DarSun | Сброс пароля</title>
-    <link rel="stylesheet" href="css/base.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.js"></script>
+    <link rel="stylesheet" href="css/base.css?v=chat-ui-fix-1">
+    <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/auth-mobile.css">
 </head>
-<body style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg-color); margin: 0;">
-    <div style="background: var(--bg-card); border: 1px solid var(--border); padding: 40px; border-radius: 24px; max-width: 400px; width: 90%; text-align: center;">
+<body class="auth-page standalone-auth-page">
+    <main class="standalone-auth-card">
         <h2 style="color: var(--text-main); margin-bottom: 20px;">Новый пароль</h2>
         <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 14px;">Введите новый пароль для входа.</p>
         
         <form id="reset-form" style="display: flex; flex-direction: column; gap: 15px;">
-            <input type="password" id="reset-password" placeholder="Минимум 12 символов" minlength="12" autocomplete="new-password" required style="padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-color); color: var(--text-main); outline: none;">
+            <input type="password" id="reset-password" placeholder="Минимум 12 символов" minlength="12" maxlength="128" autocomplete="new-password" required style="padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-color); color: var(--text-main); outline: none;">
             <button type="submit" id="reset-btn" style="padding: 12px; border-radius: 8px; background: #D4AF37; color: #000; border: none; font-weight: bold; cursor: pointer;">Сменить пароль</button>
         </form>
         <div id="reset-message" role="status" aria-live="polite" style="margin-top: 20px; color: #F44336;"></div>
-    </div>
+    </main>
 
     <script type="module">
         import { supabase } from './js/supabase-client.js';
@@ -32,11 +33,21 @@
             const params = new URLSearchParams(window.location.search);
             const tokenHash = params.get('token_hash');
             const code = params.get('code');
+            const fragment = new URLSearchParams(window.location.hash.slice(1));
+            const accessToken = fragment.get('access_token');
+            const refreshToken = fragment.get('refresh_token');
+            const fragmentType = fragment.get('type');
+            window.history.replaceState({}, document.title, window.location.pathname);
             let error;
             if (tokenHash) {
                 ({ error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' }));
             } else if (code) {
                 ({ error } = await supabase.auth.exchangeCodeForSession(code));
+            } else if (accessToken && refreshToken && fragmentType === 'recovery') {
+                ({ error } = await supabase.auth.setSession({
+                    access_token: accessToken,
+                    refresh_token: refreshToken
+                }));
             } else {
                 throw new Error('Ссылка восстановления неполная или устарела. Запросите новую.');
             }
@@ -45,8 +56,11 @@
             message.textContent = 'Введите новый пароль.';
             message.style.color = '#4CAF50';
         } catch (error) {
-            message.textContent = `Не удалось подтвердить ссылку: ${error.message}`;
-            form.hidden = true;
+            const expired = /expired|invalid|otp_expired|неполная|устарела/i.test(`${error?.message || ''} ${error?.code || ''}`);
+            message.textContent = expired
+                ? 'Ссылка недействительна или истекла. Запросите новое письмо для восстановления пароля.'
+                : 'Не удалось проверить ссылку восстановления. Проверьте соединение и запросите новое письмо.';
+            form.style.display = 'none';
         }
 
         form.addEventListener('submit', async event => {
@@ -61,14 +75,18 @@
                 if (error) throw error;
                 message.style.color = '#4CAF50';
                 message.textContent = 'Пароль изменён. Перенаправляем на вход…';
-                setTimeout(() => window.location.href = 'login.html', 2000);
+                setTimeout(() => window.location.replace('login.html'), 2000);
             } catch (error) {
-                message.textContent = `Ошибка: ${error.message}`;
+                const knownValidationError = /^(Пароль должен|Добавьте заглавную|Этот пароль найден|Не удалось проверить пароль)/.test(error.message || '');
+                message.textContent = knownValidationError
+                    ? error.message
+                    : 'Не удалось изменить пароль. Проверьте ссылку и попробуйте ещё раз.';
                 button.disabled = false;
                 button.textContent = 'Сменить пароль';
             }
         });
     </script>
-    <script src="js/site-status.js"></script>
+    <script src="js/site-status.js?v=service-timeouts-2"></script>
+    <script type="module" src="js/temporary-payment-notice.js?v=service-timeouts-2"></script>
 </body>
 </html>

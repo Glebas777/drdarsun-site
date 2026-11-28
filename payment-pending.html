@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="Заказ Dr. DarSun ожидает подтверждения.">
+    <title>Платёж в обработке | Dr. DarSun</title>
+    <link rel="stylesheet" href="css/base.css?v=chat-ui-fix-1">
+    <link rel="stylesheet" href="css/payment-result.css?v=payment-pages-1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <main class="payment-result payment-result--pending">
+        <div class="payment-result__card">
+            <div class="payment-result__icon" aria-hidden="true"><svg viewBox="0 0 64 64"><circle cx="32" cy="33" r="21"/><path d="M32 20v14l9 6M25 5h14"/></svg></div>
+            <p class="eyebrow">DR. DARSUN · ЗАКАЗ</p>
+            <h1>Платёж в обработке</h1>
+            <p class="payment-result__lead" data-payment-message>Проверяем подтверждение платежа. Не оплачивайте заказ повторно, если платёж уже прошёл.</p>
+            <p class="payment-result__order" data-order-number hidden></p>
+            <div class="payment-result__actions">
+                <a class="btn btn--primary" href="index.html">На главную</a>
+                <a class="btn payment-result__secondary" href="profile.html">Проверить заказ в профиле</a>
+            </div>
+        </div>
+    </main>
+    <script type="module" src="js/payment-result.js?v=payment-pages-1"></script>
+</body>
+</html>

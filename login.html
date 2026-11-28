@@ -10,20 +10,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="css/base.css">
-    <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/base.css?v=chat-ui-fix-1">
+    <link rel="stylesheet" href="css/auth.css?v=telegram-account-auth-1">
     <link rel="stylesheet" href="css/auth-mobile.css">
     
-    <style>
-        .auth-container { max-width: 420px; margin: 0 auto; padding: 20px; }
-        .input-with-btn { position: relative; display: flex; align-items: center; }
-        .input-with-btn input { padding-right: 50px; }
-        .send-code-btn { position: absolute; right: 10px; background: transparent; border: none; color: #D4AF37; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; }
-        .send-code-btn:hover { transform: scale(1.1); }
-        #verify-block { display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #2A2A2A; }
-        .verify-title { color: #D4AF37; font-size: 14px; margin-bottom: 10px; text-align: center; }
-        .verify-code-input { width: 100%; padding: 15px; background: #0A0A0A; border: 1px solid #2A2A2A; border-radius: 12px; color: #fff; text-align: center; font-size: 24px; letter-spacing: 10px; outline: none; margin-bottom: 15px; }
-    </style>
 </head>
 <body class="auth-page">
 
@@ -55,49 +45,45 @@
             <!-- ФОРМА ВХОДА -->
             <form id="login-form" class="auth-form">
                 <div class="input-group">
-                    <label>Email</label>
-                    <input type="email" id="login-email" placeholder="your@email.com" required>
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" name="email" placeholder="your@email.com" autocomplete="username" maxlength="254" required>
                 </div>
                 <div class="input-group">
-                    <label>Пароль</label>
-                    <input type="password" id="login-password" placeholder="••••••••" required>
+                    <label for="login-password">Пароль</label>
+                    <input type="password" id="login-password" name="password" placeholder="••••••••" autocomplete="current-password" maxlength="128" required>
                 </div>
                 <div id="captcha-login" class="auth-captcha" data-turnstile data-action="login" hidden></div>
+                <p id="login-message" class="auth-inline-error" role="status" aria-live="polite" hidden></p>
                 <div class="login-actions">
-                    <button type="submit" class="btn btn--primary btn--full">Войти</button>
+                    <button type="submit" class="btn btn--primary btn--full auth-submit-btn">
+                        <span class="auth-submit-btn__label">Войти</span>
+                        <img class="auth-submit-btn__seed" src="assets/images/sunflower2.png" alt="" aria-hidden="true">
+                    </button>
                 </div>
 <div class="login-extra-links">
     <a href="#" id="forgot-password">Забыли пароль?</a>
-    <a href="#" id="telegram-login-trigger">Войти по коду из Telegram</a>
-    <a href="#" id="backup-code-login">Вход по резервному коду</a>
-    <a href="#" id="qr-login-trigger">Вход по QR-коду</a>
 </div>
             </form>
 
-            <form id="telegram-auth-form" class="auth-form" style="display: none;">
-                <p id="telegram-auth-description" class="auth-inline-error" style="display: block;">Укажите username Telegram, привязанный к аккаунту. Код придёт в Telegram.</p>
-                <div class="input-group">
-                    <label for="telegram-auth-username">Telegram username</label>
-                    <input type="text" id="telegram-auth-username" placeholder="@username" autocomplete="username" minlength="5" maxlength="33" required>
+            <details class="auth-more-options">
+                <summary>Ещё способы входа</summary>
+                <div class="auth-more-options__content">
+                    <a href="#" id="backup-code-login">Вход по резервному коду</a>
+                    <a href="#" id="qr-login-trigger">Вход по QR-коду</a>
+                    <a href="courier-login.html">Вход для курьера</a>
+                    <a href="#" id="client-bot-link" data-telegram-bot-link="client" hidden target="_blank" rel="noopener noreferrer">Открыть Telegram-бот</a>
+                    <button type="button" class="passkey-login-btn" id="btn-passkey">Войти с Passkey · Face ID</button>
                 </div>
-                <div class="login-actions">
-                    <button type="button" class="btn btn--primary btn--full" id="telegram-auth-send">Отправить код</button>
-                </div>
-                <div class="input-group" id="telegram-auth-code-group" hidden>
-                    <label for="telegram-auth-code">Код из Telegram</label>
-                    <input type="text" id="telegram-auth-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,12}" minlength="6" maxlength="12">
-                </div>
-                <div class="login-actions" id="telegram-auth-verify-actions" hidden>
-                    <button type="submit" class="btn btn--primary btn--full" id="telegram-auth-verify">Подтвердить код</button>
-                </div>
-                <div class="input-group" id="telegram-new-password-group" hidden>
-                    <label for="telegram-new-password">Новый пароль</label>
-                    <input type="password" id="telegram-new-password" minlength="12" autocomplete="new-password" placeholder="Минимум 12 символов">
-                    <button type="button" class="btn btn--primary btn--full" id="telegram-new-password-save">Сохранить новый пароль</button>
-                </div>
-                <a href="#" id="telegram-auth-back" style="display: block; text-align: center; margin-top: 15px; color: #888;">Вернуться ко входу</a>
-                <p id="telegram-auth-status" class="auth-inline-error" role="status" aria-live="polite" hidden></p>
-            </form>
+            </details>
+
+            <button type="button" id="telegram-login-trigger" class="telegram-login-cta">
+                <span class="telegram-login-cta__icon" aria-hidden="true">➤</span>
+                <span class="telegram-login-cta__copy">
+                    <strong>Войти через Telegram</strong>
+                    <small>Одноразовый код в привязанный аккаунт</small>
+                </span>
+                <span class="telegram-login-cta__arrow" aria-hidden="true">↗</span>
+            </button>
 
             <form id="recovery-code-form" class="auth-form" style="display: none;">
                 <div class="input-group">
@@ -113,23 +99,24 @@
             <!-- ФОРМА ВОССТАНОВЛЕНИЯ -->
             <form id="forgot-form" class="auth-form" style="display: none;">
                 <div class="input-group">
-                    <label>Email</label>
-                    <input type="email" id="forgot-email" placeholder="your@email.com" required>
+                    <label for="forgot-email">Email</label>
+                    <input type="email" id="forgot-email" name="email" placeholder="your@email.com" autocomplete="email" maxlength="254" required>
                 </div>
                 <div id="captcha-forgot" class="auth-captcha" data-turnstile data-action="password_reset" hidden></div>
+                <p id="forgot-message" class="auth-inline-error" role="status" aria-live="polite" hidden></p>
                 <div class="login-actions">
                     <button type="submit" class="btn btn--primary btn--full">Отправить ссылку</button>
                 </div>
-                <button type="button" class="btn btn--full telegram-recovery-trigger" id="telegram-recovery-trigger">Восстановить через Telegram</button>
                 <a href="#" id="back-to-login" style="display: block; text-align: center; margin-top: 15px; color: #888;">Вернуться ко входу</a>
             </form>
 
             <!-- ФОРМА 2FA -->
             <form id="mfa-form" class="auth-form" style="display: none;">
                 <div class="input-group">
-                    <label>Код 2FA</label>
-                    <input type="text" id="mfa-code" placeholder="000000" maxlength="6" required>
+                    <label for="mfa-code">Код 2FA</label>
+                    <input type="text" id="mfa-code" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" maxlength="6" required>
                 </div>
+                <p id="mfa-message" class="auth-inline-error" role="status" aria-live="polite" hidden></p>
                 <div class="login-actions">
                     <button type="submit" class="btn btn--primary btn--full">Подтвердить</button>
                 </div>
@@ -147,8 +134,6 @@
     </div>
     <a href="#" id="back-to-login-from-otp" style="display: block; text-align: center; margin-top: 15px; color: #888;">Назад</a>
 </form>
-
-            <button type="button" class="passkey-login-btn" id="btn-passkey">Войти с Passkey · Face ID</button>
 
             <div class="auth-divider">
                 <span>или войти через</span>
@@ -176,8 +161,27 @@
         </div>
     </div>
 
-    <!-- Модалка для QR-входа -->
-<div id="qr-login-modal" class="qr-login-modal" aria-hidden="true">
+    <div id="telegram-login-modal" class="qr-login-modal" aria-hidden="true">
+        <section class="telegram-login-dialog" role="dialog" aria-modal="true" aria-labelledby="telegram-login-title">
+            <span class="qr-login-eyebrow">ОДНОРАЗОВЫЙ ЗАЩИЩЁННЫЙ КОД</span>
+            <h3 id="telegram-login-title">Вход через Telegram</h3>
+            <p class="qr-login-description">Откройте клиентского бота по кнопке ниже. Код придёт только в уже привязанный к вашему аккаунту Telegram.</p>
+            <a id="telegram-login-open" class="telegram-login-open" href="#" target="_blank" rel="noopener noreferrer" hidden>
+                <span aria-hidden="true">➤</span> Открыть Dr. DarSun в Telegram
+            </a>
+            <form id="telegram-login-code-form" class="telegram-login-code-form" hidden>
+                <label for="telegram-login-code-input">Шестизначный код из Telegram</label>
+                <input id="telegram-login-code-input" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
+                <button class="btn btn--primary btn--full" type="submit">Подтвердить и войти</button>
+            </form>
+            <p id="telegram-login-status" class="qr-login-status" aria-live="polite">Создаём защищённый запрос…</p>
+            <p id="telegram-login-expiry" class="telegram-login-expiry" hidden></p>
+            <button id="telegram-login-close" class="btn qr-login-close" type="button">Закрыть</button>
+        </section>
+    </div>
+
+        <!-- Модалка для QR-входа -->
+    <div id="qr-login-modal" class="qr-login-modal" aria-hidden="true">
     <section class="qr-login-dialog" role="dialog" aria-modal="true" aria-labelledby="qr-login-title">
         <span class="qr-login-eyebrow">БЫСТРО И БЕЗОПАСНО</span>
         <h3 id="qr-login-title">Вход по QR-коду</h3>
@@ -211,8 +215,9 @@
     </script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <script type="module" src="js/auth.js"></script>
-    <script src="js/burger.js"></script>
-    <script src="js/site-status.js"></script>
+    <script type="module" src="js/auth.js?v=auth-flow-3"></script>
+    <script src="js/burger.js?v=production-nav-2"></script>
+    <script src="js/site-status.js?v=service-timeouts-2"></script>
+    <script type="module" src="js/temporary-payment-notice.js?v=service-timeouts-2"></script>
 </body>
 </html>

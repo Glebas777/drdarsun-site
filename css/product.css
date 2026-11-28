@@ -194,6 +194,18 @@
     font-size: 11px;
 }
 
+.product-mascot-tip { display: grid; grid-template-columns: 58px minmax(0, 1fr) 40px; align-items: center; gap: 12px; margin-top: 20px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 16px; background: color-mix(in srgb, var(--accent-green) 5%, var(--bg-card)); }
+.product-mascot-tip > img { width: 56px; height: 64px; object-fit: contain; animation: mascot-tip-bob 3.8s ease-in-out infinite; }
+.product-mascot-tip .eyebrow { margin: 0 0 3px; font-size: 9px; }
+.product-mascot-tip h2 { margin: 0 0 4px; font-size: 14px; }
+.product-mascot-tip p:last-child { margin: 0; color: var(--text-muted); font-size: 11px; line-height: 1.55; }
+.product-mascot-tip__next { width: 38px; height: 38px; }
+.product-mascot-tip__next svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.dark-theme .product-mascot-tip__next { color: var(--accent-gold); }
+@media (prefers-reduced-motion: reduce) {
+    .product-mascot-tip > img { animation: none; }
+}
+
 .product-trust-note span {
     margin-right: 5px;
     color: var(--accent-gold);
@@ -217,6 +229,67 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
     gap: 14px;
+}
+
+.product-review-form-card {
+    display: grid;
+    gap: 12px;
+    max-width: 680px;
+    margin-top: 24px;
+    padding: 22px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--accent-green) 4%, var(--bg-card));
+}
+
+.product-review-form-card h3 {
+    margin: 0;
+    font-size: 19px;
+}
+
+.product-review-form-card__hint {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.product-review-form {
+    display: grid;
+    gap: 10px;
+}
+
+.product-review-form[hidden],
+#product-review-login-link[hidden] {
+    display: none;
+}
+
+.product-review-form label {
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.product-review-form input,
+.product-review-form select,
+.product-review-form textarea {
+    width: 100%;
+    min-height: 44px;
+    padding: 11px 13px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-card);
+    color: var(--text-main);
+    font: inherit;
+}
+
+.product-review-form textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.product-review-form :focus-visible {
+    outline: 2px solid var(--accent-gold);
+    outline-offset: 2px;
 }
 
 .product-review {

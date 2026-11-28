@@ -10,20 +10,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/base.css?v=chat-ui-fix-1">
     <link rel="stylesheet" href="css/auth.css">
     <link rel="stylesheet" href="css/auth-mobile.css">
     
-    <style>
-        .auth-container { max-width: 420px; margin: 0 auto; padding: 20px; }
-        .input-with-btn { position: relative; display: flex; align-items: center; }
-        .input-with-btn input { padding-right: 50px; }
-        .send-code-btn { position: absolute; right: 10px; background: transparent; border: none; color: #D4AF37; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; }
-        .send-code-btn:hover { transform: scale(1.1); }
-        #verify-block { display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #2A2A2A; }
-        .verify-title { color: #D4AF37; font-size: 14px; margin-bottom: 10px; text-align: center; }
-        .verify-code-input { width: 100%; padding: 15px; background: #0A0A0A; border: 1px solid #2A2A2A; border-radius: 12px; color: #fff; text-align: center; font-size: 24px; letter-spacing: 10px; outline: none; margin-bottom: 15px; }
-    </style>
 </head>
 <body class="auth-page">
 
@@ -52,33 +42,26 @@
 
             <form id="register-form" class="auth-form">
                 <div class="input-group">
-                    <label>Имя</label>
-                    <input type="text" id="reg-name" placeholder="Ваше имя" required>
+                    <label for="reg-name">Имя</label>
+                    <input type="text" id="reg-name" name="name" placeholder="Ваше имя" autocomplete="name" maxlength="100" required>
                 </div>
                 <div class="input-group">
-                    <label>Email</label>
-                    <div class="input-with-btn">
-                        <input type="email" id="reg-email" placeholder="your@email.com" required>
-                        <button type="button" id="send-code-btn" class="send-code-btn" title="Отправить код">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-                        </button>
-                    </div>
+                    <label for="reg-email">Email</label>
+                    <input type="email" id="reg-email" name="email" placeholder="your@email.com" autocomplete="email" maxlength="254" required>
                 </div>
                 <div class="input-group">
-                    <label>Пароль</label>
-                    <input type="password" id="reg-password" placeholder="Минимум 12 символов" minlength="12" autocomplete="new-password" required>
+                    <label for="reg-password">Пароль</label>
+                    <input type="password" id="reg-password" name="new-password" placeholder="Минимум 12 символов" minlength="12" maxlength="128" autocomplete="new-password" required>
                 </div>
                 <div id="captcha-register" class="auth-captcha" data-turnstile data-action="sign_up" hidden></div>
-
-                <!-- Блок подтверждения -->
-                <div id="verify-block">
-                    <p class="verify-title">Введите 4-значный код из письма</p>
-                    <input type="text" id="verify-code" class="verify-code-input" placeholder="0000" maxlength="4">
-                    <button type="button" id="verify-btn" class="btn btn--primary btn--full" style="background: #4CAF50; color: #fff; border: none;">Подтвердить почту</button>
-                </div>
+                <p id="register-message" class="auth-inline-error" role="status" aria-live="polite" hidden></p>
+                <button id="resend-confirmation" class="auth-resend-button" type="button" hidden>Отправить письмо ещё раз</button>
 
                 <div class="login-actions">
-                    <button type="submit" class="btn btn--primary btn--full" id="submit-register" style="display: none;">Зарегистрироваться</button>
+                    <button type="submit" class="btn btn--primary btn--full auth-submit-btn" id="submit-register">
+                        <span class="auth-submit-btn__label">Зарегистрироваться</span>
+                        <img class="auth-submit-btn__seed" src="assets/images/sunflower2.png" alt="" aria-hidden="true">
+                    </button>
                 </div>
             </form>
 
@@ -96,7 +79,15 @@
                     Google
                 </button>
             </div>
-            
+
+            <details class="auth-more-options">
+                <summary>Ещё</summary>
+                <div class="auth-more-options__content">
+                    <a href="courier-login.html">Вход для курьера</a>
+                    <a href="#" id="client-bot-link" data-telegram-bot-link="client" hidden target="_blank" rel="noopener noreferrer">Открыть Telegram-бот</a>
+                </div>
+            </details>
+
             <div class="auth-footer">
                 <p>Уже есть аккаунт? <a href="login.html">Войти</a></p>
             </div>
@@ -118,8 +109,9 @@
             }, 10000);
         });
     </script>
-    <script type="module" src="js/auth.js"></script>
-    <script src="js/burger.js"></script>
-    <script src="js/site-status.js"></script>
+    <script type="module" src="js/auth.js?v=auth-flow-3"></script>
+    <script src="js/burger.js?v=production-nav-2"></script>
+    <script src="js/site-status.js?v=service-timeouts-2"></script>
+    <script type="module" src="js/temporary-payment-notice.js?v=service-timeouts-2"></script>
 </body>
 </html>

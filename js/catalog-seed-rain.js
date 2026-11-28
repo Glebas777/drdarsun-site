@@ -1,4 +1,3 @@
-const canvas = document.getElementById('catalog-seed-rain');
 const catalog = canvas?.closest('.catalog-main');
 
 if (canvas instanceof HTMLCanvasElement && catalog) {

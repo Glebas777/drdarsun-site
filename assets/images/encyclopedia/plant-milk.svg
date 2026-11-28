@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">
+  <style>
+    .leaf { transform-box: fill-box; transform-origin: 50% 100%; animation: sway 4.6s ease-in-out infinite; }
+    .nut { transform-box: fill-box; transform-origin: center; animation: float 3.5s ease-in-out infinite; }
+    .nut:nth-of-type(2n) { animation-delay: -1.2s; }
+    @keyframes sway { 0%,100% { transform: rotate(-2deg); } 50% { transform: rotate(3deg); } }
+    @keyframes float { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-6px) rotate(5deg); } }
+    @media (prefers-reduced-motion: reduce) { .leaf,.nut { animation: none; } }
+  </style>
+  <rect width="640" height="360" rx="28" fill="#edf0df"/>
+  <circle cx="492" cy="78" r="117" fill="#fbf8e9"/>
+  <ellipse cx="324" cy="307" rx="166" ry="22" fill="#9eaa83" opacity=".28"/>
+  <path d="M273 72h95v39l27 34v149c0 13-11 24-24 24H250c-13 0-24-11-24-24V145l27-34V72h20Z" fill="#fffdf3" stroke="#71815b" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M270 75h101v37H270z" rx="8" fill="#b8c395" stroke="#71815b" stroke-width="8"/>
+  <path d="M241 153h157v141H241z" fill="#eee7cf"/>
+  <path d="M267 194c22-21 77-21 103 0-24 23-81 23-103 0Z" fill="#a8b884"/>
+  <path d="M283 218c18-14 54-14 72 0-17 17-55 17-72 0Z" fill="#fbf8e9"/>
+  <g class="nut"><path d="M466 196c-23-23-57-10-60 17-4 30 28 46 51 31 18-12 25-31 9-48Z" fill="#c99855"/><path d="M441 196c-9 13-10 27-1 43" fill="none" stroke="#805c39" stroke-width="4" stroke-linecap="round"/></g>
+  <g class="nut"><path d="M506 247c-19-19-47-8-50 14-3 25 23 38 42 26 15-10 21-26 8-40Z" fill="#d3ad6f"/><path d="M485 247c-7 11-8 22-1 35" fill="none" stroke="#805c39" stroke-width="3" stroke-linecap="round"/></g>
+  <path class="leaf" d="M166 293c4-77 31-134 83-173" fill="none" stroke="#637d4d" stroke-width="8" stroke-linecap="round"/>
+  <g class="leaf" fill="#81975e"><ellipse cx="188" cy="230" rx="34" ry="13" transform="rotate(-33 188 230)"/><ellipse cx="216" cy="190" rx="36" ry="13" transform="rotate(-42 216 190)"/><ellipse cx="237" cy="155" rx="34" ry="13" transform="rotate(-30 237 155)"/></g>
+</svg>

@@ -1,3 +1,5 @@
 .wrangler/
 .env
 node_modules/
+database/*
+!database/*.sql

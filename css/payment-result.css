@@ -1,0 +1,16 @@
+.payment-result { display: grid; min-height: 100svh; place-items: center; padding: 28px 20px; background: radial-gradient(ellipse at 50% 0, color-mix(in srgb, var(--accent-gold) 12%, transparent), transparent 50%), var(--bg-color); }
+.payment-result__card { display: grid; width: min(100%, 620px); justify-items: center; gap: 14px; padding: clamp(26px, 6vw, 56px); border: 1px solid var(--border); border-radius: 28px; background: var(--bg-card); box-shadow: var(--shadow-soft); text-align: center; }
+.payment-result__icon { display: grid; width: 88px; height: 88px; place-items: center; border: 1px solid color-mix(in srgb, var(--accent-green) 38%, var(--border)); border-radius: 50%; background: color-mix(in srgb, var(--accent-green) 10%, var(--bg-card)); color: var(--accent-green); }
+.payment-result__icon svg { width: 48px; height: 48px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3; }
+.payment-result--fail .payment-result__icon { border-color: color-mix(in srgb, #c65347 40%, var(--border)); background: color-mix(in srgb, #c65347 10%, var(--bg-card)); color: #c65347; }
+.payment-result--pending .payment-result__icon { border-color: color-mix(in srgb, var(--accent-gold) 55%, var(--border)); background: color-mix(in srgb, var(--accent-gold) 12%, var(--bg-card)); color: color-mix(in srgb, var(--accent-gold) 74%, #806b22); }
+.payment-result .eyebrow { margin: 8px 0 0; }
+.payment-result h1 { margin: 0; font-size: clamp(30px, 7vw, 48px); letter-spacing: -.05em; }
+.payment-result__lead { max-width: 470px; margin: 0; color: var(--text-muted); font-size: 15px; line-height: 1.7; }
+.payment-result__order { margin: 0; padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px; color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.payment-result__actions { display: grid; width: min(100%, 360px); gap: 10px; margin-top: 8px; }
+.payment-result__secondary { border-color: var(--border); background: transparent; color: var(--text-main); }
+.payment-result__secondary:hover { border-color: var(--accent-gold); }
+.payment-result [hidden] { display: none !important; }
+@media (max-width: 360px) { .payment-result__card { padding-inline: 20px; border-radius: 20px; } .payment-result__lead { font-size: 14px; } }
+@media (prefers-reduced-motion: reduce) { .payment-result * { scroll-behavior: auto !important; transition-duration: .01ms !important; } }

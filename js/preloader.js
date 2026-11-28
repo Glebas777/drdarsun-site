@@ -24,11 +24,16 @@ function initializePreloader() {
             : hour >= 18 && hour < 23
                 ? 'bg-load_evening'
                 : 'bg-load_night';
-    document.getElementById(backgroundId)?.classList.add('active');
+    const activeBackground = document.getElementById(backgroundId);
+    if (activeBackground) {
+        activeBackground.style.backgroundImage = `url("${activeBackground.dataset.background}")`;
+        activeBackground.classList.add('active');
+    }
 
     const progressInterval = window.setInterval(() => {
         progress = Math.min(progress + 4, 88);
         if (progressBar) progressBar.style.width = `${progress}%`;
+        if (progress === 88) window.clearInterval(progressInterval);
     }, 100);
     const textInterval = text ? window.setInterval(() => {
         phraseIndex = (phraseIndex + 1) % phrases.length;

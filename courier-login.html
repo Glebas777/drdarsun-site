@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="Защищённый вход в рабочую панель курьера Dr. DarSun.">
+    <title>Вход для курьера | Dr. DarSun</title>
+    <link rel="stylesheet" href="css/base.css?v=chat-ui-fix-1">
+    <link rel="stylesheet" href="css/courier.css?v=courier-panel-1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <main class="courier-auth">
+        <a class="courier-back" href="index.html">← Dr. DarSun</a>
+        <form class="courier-auth__card" id="courier-login-form">
+            <p class="eyebrow">РАБОЧИЙ АККАУНТ</p>
+            <h1>Вход для курьера</h1>
+            <p class="courier-muted">Используйте выданные вам данные аккаунта курьера.</p>
+            <label for="courier-email">Почта</label>
+            <input id="courier-email" name="email" type="email" autocomplete="username" required maxlength="254">
+            <label for="courier-password">Пароль</label>
+            <input id="courier-password" name="password" type="password" autocomplete="current-password" required maxlength="128">
+            <p class="courier-auth__error" id="courier-login-error" role="alert" hidden></p>
+            <button class="btn btn--primary" type="submit">Войти в панель</button>
+        </form>
+    </main>
+    <script type="module" src="js/courier-login.js?v=courier-panel-1"></script>
+    <script src="js/site-status.js?v=service-timeouts-2"></script>
+</body>
+</html>

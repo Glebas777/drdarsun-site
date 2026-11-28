@@ -169,6 +169,110 @@
     box-shadow: var(--shadow-soft);
     transform: translateY(-1px);
 }
+
+.telegram-login-cta {
+    display: flex;
+    width: 100%;
+    min-height: 76px;
+    align-items: center;
+    gap: 14px;
+    margin-top: 20px;
+    padding: 14px 16px;
+    border: 1px solid color-mix(in srgb, var(--accent-gold) 54%, var(--border));
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at 0 0, color-mix(in srgb, var(--accent-gold) 20%, transparent), transparent 58%),
+        linear-gradient(115deg, color-mix(in srgb, var(--accent-green) 12%, var(--bg-card)), var(--bg-card));
+    color: var(--text-main);
+    text-align: left;
+    cursor: pointer;
+    box-shadow: 0 10px 28px rgba(31, 54, 35, .08);
+    transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+
+.telegram-login-cta:hover:not(:disabled) {
+    transform: translateY(-2px);
+    border-color: var(--accent-gold);
+    box-shadow: 0 14px 34px rgba(31, 54, 35, .14);
+}
+
+.telegram-login-cta:disabled { opacity: .65; cursor: wait; }
+.telegram-login-cta__icon,
+.telegram-login-open > span {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    place-items: center;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #39aee5, #1689c5);
+    color: white;
+    font-size: 19px;
+    box-shadow: 0 5px 16px rgba(22, 137, 197, .28);
+}
+
+.telegram-login-cta__copy { display: grid; flex: 1; gap: 4px; }
+.telegram-login-cta__copy strong { font-size: 14px; }
+.telegram-login-cta__copy small,
+.telegram-login-cta__arrow { color: var(--text-muted); font-size: 12px; }
+.telegram-login-cta__arrow { font-size: 20px; }
+
+.telegram-login-dialog {
+    width: min(100%, 440px);
+    padding: clamp(24px, 6vw, 36px);
+    border: 1px solid color-mix(in srgb, var(--accent-gold) 36%, var(--border));
+    border-radius: 28px;
+    background:
+        radial-gradient(circle at 100% 0, color-mix(in srgb, var(--accent-green) 10%, transparent), transparent 40%),
+        var(--bg-card);
+    color: var(--text-main);
+    box-shadow: 0 32px 90px rgba(0, 0, 0, .4);
+    animation: qr-dialog-in .22s ease-out;
+}
+
+.telegram-login-dialog h3 { margin: 10px 0; font-size: 25px; }
+.telegram-login-open {
+    display: flex;
+    min-height: 54px;
+    align-items: center;
+    gap: 12px;
+    margin: 18px 0;
+    padding: 8px 14px;
+    border: 1px solid color-mix(in srgb, #1689c5 40%, var(--border));
+    border-radius: 15px;
+    background: color-mix(in srgb, #1689c5 8%, var(--bg-color));
+    color: var(--text-main);
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.telegram-login-open > span { width: 36px; height: 36px; flex-basis: 36px; font-size: 16px; }
+.telegram-login-code-form { display: grid; gap: 10px; margin: 18px 0 8px; }
+.telegram-login-code-form[hidden],
+.telegram-login-open[hidden],
+.telegram-login-expiry[hidden] { display: none !important; }
+.telegram-login-code-form label { color: var(--text-muted); font-size: 13px; font-weight: 650; }
+.telegram-login-code-form input {
+    width: 100%;
+    min-height: 58px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--bg-color);
+    color: var(--text-main);
+    font: 750 24px/1 ui-monospace, monospace;
+    letter-spacing: .3em;
+    text-align: center;
+}
+.telegram-login-code-form input:focus { border-color: var(--accent-green); outline: 3px solid color-mix(in srgb, var(--accent-green) 16%, transparent); }
+.telegram-login-expiry { margin: 4px 0 12px; color: var(--text-muted); font-size: 12px; text-align: center; }
+.telegram-login-dialog .qr-login-close { margin-top: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .telegram-login-cta,
+    .telegram-login-dialog { transition: none; animation: none; }
+}
+
 .bg-video {
     position: absolute;
     opacity: 0;
@@ -231,6 +335,10 @@
     /* Убираем margin: -50px, которое смещало форму */
 }
 
+.auth-submit-btn { position: relative; overflow: hidden; padding-right: 64px; }
+.auth-submit-btn__label { flex: 1; }
+.auth-submit-btn__seed { position: absolute; right: 7px; bottom: -11px; width: 52px; height: calc(100% + 20px); object-fit: contain; pointer-events: none; }
+
 body.dark-theme .auth-box {
     background: rgba(30, 30, 30, 0.95);
     border-color: rgba(255, 255, 255, 0.1);
@@ -251,6 +359,9 @@ body.dark-theme .auth-box {
 .auth-header h2 { font-size: 28px; margin-bottom: 5px; }
 .auth-header p { color: var(--text-muted); font-size: 14px; }
 .auth-inline-error { margin: -12px 0 18px; padding: 12px 14px; border: 1px solid color-mix(in srgb, #b74b42 40%, var(--border)); border-radius: 12px; background: color-mix(in srgb, #b74b42 8%, var(--bg-card)); color: #a53d34; font-size: 13px; line-height: 1.5; }
+.auth-inline-error[data-state="success"] { border-color: color-mix(in srgb, #4caf50 45%, var(--border)); background: color-mix(in srgb, #4caf50 9%, var(--bg-card)); color: #2f8f45; }
+.auth-resend-button { display: block; margin: -6px auto 18px; padding: 4px; border: 0; background: none; color: var(--accent-color, #b68b2e); font: inherit; text-decoration: underline; cursor: pointer; }
+.auth-resend-button[hidden] { display: none; }
 
 .input-group { margin-bottom: 20px; }
 .input-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 8px; color: var(--text-muted); }
@@ -350,6 +461,40 @@ body.auth-page {
     padding-bottom: 0; /* Убираем отступ снизу, который ломает центрирование */
 }
 
+.standalone-auth-page {
+    padding: 24px;
+    background:
+        radial-gradient(circle at 20% 15%, color-mix(in srgb, var(--accent-gold) 12%, transparent), transparent 26%),
+        var(--bg-color);
+}
+
+.standalone-auth-card {
+    width: min(100%, 430px);
+    padding: clamp(24px, 6vw, 40px);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+    box-shadow: var(--shadow-soft);
+    text-align: center;
+}
+
+.standalone-auth-card input {
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-color);
+    color: var(--text-main);
+}
+
+.standalone-confirm-card a {
+    display: inline-flex;
+    margin-top: 12px;
+    color: var(--accent-green);
+    font-weight: 650;
+}
+
 /* Мобильная адаптация для страниц входа/регистрации */
 @media (max-width: 768px) {
     .auth-container {
@@ -429,6 +574,53 @@ body.auth-page {
 .login-extra-links a:hover {
     color: var(--accent-gold);
 }
+
+.auth-more-options {
+    margin-top: 12px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--bg-card) 88%, transparent);
+}
+
+.auth-more-options summary {
+    padding: 12px 16px;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 650;
+    text-align: center;
+    cursor: pointer;
+    list-style: none;
+}
+
+.auth-more-options summary::-webkit-details-marker { display: none; }
+.auth-more-options summary::after { content: '＋'; margin-left: 8px; color: var(--accent-gold); }
+.auth-more-options[open] summary::after { content: '−'; }
+
+.auth-more-options__content {
+    display: grid;
+    gap: 8px;
+    padding: 0 12px 12px;
+}
+
+.auth-more-options__content > a {
+    display: block;
+    padding: 10px 12px;
+    border-radius: 9px;
+    color: var(--text-muted);
+    font-size: 13px;
+    text-align: center;
+    text-decoration: none;
+    transition: background .2s ease, color .2s ease;
+}
+
+.auth-more-options__content > a:hover,
+.auth-more-options__content > a:focus-visible {
+    background: color-mix(in srgb, var(--accent-gold) 10%, transparent);
+    color: var(--accent-gold);
+}
+
+.auth-more-options__content [hidden] { display: none !important; }
+.auth-more-options__content .passkey-login-btn { margin-top: 0; }
 
 /* На мобилке — чуть крупнее и с отступами */
 @media (max-width: 768px) {

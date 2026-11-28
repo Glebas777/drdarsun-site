@@ -3,17 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="Узнайте больше о Dr. DarSun — бренде натуральных растительных масел холодного отжима.">
+    <meta property="og:title" content="О Dr. DarSun — натуральные масла с заботой о качестве">
+    <meta property="og:description" content="История и принципы Dr. DarSun. Свяжитесь с нашей командой в Telegram.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://drdarsun.ru/about.html">
+    <meta property="og:image" content="https://drdarsun.ru/assets/images/banner.png">
     <title>Dr. DarSun | О нас</title>
-    <link rel="stylesheet" href="css/base.css">
-    <link rel="stylesheet" href="css/about.css">
+    <link rel="stylesheet" href="css/base.css?v=chat-ui-fix-1">
+    <link rel="stylesheet" href="css/about.css?v=review-text-1">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 <div id="preloader">
-    <div class="bg-image" id="bg-load_morning" style="background-image: url('assets/images/load_morning.png');"></div>
-    <div class="bg-image" id="bg-load_day" style="background-image: url('assets/images/load_day.png');"></div>
-    <div class="bg-image" id="bg-load_evening" style="background-image: url('assets/images/load_evening.png');"></div>
-    <div class="bg-image" id="bg-load_night" style="background-image: url('assets/images/load_night.png');"></div>
+    <div class="bg-image" id="bg-load_morning" data-background="assets/images/load_morning.png"></div>
+    <div class="bg-image" id="bg-load_day" data-background="assets/images/load_day.png"></div>
+    <div class="bg-image" id="bg-load_evening" data-background="assets/images/load_evening.png"></div>
+    <div class="bg-image" id="bg-load_night" data-background="assets/images/load_night.png"></div>
 
     <img src="assets/images/load_doctor.png" class="preloader-side left" alt="">
 
@@ -33,13 +39,13 @@
             <a href="index.html">Главная</a>
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
+            <a href="production.html">Производство</a>
                 <a href="scientists-about-oils.html">Учёные о маслах</a>
             <a href="delivery.html">Доставка</a>
-            <a href="index.html#news">Новости</a>
         </nav>
 <div class="header__actions">
     <button class="theme-toggle" id="theme-toggle"></button>
-    <a href="cart.html" class="icon-btn">🛒</a>
+    <a href="cart.html" class="icon-btn" aria-label="Корзина"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h8.5a2 2 0 0 0 1.9-1.5L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg></a>
     <div id="auth-buttons"></div> 
     <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
 </div>
@@ -49,9 +55,9 @@
         <a href="index.html">Главная</a>
         <a href="catalog.html">Каталог</a>
         <a href="about.html">О нас</a>
+        <a href="production.html">Производство</a>
             <a href="scientists-about-oils.html">Учёные о маслах</a>
         <a href="delivery.html">Доставка</a>
-        <a href="index.html#news">Новости</a>
     </div>
 </header>
 
@@ -64,61 +70,20 @@
 
         <section class="telegram-info" id="telegram-info" aria-labelledby="telegram-info-title">
             <div class="telegram-info__copy">
-                <p class="eyebrow">DR. DARSUN В TELEGRAM</p>
-                <h2 id="telegram-info-title">Полезные возможности — прямо в мессенджере</h2>
-                <p><strong>Клиентский бот</strong> работает с каталогом и вашими заказами после привязки Telegram к профилю. Показывает товары, статус и состав заказа, а также уведомляет о смене статуса.</p>
-                <p><strong>Бот для кодов</strong> создаёт и принимает одноразовый код привязки. Он нужен для безопасного входа по Telegram и восстановления пароля в привязанном аккаунте.</p>
-                <p><strong>Бот-помощник</strong> отвечает на вопросы о товарах, доставке, аккаунте и помощи с подключением. При сложном вопросе создаёт обращение и передаёт переписку оператору.</p>
-                <p>Выбирайте бота по задаче: каталог и заказ — клиентский, код для безопасной привязки — бот кодов, вопрос или проблема — бот-помощник. Никому не сообщайте одноразовые коды и пароли.</p>
-                <div class="telegram-info__links" id="about-telegram-bots" aria-live="polite">
-                    <a href="https://t.me/darsunhelp" target="_blank" rel="noopener noreferrer">Бот поддержки · @darsunhelp</a>
-                    <span>Ссылки на клиентского бота и бота привязки загрузятся, если боты доступны.</span>
+                <p class="eyebrow">МЫ НА СВЯЗИ</p>
+                <h2 id="telegram-info-title">Поддержка в Telegram</h2>
+                <p>Если нужна помощь с заказом, доставкой или аккаунтом — напишите нашей команде.</p>
+                <div class="telegram-info__links">
+                    <a href="#" data-telegram-bot-link="support" hidden target="_blank" rel="noopener noreferrer">Написать в Telegram-бот поддержки</a>
+                    <a href="#" data-telegram-bot-link="client" hidden target="_blank" rel="noopener noreferrer">Открыть клиентский Telegram-бот</a>
+                    <a href="faq.html">Посмотреть вопросы и ответы</a>
+                    <a href="mailto:drdarsunhelper@gmail.com">drdarsunhelper@gmail.com</a>
                 </div>
             </div>
             <div class="telegram-info__art" aria-hidden="true">
                 <img class="theme-asset-light" src="assets/images/icon-phone-light.png" alt="">
                 <img class="theme-asset-dark" src="assets/images/icon-phone-dark.png" alt="">
             </div>
-        </section>
-
-        <section class="telegram-learning" id="telegram-learning" aria-labelledby="telegram-learning-title">
-            <div class="telegram-learning__heading">
-                <p class="eyebrow">БЫСТРЫЙ СТАРТ</p>
-                <h2 id="telegram-learning-title">Обучение: клиентские Telegram-боты</h2>
-                <p>Это три разных помощника для покупателей: один экономит время при выборе и заказе, второй безопасно связывает Telegram с аккаунтом, третий помогает решить вопрос.</p>
-            </div>
-            <div class="telegram-learning__grid">
-                <article class="telegram-learning-card">
-                    <span class="telegram-learning-card__number">01</span>
-                    <h3>Клиентский бот — каталог и заказы</h3>
-                    <p>Нужен, чтобы быстро найти товар в Telegram и смотреть состав и статус заказов, не разыскивая их в переписке. После привязки аккаунта он также присылает выбранные вами уведомления об изменении статуса.</p>
-                    <div class="telegram-learning-card__links" id="telegram-learning-links" aria-live="polite">
-                        <span>Ссылка на клиентского бота появится здесь, когда он будет доступен.</span>
-                    </div>
-                </article>
-                <article class="telegram-learning-card">
-                    <span class="telegram-learning-card__number">02</span>
-                    <h3>Бот кодов — безопасная связь с аккаунтом</h3>
-                    <p>Он нужен для привязки Telegram к профилю, входа и восстановления доступа по одноразовому коду. Самостоятельно включите эту возможность в настройках профиля.</p>
-                    <p>Код действует ограниченное время и предназначен только для вас — не пересылайте его другим людям.</p>
-                    <a class="telegram-learning-card__action" href="profile.html#security">Перейти к настройке в профиле</a>
-                </article>
-                <article class="telegram-learning-card">
-                    <span class="telegram-learning-card__number">03</span>
-                    <h3>Бот-помощник — ответы и поддержка</h3>
-                    <p>Спросите о товарах, доставке или аккаунте. Если автоматического ответа недостаточно, бот поможет передать вопрос поддержке и продолжить переписку там же.</p>
-                    <a class="telegram-learning-card__action" href="mailto:drdarsunhelper@gmail.com">Написать в поддержку</a>
-                </article>
-            </div>
-            <details class="telegram-learning__faq">
-                <summary>Не приходит код или бот не отвечает?</summary>
-                <ol>
-                    <li>Убедитесь, что открыли именно бота кодов, а не клиентского бота.</li>
-                    <li>Создайте новый код в профиле: старый одноразовый код мог истечь.</li>
-                    <li>Проверьте, что написали боту в личном чате и нажали «Начать».</li>
-                    <li>Если проблема осталась, напишите в поддержку: <a href="mailto:drdarsunhelper@gmail.com">drdarsunhelper@gmail.com</a>.</li>
-                </ol>
-            </details>
         </section>
 
         <section class="reviews-section" aria-labelledby="reviews-title">
@@ -137,8 +102,8 @@
                             <span class="review-book__cover-emblem" aria-hidden="true">
                                 <img src="assets/images/logo.png" alt="">
                             </span>
-                            <span class="review-book__cover-title">О нас</span>
-                            <span class="review-book__cover-subtitle">Книга добрых историй</span>
+                            <span class="review-book__cover-title">Отзывы</span>
+                            <span class="review-book__cover-subtitle">Истории наших покупателей</span>
                             <span class="review-book__cover-author">Dr. DarSun</span>
                             <span class="review-book__cover-prompt">Перелистывайте стрелками</span>
                             <span class="review-book__cover-spine" aria-hidden="true"></span>
@@ -150,21 +115,22 @@
                             <h3>О книге</h3>
                             <p class="review-form-card__hint">Здесь собраны истории покупателей Dr. DarSun. Отзывы проходят проверку перед публикацией.</p>
                             <img class="review-book__illustration" src="assets/images/sunflower2.png" alt="" loading="lazy">
-                            <p class="review-form-card__hint">Нам важно ваше мнение. Войдите в аккаунт, чтобы оставить отзыв; перед публикацией он пройдёт проверку.</p>
+                            <p class="review-form-card__hint">Нам важно ваше мнение. Напишите отзыв и поставьте оценку от 1 до 5. Перед публикацией отзыв проверит модератор.</p>
                             <a class="btn btn--primary review-login-link" id="review-login-link" href="login.html?redirect=about.html%23reviews-title" hidden>Войти и написать отзыв</a>
                             <form id="review-form" hidden>
                                 <label for="review-user-name">Как подписать отзыв</label>
                                 <input id="review-user-name" name="user_name" type="text" maxlength="60" autocomplete="name" required>
-                                <label for="review-rating">Ваша оценка</label>
+                                <label for="review-text">Ваш отзыв</label>
+                                <textarea id="review-text" name="review_text" rows="4" minlength="10" maxlength="2000" placeholder="Расскажите о впечатлениях — от 10 до 2000 символов" required></textarea>
+                                <label for="review-rating">Оценка от 1 до 5</label>
                                 <select id="review-rating" name="rating" required>
+                                    <option value="" disabled selected>Выберите оценку</option>
                                     <option value="5">5 — отлично</option>
                                     <option value="4">4 — хорошо</option>
                                     <option value="3">3 — нормально</option>
                                     <option value="2">2 — не очень</option>
                                     <option value="1">1 — плохо</option>
                                 </select>
-                                <label for="review-text">Ваш отзыв</label>
-                                <textarea id="review-text" name="review_text" rows="4" minlength="20" maxlength="2000" placeholder="Расскажите о своём опыте (от 20 символов)" required></textarea>
                                 <div class="review-form-card__actions">
                                     <button class="btn btn--primary" id="review-submit" type="submit">Отправить на проверку</button>
                                 </div>
@@ -178,7 +144,6 @@
                         <h3>Истории, которые остаются</h3>
                         <p>Каждый отзыв здесь — настоящая история человека, который попробовал нашу продукцию.</p>
                         <p>Отзывы появляются в книге после проверки. Так мы бережём доверие и читаем только то, что действительно важно.</p>
-                        <img class="review-book__illustration" src="assets/images/sunflower2.png" alt="" loading="lazy">
                         <span class="review-book__signature">С теплом, Dr. DarSun</span>
                         <span class="review-book__page-number review-book__page-number--bottom">СТРАНИЦА 01</span>
                     </section>
@@ -236,14 +201,15 @@
                     <img src="assets/images/logo_full.png" alt="Dr. DarSun">
                     <span class="footer__brand-text">Dr. DarSun</span>
                 </div>
-                <p class="footer__desc">Премиальные растительные масла. Сделано с душой.</p>
+                <p class="footer__desc">Растительные масла и продукты из семян. Сделано с душой.</p>
             </div>
             <div class="footer__col">
                 <h4>Покупателям</h4>
                 <a href="catalog.html">Каталог</a>
-                <a href="oil-catalog.html">Справочник масел</a>
+                <a href="oil-catalog.html">Энциклопедия продуктов</a>
                 <a href="delivery.html">Доставка</a>
                 <a href="about.html">О нас</a>
+                <a href="courier-login.html">Курьер</a>
             </div>
             <div class="footer__col">
                 <h4>Контакты</h4>
@@ -257,9 +223,9 @@
                         <img class="theme-asset-light" src="assets/images/telegram.png" alt="Telegram">
                         <img class="theme-asset-dark" src="assets/images/telegram_dark.png" alt="">
                     </a>
-                    <a href="https://www.instagram.com/drdarsun/" target="_blank" rel="noopener noreferrer" class="social-link">Instagram*</a>
+                    <span class="social-link">Instagram*</span>
                 </div>
-                <p class="social-disclaimer">* Instagram — продукт Meta, организации, деятельность которой запрещена на территории РФ. Аккаунт ведётся с соблюдением требований законодательства РФ.</p>
+                <p class="social-disclaimer">* Instagram — сервис Meta Platforms Inc., признанной экстремистской организацией; её деятельность запрещена на территории РФ.</p>
             </div>
         </div>
         <div class="footer__bottom">
@@ -267,13 +233,13 @@
         </div>
     </footer>
 
-    <script type="module" src="js/public-telegram-bots.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.min.js"></script>
-    <script type="module" src="js/about.js"></script>
+    <script type="module" src="js/about.js?v=review-text-1"></script>
     <script src="js/main.js"></script>
-    <script src="js/burger.js"></script>
-    <script type="module" src="js/auth-header.js"></script>
-    <script src="js/preloader.js"></script>
-    <script src="js/site-status.js"></script>
+    <script src="js/burger.js?v=production-nav-2"></script>
+    <script type="module" src="js/auth-header.js?v=site-toast-singleton-1"></script>
+    <script src="js/preloader.js?v=asset-load-optimization-1"></script>
+    <script src="js/site-status.js?v=service-timeouts-2"></script>
+    <script type="module" src="js/temporary-payment-notice.js?v=service-timeouts-2"></script>
 </body>
 </html>

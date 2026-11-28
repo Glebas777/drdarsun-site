@@ -3,10 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="description" content="Каталог растительных масел с кратким описанием состава, получения и хранения.">
-    <title>Каталог масел | Dr. DarSun</title>
-    <link rel="stylesheet" href="css/base.css">
-    <link rel="stylesheet" href="css/oils.css">
+    <meta name="description" content="Энциклопедия продуктов: 14 масел и 15 справочных вариантов урбеча, хумуса и растительных напитков. Сырьё, вкус, состав и маркировка.">
+    <meta property="og:title" content="Энциклопедия продуктов | Dr. DarSun">
+    <meta property="og:description" content="14 масел и 15 справочных вариантов урбеча, хумуса и растительных напитков: сырьё, вкус и состав.">
+    <meta property="og:image" content="https://drdarsun.ru/assets/images/banner.png">
+    <title>Энциклопедия продуктов | Dr. DarSun</title>
+    <link rel="stylesheet" href="css/base.css?v=chat-ui-fix-1">
+    <link rel="stylesheet" href="css/oils.css?v=plant-motion-2">
 </head>
 <body>
     <header class="header">
@@ -16,24 +19,26 @@
                 <a href="index.html">Главная</a>
                 <a href="catalog.html">Каталог</a>
                 <a href="about.html">О нас</a>
+                <a href="production.html">Производство</a>
                 <a href="scientists-about-oils.html">Учёные о маслах</a>
-                <a href="oil-catalog.html" aria-current="page">Масла</a>
+                <a href="oil-catalog.html" aria-current="page">Энциклопедия</a>
                 <a href="delivery.html">Доставка</a>
             </nav>
             <div class="header__actions">
                 <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Переключить тему"></button>
-                <a href="cart.html" class="icon-btn" aria-label="Корзина">Корзина</a>
+                <a href="cart.html" class="icon-btn" aria-label="Корзина"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h8.5a2 2 0 0 0 1.9-1.5L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg></a>
                 <div id="auth-buttons"></div>
                 <button class="burger" id="burger-btn" type="button" aria-label="Открыть меню"><span></span><span></span><span></span></button>
             </div>
         </div>
         <nav class="mobile-menu" id="mobile-menu" aria-label="Мобильная навигация">
-            <button class="mobile-close" id="mobile-close-btn" type="button" aria-label="Закрыть меню">Закрыть</button>
+            <button class="mobile-close" id="mobile-close-btn" type="button" aria-label="Закрыть меню">×</button>
             <a href="index.html">Главная</a>
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
+            <a href="production.html">Производство</a>
             <a href="scientists-about-oils.html">Учёные о маслах</a>
-            <a href="oil-catalog.html" aria-current="page">Масла</a>
+            <a href="oil-catalog.html" aria-current="page">Энциклопедия</a>
             <a href="delivery.html">Доставка</a>
         </nav>
     </header>
@@ -41,9 +46,9 @@
     <main class="oil-catalog">
         <section class="oil-catalog__hero container">
             <div class="oil-catalog__hero-copy">
-                <p class="eyebrow">СПРАВОЧНИК · 14 масел</p>
-                <h1>Каждое масло —<br><span>свой характер</span></h1>
-                <p>Состав, способ получения, особенности хранения и типичные различия. Никаких медицинских обещаний — только ясная справочная информация.</p>
+                <p class="eyebrow">ЭНЦИКЛОПЕДИЯ ПРОДУКТОВ · 14 масел и 15 вариантов других продуктов</p>
+                <h1>От семян —<br><span>к разным вкусам</span></h1>
+                <p>Масла, урбеч, хумус и растительные напитки: знакомьтесь с разным сырьём, вкусами, способами приготовления и тем, что важно проверить на этикетке. Варианты ниже — справочные примеры, а не список наличия в магазине.</p>
             </div>
             <div class="oil-catalog__hero-art">
                 <div class="oil-catalog__orbit orbit-one"></div>
@@ -56,10 +61,33 @@
         </section>
 
         <section class="oil-catalog__body container">
+            <section class="plastic-storage" aria-labelledby="plastic-storage-title">
+                <div class="plastic-storage__heading">
+                    <span class="plastic-storage__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6v3l1 1v13H8V7l1-1V3Z"/><path d="M9 6h6M10 10h4m-4 4h4"/><path d="M7 8H5v9a3 3 0 0 0 3 3"/></svg></span>
+                    <div>
+                        <p class="eyebrow">ПРОСТО О ХРАНЕНИИ</p>
+                        <h2 id="plastic-storage-title">Как хранить масло в пластиковой бутылке</h2>
+                        <p>Обычная пищевая пластиковая тара — это нормально: берегите масло от света, тепла и воздуха, а условия с этикетки ставьте на первое место.</p>
+                    </div>
+                </div>
+                <ol class="plastic-storage__steps">
+                    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a7 7 0 0 0-4 12.7V19h8v-3.3A7 7 0 0 0 12 3Z"/><path d="M9 22h6M9 17h6"/></svg><span><strong>Уберите от солнца.</strong> Держите бутылку в тёмном шкафу, не на подоконнике.</span></li>
+                    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M5.6 6.7l12.8 10.6m0-10.6L5.6 17.3"/></svg><span><strong>Избегайте нагрева.</strong> Не ставьте рядом с плитой, духовкой или батареей.</span></li>
+                    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v4H7zM8 8v12h8V8"/><path d="M10 12h4m-4 3h4"/></svg><span><strong>Плотно закрывайте крышку.</strong> Не доливайте новое масло в остатки и не используйте бутылку повторно.</span></li>
+                    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h5m-5 4h8"/></svg><span><strong>Следуйте маркировке.</strong> Срок после вскрытия и необходимость холодильника зависят от конкретного масла и указаний производителя.</span></li>
+                </ol>
+            </section>
+            <nav class="encyclopedia-index" aria-label="Разделы энциклопедии">
+                <a href="#oil-grid" data-encyclopedia-filter="all" aria-pressed="true">Все продукты</a>
+                <a href="#oil-grid" data-encyclopedia-filter="oil" aria-pressed="false">Масла</a>
+                <a href="#oil-grid" data-encyclopedia-filter="urbech" aria-pressed="false">Урбеч</a>
+                <a href="#oil-grid" data-encyclopedia-filter="hummus" aria-pressed="false">Хумус</a>
+                <a href="#oil-grid" data-encyclopedia-filter="milk" aria-pressed="false">Растительные напитки</a>
+            </nav>
             <div class="oil-catalog__toolbar">
                 <label>
-                    <span>Поиск масла</span>
-                    <input id="oil-search" type="search" placeholder="Например, миндальное" autocomplete="off">
+                    <span>Поиск по энциклопедии</span>
+                    <input id="oil-search" type="search" placeholder="Например, тыквенные семечки или урбеч" autocomplete="off">
                 </label>
                 <div id="oil-count" class="oil-catalog__count" aria-live="polite"></div>
             </div>
@@ -67,7 +95,7 @@
             <div class="oil-catalog__grid" id="oil-grid">
                 <article class="oil-card" data-oil="оливковое mediterranean олеиновая" id="olive">
                     <div class="oil-card__top"><span class="oil-card__number">01</span><span class="oil-card__tag">Средиземноморье</span></div>
-                    <figure class="oil-card__image"><img src="assets/images/oils/olive.svg" alt="Оливки на ветви" loading="lazy"></figure>
+                    <figure class="oil-card__image"><img src="assets/images/oils/olive.svg?v=plant-motion-1" alt="Оливки на ветви" loading="lazy"></figure>
                     <h2>Оливковое масло</h2>
                     <p class="oil-card__lead">Яркий мононенасыщенный профиль и широкая вариативность вкуса в зависимости от сорта и степени созревания оливок.</p>
                     <dl><div><dt>Ключевые кислоты</dt><dd>Олеиновая, линолевая, пальмитиновая</dd></div><div><dt>Получение</dt><dd>Механическое прессование мякоти плода</dd></div></dl>
@@ -76,7 +104,7 @@
 
                 <article class="oil-card oil-card--warm" data-oil="персиковое косточка олеиновая" id="peach">
                     <div class="oil-card__top"><span class="oil-card__number">02</span><span class="oil-card__tag">Косточковые</span></div>
-                    <figure class="oil-card__image"><img src="assets/images/oils/peach.svg" alt="Персик и косточка" loading="lazy"></figure>
+                    <figure class="oil-card__image"><img src="assets/images/oils/peach.svg?v=plant-motion-1" alt="Персик и косточка" loading="lazy"></figure>
                     <h2>Персиковое масло</h2>
                     <p class="oil-card__lead">Масло из косточек персика с типичным сочетанием олеиновой и линолевой жирных кислот.</p>
                     <dl><div><dt>Ключевые кислоты</dt><dd>Олеиновая, линолевая, пальмитиновая</dd></div><div><dt>Получение</dt><dd>Холодное прессование или экстрагирование</dd></div></dl>
@@ -85,7 +113,7 @@
 
                 <article class="oil-card oil-card--gold" data-oil="подсолнечное linoleic linoleвая" id="sunflower">
                     <div class="oil-card__top"><span class="oil-card__number">03</span><span class="oil-card__tag">Семена</span></div>
-                    <figure class="oil-card__image"><img src="assets/images/oils/sunflower.svg" alt="Подсолнух и семена" loading="lazy"></figure>
+                    <figure class="oil-card__image"><img src="assets/images/oils/sunflower.svg?v=plant-motion-1" alt="Подсолнух и семена" loading="lazy"></figure>
                     <h2>Подсолнечное масло</h2>
                     <p class="oil-card__lead">Один из самых распространённых типов растительного масла с несколькими сортовыми профилями.</p>
                     <dl><div><dt>Ключевые кислоты</dt><dd>Линолевая или олеиновая</dd></div><div><dt>Типы</dt><dd>Линолевый и высокоолеиновый</dd></div></dl>
@@ -94,7 +122,7 @@
 
                 <article class="oil-card oil-card--almond" data-oil="миндальное almond орехи олеиновая" id="almond">
                     <div class="oil-card__top"><span class="oil-card__number">04</span><span class="oil-card__tag">Ореховые</span></div>
-                    <figure class="oil-card__image"><img src="assets/images/oils/almond.svg" alt="Миндаль на ветке" loading="lazy"></figure>
+                    <figure class="oil-card__image"><img src="assets/images/oils/almond.svg?v=plant-motion-1" alt="Миндаль на ветке" loading="lazy"></figure>
                     <h2>Миндальное масло</h2>
                     <p class="oil-card__lead">Масло с нежным ореховым характером и заметной долей мононенасыщенных жиров.</p>
                     <dl><div><dt>Ключевые кислоты</dt><dd>Олеиновая, линолевая, пальмитиновая</dd></div><div><dt>Типично содержит</dt><dd>Токоферолы и минорные липиды</dd></div></dl>
@@ -103,7 +131,7 @@
 
                 <article class="oil-card" data-oil="виноградной косточки виноград" id="grape">
                     <div class="oil-card__top"><span class="oil-card__number">05</span><span class="oil-card__tag">Из семян</span></div>
-                    <figure class="oil-card__image"><img src="assets/images/oils/grape.svg" alt="Гроздь винограда" loading="lazy"></figure>
+                    <figure class="oil-card__image"><img src="assets/images/oils/grape.svg?v=plant-motion-1" alt="Гроздь винограда" loading="lazy"></figure>
                     <h2>Масло виноградной косточки</h2>
                     <p class="oil-card__lead">Лёгкое масло семян винограда с типично высоким содержанием линолевой кислоты.</p>
                     <dl><div><dt>Ключевые кислоты</dt><dd>Линолевая, олеиновая</dd></div><div><dt>Особенность</dt><dd>Высокая доля полиненасыщенности</dd></div></dl>
@@ -112,7 +140,7 @@
 
                 <article class="oil-card" data-oil="авокадо avocado мякоть семя" id="avocado">
                     <div class="oil-card__top"><span class="oil-card__number">06</span><span class="oil-card__tag">Тропики</span></div>
-                    <figure class="oil-card__image"><img src="assets/images/oils/avocado.svg" alt="Разрезанный плод авокадо" loading="lazy"></figure>
+                    <figure class="oil-card__image"><img src="assets/images/oils/avocado.svg?v=plant-motion-1" alt="Разрезанный плод авокадо" loading="lazy"></figure>
                     <h2>Масло авокадо</h2>
                     <p class="oil-card__lead">Масло мякоти плода с заметной долей олеиновой кислоты и выраженным зелёным профилем.</p>
                     <dl><div><dt>Ключевые кислоты</dt><dd>Олеиновая, линолевая, пальмитиновая</dd></div><div><dt>Источники</dt><dd>Мякоть плода или семя</dd></div></dl>
@@ -121,7 +149,7 @@
 
                 <article class="oil-card" data-oil="жожоба косметическое воск" id="jojoba">
                     <div class="oil-card__top"><span class="oil-card__number">07</span><span class="oil-card__tag">Косметическое</span></div>
-                    <figure class="oil-card__image"><img src="assets/images/oils/jojoba.svg" alt="Ветвь жожоба с плодами" loading="lazy"></figure>
+                    <figure class="oil-card__image"><img src="assets/images/oils/jojoba.svg?v=plant-motion-1" alt="Ветвь жожоба с плодами" loading="lazy"></figure>
                     <h2>Масло жожоба</h2>
                     <p class="oil-card__lead">Не триацилглицеринное масло, а жидкий восковой эфир с высокой устойчивостью к окислению.</p>
                     <dl><div><dt>Основной состав</dt><dd>Жидкие восковые эфиры</dd></div><div><dt>Применение</dt><dd>Косметика и уход за кожей</dd></div></dl>
@@ -130,7 +158,7 @@
 
                 <article class="oil-card oil-card--warm" data-oil="какао твёрдое стеариновая" id="cacao">
                     <div class="oil-card__top"><span class="oil-card__number">08</span><span class="oil-card__tag">Твёрдые жиры</span></div>
-                    <figure class="oil-card__image"><img src="assets/images/oils/cacao.svg" alt="Какао-бобы и плод какао" loading="lazy"></figure>
+                    <figure class="oil-card__image"><img src="assets/images/oils/cacao.svg?v=plant-motion-1" alt="Какао-бобы и плод какао" loading="lazy"></figure>
                     <h2>Масло какао</h2>
                     <p class="oil-card__lead">Твёрдый растительный жир с характерным узким диапазоном плавления и высокой долей насыщенных кислот.</p>
                     <dl><div><dt>Ключевые кислоты</dt><dd>Стеариновая, олеиновая, пальмитиновая</dd></div><div><dt>Форма</dt><dd>Твёрдая при комнатной температуре</dd></div></dl>
@@ -139,7 +167,7 @@
 
                 <article class="oil-card" data-oil="кокосовое лауриновая тропическое" id="coconut">
                     <div class="oil-card__top"><span class="oil-card__number">09</span><span class="oil-card__tag">Тропическое</span></div>
-                    <figure class="oil-card__image"><img src="assets/images/oils/coconut.svg" alt="Кокос и пальмовые листья" loading="lazy"></figure>
+                    <figure class="oil-card__image"><img src="assets/images/oils/coconut.svg?v=plant-motion-1" alt="Кокос и пальмовые листья" loading="lazy"></figure>
                     <h2>Кокосовое масло</h2>
                     <p class="oil-card__lead">Растительный жир с высокой долей среднецепочечных и насыщенных жирных кислот.</p>
                     <dl><div><dt>Ключевые кислоты</dt><dd>Лауриновая, миристиновая</dd></div><div><dt>Особенность</dt><dd>Быстрое твёрдение при охлаждении</dd></div></dl>
@@ -148,7 +176,7 @@
 
                 <article class="oil-card" data-oil="зародышей пшеницы wheat germ" id="wheat">
                     <div class="oil-card__top"><span class="oil-card__number">10</span><span class="oil-card__tag">Зародыши</span></div>
-                    <figure class="oil-card__image"><img src="assets/images/oils/wheat.svg" alt="Колосья пшеницы" loading="lazy"></figure>
+                    <figure class="oil-card__image"><img src="assets/images/oils/wheat.svg?v=plant-motion-1" alt="Колосья пшеницы" loading="lazy"></figure>
                     <h2>Масло зародышей пшеницы</h2>
                     <p class="oil-card__lead">Насыщенное минорными компонентами масло с высокой долей ненасыщенных кислот.</p>
                     <dl><div><dt>Ключевые кислоты</dt><dd>Линолевая, олеиновая, пальмитиновая</dd></div><div><dt>Минорные компоненты</dt><dd>Токоферолы и фосфолипиды</dd></div></dl>
@@ -157,7 +185,7 @@
 
                 <article class="oil-card oil-card--warm" data-oil="макадамии macadamia пальмитолеиновая" id="macadamia">
                     <div class="oil-card__top"><span class="oil-card__number">11</span><span class="oil-card__tag">Ореховые</span></div>
-                    <figure class="oil-card__image"><img src="assets/images/oils/macadamia.svg" alt="Орехи макадамии" loading="lazy"></figure>
+                    <figure class="oil-card__image"><img src="assets/images/oils/macadamia.svg?v=plant-motion-1" alt="Орехи макадамии" loading="lazy"></figure>
                     <h2>Масло макадамии</h2>
                     <p class="oil-card__lead">Ореховое масло с высоким содержанием мононенасыщенных жирных кислот.</p>
                     <dl><div><dt>Ключевые кислоты</dt><dd>Олеиновая, пальмитолеиновая</dd></div><div><dt>Формат</dt><dd>Косметическое и пищевое</dd></div></dl>
@@ -166,7 +194,7 @@
 
                 <article class="oil-card" data-oil="грецкого ореха omega омега" id="walnut">
                     <div class="oil-card__top"><span class="oil-card__number">12</span><span class="oil-card__tag">Omega-3 / Omega-6</span></div>
-                    <figure class="oil-card__image"><img src="assets/images/oils/walnut.svg" alt="Грецкий орех" loading="lazy"></figure>
+                    <figure class="oil-card__image"><img src="assets/images/oils/walnut.svg?v=plant-motion-1" alt="Грецкий орех" loading="lazy"></figure>
                     <h2>Масло грецкого ореха</h2>
                     <p class="oil-card__lead">Плодовый вкус и значительная доля полиненасыщенных жирных кислот делают масло особенно чувствительным к хранению.</p>
                     <dl><div><dt>Ключевые кислоты</dt><dd>Линолевая, альфа-линоленовая</dd></div><div><dt>Хранение</dt><dd>Холодно, без света и кислорода</dd></div></dl>
@@ -175,7 +203,7 @@
 
                 <article class="oil-card oil-card--gold" data-oil="тыквенное pumpkin семена" id="pumpkin">
                     <div class="oil-card__top"><span class="oil-card__number">13</span><span class="oil-card__tag">Семена тыквы</span></div>
-                    <figure class="oil-card__image"><img src="assets/images/oils/pumpkin.svg" alt="Тыква и её семена" loading="lazy"></figure>
+                    <figure class="oil-card__image"><img src="assets/images/oils/pumpkin.svg?v=plant-motion-1" alt="Тыква и её семена" loading="lazy"></figure>
                     <h2>Тыквенное масло</h2>
                     <p class="oil-card__lead">Насыщенный зелёно-коричневый цвет, яркий аромат и типичное сочетание линолевой и олеиновой кислот.</p>
                     <dl><div><dt>Ключевые кислоты</dt><dd>Линолевая, олеиновая</dd></div><div><dt>Минорные компоненты</dt><dd>Пигменты и фитоактивные фракции</dd></div></dl>
@@ -184,11 +212,161 @@
 
                 <article class="oil-card oil-card--berry" data-oil="облепиховое sea buckthorn seed pulp" id="sea-buckthorn">
                     <div class="oil-card__top"><span class="oil-card__number">14</span><span class="oil-card__tag">Плоды и семена</span></div>
-                    <figure class="oil-card__image"><img src="assets/images/oils/sea-buckthorn.svg" alt="Ягоды облепихи на ветви" loading="lazy"></figure>
+                    <figure class="oil-card__image"><img src="assets/images/oils/sea-buckthorn.svg?v=plant-motion-1" alt="Ягоды облепихи на ветви" loading="lazy"></figure>
                     <h2>Облепиховое масло</h2>
                     <p class="oil-card__lead">Различается по сырью: масла мякоти плодов и семян имеют заметно отличающиеся цвет, состав и назначение.</p>
                     <dl><div><dt>Семенное</dt><dd>Линолевая и альфа-линоленовая</dd></div><div><dt>Из мякоти</dt><dd>Пальмитолеиновая фракция и пигменты</dd></div></dl>
                     <details><summary>Подробнее об масле</summary><p>Нельзя переносить свойства одной фракции на другую. Масло мякоти обычно ярче и плотнее по цвету, а семенное имеет иной жирнокислотный профиль. Способ производства и область применения всегда должны быть указаны на продукте.</p><p>В продаже встречаются чистые масла, смеси и экстракты. Уточняйте, из какого сырья сделан продукт и разрешено ли его пищевое применение: цвет не позволяет надёжно определить состав.</p></details>
+                </article>
+
+                <article class="oil-card oil-card--product oil-card--urbech" data-kind="urbech" data-oil="урбеч лён льняной семена паста помол">
+                    <div class="oil-card__top"><span class="oil-card__number">15</span><span class="oil-card__tag">Семена льна</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/encyclopedia/urbech.svg" alt="Иллюстрация к справке о льняном урбече" loading="lazy" decoding="async"></figure>
+                    <h2>Льняной урбеч</h2>
+                    <p class="oil-card__lead">Плотная паста с характерным вкусом льняного семени; тонкость помола заметно влияет на ощущение во рту.</p>
+                    <dl><div><dt>Сырьё</dt><dd>Семена льна</dd></div><div><dt>На вкус влияет</dt><dd>Помол, свежесть, добавки</dd></div></dl>
+                    <details><summary>Почему он такой густой?</summary><p>Лён содержит слизистые вещества, которые при контакте с влагой дают вязкость. Это особенность сырья, а не признак того, что в пасту обязательно добавили загуститель. Проверяйте состав: в банке могут быть только семена или дополнительные ингредиенты.</p><p>Вкус и консистенция зависят от помола и рецептуры. После открытия следуйте маркировке производителя.</p></details>
+                    <a class="encyclopedia-product-link" href="catalog.html?type=urbech">Искать урбеч в каталоге <span aria-hidden="true">↗</span></a>
+                </article>
+
+                <article class="oil-card oil-card--product oil-card--urbech" data-kind="urbech" data-oil="урбеч тыквенный тыква семена паста помол">
+                    <div class="oil-card__top"><span class="oil-card__number">16</span><span class="oil-card__tag">Тыквенные семечки</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/encyclopedia/urbech.svg" alt="Иллюстрация к справке об урбече из тыквенных семечек" loading="lazy" decoding="async"></figure>
+                    <h2>Урбеч из тыквенных семечек</h2>
+                    <p class="oil-card__lead">Семечки дают насыщенный, узнаваемый вкус; цвет пасты меняется в зависимости от сырья и степени его обработки.</p>
+                    <dl><div><dt>Сырьё</dt><dd>Очищенные семена тыквы</dd></div><div><dt>Сверьте</dt><dd>Состав, обжарку, соль</dd></div></dl>
+                    <details><summary>Откуда берётся разница в цвете?</summary><p>На оттенок влияют сорт семян, наличие оболочки и термическая обработка. По одному цвету нельзя надёжно определить состав или качество: ориентируйтесь на список ингредиентов, дату изготовления и условия хранения.</p><p>Это справочное описание возможного варианта, а не подтверждение наличия такого товара в магазине.</p></details>
+                    <a class="encyclopedia-product-link" href="catalog.html?type=urbech">Искать урбеч в каталоге <span aria-hidden="true">↗</span></a>
+                </article>
+
+                <article class="oil-card oil-card--product oil-card--urbech" data-kind="urbech" data-oil="урбеч подсолнечный подсолнечник семена паста помол">
+                    <div class="oil-card__top"><span class="oil-card__number">17</span><span class="oil-card__tag">Подсолнечные семечки</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/encyclopedia/urbech.svg" alt="Иллюстрация к справке о подсолнечном урбече" loading="lazy" decoding="async"></figure>
+                    <h2>Подсолнечный урбеч</h2>
+                    <p class="oil-card__lead">Паста из семян подсолнечника: вкус обычно узнаваемо семечковый, а гладкость определяется длительностью и тонкостью помола.</p>
+                    <dl><div><dt>Сырьё</dt><dd>Семена подсолнечника</dd></div><div><dt>Сверьте</dt><dd>Добавки и следы аллергенов</dd></div></dl>
+                    <details><summary>Чем он отличается от масла?</summary><p>Для пасты измельчают сами семена и сохраняют их твёрдые частицы; при отжиме масла отделяется жидкая жировая фракция. Это разные продукты по текстуре и способу использования. Конкретный состав пасты всегда смотрите на упаковке.</p></details>
+                    <a class="encyclopedia-product-link" href="catalog.html?type=urbech">Искать урбеч в каталоге <span aria-hidden="true">↗</span></a>
+                </article>
+
+                <article class="oil-card oil-card--product oil-card--urbech" data-kind="urbech" data-oil="урбеч кунжутный кунжут тахини паста помол">
+                    <div class="oil-card__top"><span class="oil-card__number">18</span><span class="oil-card__tag">Кунжут</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/encyclopedia/urbech.svg" alt="Иллюстрация к справке о кунжутном урбече" loading="lazy" decoding="async"></figure>
+                    <h2>Кунжутный урбеч</h2>
+                    <p class="oil-card__lead">Мелко перетёртый кунжут даёт ароматную пасту; вкус меняется от мягкого до более выраженного в зависимости от обработки семян.</p>
+                    <dl><div><dt>Сырьё</dt><dd>Белый или чёрный кунжут</dd></div><div><dt>Важно</dt><dd>Кунжут — аллерген</dd></div></dl>
+                    <details><summary>Урбеч и тахини — одно и то же?</summary><p>Оба названия могут относиться к кунжутной пасте, но традиции, степень помола, обжарка и рецептура отличаются у разных производителей. Название само по себе не раскрывает состав — прочитайте маркировку, особенно если важно избежать кунжута.</p></details>
+                    <a class="encyclopedia-product-link" href="catalog.html?type=urbech">Искать урбеч в каталоге <span aria-hidden="true">↗</span></a>
+                </article>
+
+                <article class="oil-card oil-card--product oil-card--urbech" data-kind="urbech" data-oil="урбеч миндальный миндаль ореховая паста помол">
+                    <div class="oil-card__top"><span class="oil-card__number">19</span><span class="oil-card__tag">Миндаль</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/encyclopedia/urbech.svg" alt="Иллюстрация к справке о миндальной пасте" loading="lazy" decoding="async"></figure>
+                    <h2>Миндальная паста</h2>
+                    <p class="oil-card__lead">Ореховый вариант густой пасты: у очищенного и неочищенного миндаля отличаются цвет и заметность кожицы.</p>
+                    <dl><div><dt>Сырьё</dt><dd>Миндаль</dd></div><div><dt>Проверьте</dt><dd>Орехи, сахар, масло</dd></div></dl>
+                    <details><summary>На что смотреть в составе?</summary><p>Миндальная паста может состоять только из орехов или включать подсластитель, соль и другие компоненты. Не всякая ореховая паста называется урбечем, поэтому здесь важны точное название и ингредиенты на этикетке. Миндаль относится к аллергенам.</p></details>
+                    <a class="encyclopedia-product-link" href="catalog.html?type=urbech">Искать пасты в каталоге <span aria-hidden="true">↗</span></a>
+                </article>
+
+                <article class="oil-card oil-card--product oil-card--hummus" data-kind="hummus" data-oil="хумус классический нут тахини лимон чеснок">
+                    <div class="oil-card__top"><span class="oil-card__number">20</span><span class="oil-card__tag">Нут и тахини</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/encyclopedia/hummus.svg" alt="Иллюстрация к справке о классическом хумусе" loading="lazy" decoding="async"></figure>
+                    <h2>Хумус с тахини</h2>
+                    <p class="oil-card__lead">Знакомое сочетание нута и кунжутной пасты; лимон, чеснок, масло и специи добавляют по рецепту.</p>
+                    <dl><div><dt>Основа</dt><dd>Нут</dd></div><div><dt>Аллерген</dt><dd>Кунжут в тахини</dd></div></dl>
+                    <details><summary>Как складывается вкус?</summary><p>Мягкий нут задаёт основу, а тахини добавляет характерный кунжутный оттенок. Пропорции, масло, чеснок и кислота различаются у разных рецептов. Название «классический» не заменяет чтение полного состава.</p></details>
+                    <a class="encyclopedia-product-link" href="catalog.html?type=hummus">Искать хумус в каталоге <span aria-hidden="true">↗</span></a>
+                </article>
+
+                <article class="oil-card oil-card--product oil-card--hummus" data-kind="hummus" data-oil="хумус без тахини нут кунжут рецепт">
+                    <div class="oil-card__top"><span class="oil-card__number">21</span><span class="oil-card__tag">Без тахини</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/encyclopedia/hummus.svg" alt="Иллюстрация к справке о хумусе без тахини" loading="lazy" decoding="async"></figure>
+                    <h2>Хумус без тахини</h2>
+                    <p class="oil-card__lead">Вариант рецепта, в котором кунжутную пасту не добавляют; текстуру и вкус настраивают другими ингредиентами.</p>
+                    <dl><div><dt>Основа</dt><dd>Нут</dd></div><div><dt>Проверьте</dt><dd>Нет ли кунжута в составе</dd></div></dl>
+                    <details><summary>Подходит ли он при аллергии?</summary><p>Отсутствие тахини в названии не гарантирует отсутствия кунжута или следов аллергенов: рецептура и условия производства разные. При аллергии проверяйте полную маркировку и предупреждения изготовителя, а не только название продукта.</p></details>
+                    <a class="encyclopedia-product-link" href="catalog.html?type=hummus">Искать хумус в каталоге <span aria-hidden="true">↗</span></a>
+                </article>
+
+                <article class="oil-card oil-card--product oil-card--hummus" data-kind="hummus" data-oil="хумус красный перец печёный нут паприка">
+                    <div class="oil-card__top"><span class="oil-card__number">22</span><span class="oil-card__tag">С печёным перцем</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/encyclopedia/hummus.svg" alt="Иллюстрация к справке о хумусе с перцем" loading="lazy" decoding="async"></figure>
+                    <h2>Хумус с перцем</h2>
+                    <p class="oil-card__lead">Сладость запечённого перца добавляет нутовой основе новые ноты и меняет цвет и плотность пасты.</p>
+                    <dl><div><dt>Основа</dt><dd>Нут и перец</dd></div><div><dt>Сверьте</dt><dd>Остроту, масло, специи</dd></div></dl>
+                    <details><summary>Что может быть в рецепте?</summary><p>К нуту и перцу могут добавлять тахини, лимон, чеснок и специи; у готовых продуктов состав отличается. Красный цвет не говорит о степени остроты — её определяют ингредиенты и маркировка конкретной банки.</p></details>
+                    <a class="encyclopedia-product-link" href="catalog.html?type=hummus">Искать хумус в каталоге <span aria-hidden="true">↗</span></a>
+                </article>
+
+                <article class="oil-card oil-card--product oil-card--hummus" data-kind="hummus" data-oil="хумус свёкла свекольный нут свекла">
+                    <div class="oil-card__top"><span class="oil-card__number">23</span><span class="oil-card__tag">Со свёклой</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/encyclopedia/hummus.svg" alt="Иллюстрация к справке о свекольном хумусе" loading="lazy" decoding="async"></figure>
+                    <h2>Свекольный хумус</h2>
+                    <p class="oil-card__lead">Свёкла придаёт нутовой пасте яркий оттенок и землисто-сладкую ноту; её доля зависит от рецепта.</p>
+                    <dl><div><dt>Основа</dt><dd>Нут и свёкла</dd></div><div><dt>На этикетке</dt><dd>Доля овощей и добавки</dd></div></dl>
+                    <details><summary>Почему вкус у разных вариантов разный?</summary><p>Свёклу используют запечённой или приготовленной другим способом, и вместе с пропорцией нута это меняет вкус и консистенцию. Тахини, лимон, масло и специи могут присутствовать, но не обязательны для каждого рецепта.</p></details>
+                    <a class="encyclopedia-product-link" href="catalog.html?type=hummus">Искать хумус в каталоге <span aria-hidden="true">↗</span></a>
+                </article>
+
+                <article class="oil-card oil-card--product oil-card--hummus" data-kind="hummus" data-oil="хумус зелень травы нут кинза петрушка">
+                    <div class="oil-card__top"><span class="oil-card__number">24</span><span class="oil-card__tag">С зеленью и травами</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/encyclopedia/hummus.svg" alt="Иллюстрация к справке о хумусе с зеленью" loading="lazy" decoding="async"></figure>
+                    <h2>Хумус с зеленью</h2>
+                    <p class="oil-card__lead">Петрушка, кинза или другие травы добавляют свежий аромат; набор зелени задаёт характер конкретного рецепта.</p>
+                    <dl><div><dt>Основа</dt><dd>Нут</dd></div><div><dt>Вкус</dt><dd>Зависит от трав и специй</dd></div></dl>
+                    <details><summary>Есть ли единый рецепт?</summary><p>Нет одной обязательной смеси зелени: используют разные травы, специи и пропорции. Если важны конкретные ингредиенты, например чеснок или кунжут, сверяйтесь с полным составом продукта.</p></details>
+                    <a class="encyclopedia-product-link" href="catalog.html?type=hummus">Искать хумус в каталоге <span aria-hidden="true">↗</span></a>
+                </article>
+
+                <article class="oil-card oil-card--product oil-card--milk" data-kind="milk" data-oil="овсяный напиток овёс овсяное молоко зерно">
+                    <div class="oil-card__top"><span class="oil-card__number">25</span><span class="oil-card__tag">Овёс</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/encyclopedia/plant-milk.svg" alt="Иллюстрация к справке об овсяном напитке" loading="lazy" decoding="async"></figure>
+                    <h2>Овсяный напиток</h2>
+                    <p class="oil-card__lead">Злаковая основа с мягким вкусом; промышленная рецептура может включать ферментацию, фильтрацию и добавленные масла.</p>
+                    <dl><div><dt>Основа</dt><dd>Овёс и вода</dd></div><div><dt>Сверьте</dt><dd>Сахара, масла, обогащение</dd></div></dl>
+                    <details><summary>Почему он бывает сладковатым?</summary><p>Вкус зависит от сырья и обработки: при расщеплении крахмала могут образовываться более простые сахара. Кроме того, производитель может добавлять подсластители. Сравнивайте перечень ингредиентов и пищевую ценность на упаковке.</p><p>Овёс — злак, а не масличное семя, но овсяный напиток тоже относится к растительным.</p></details>
+                    <a class="encyclopedia-product-link" href="catalog.html?type=milk">Искать растительные напитки <span aria-hidden="true">↗</span></a>
+                </article>
+
+                <article class="oil-card oil-card--product oil-card--milk" data-kind="milk" data-oil="миндальный напиток миндаль ореховое молоко">
+                    <div class="oil-card__top"><span class="oil-card__number">26</span><span class="oil-card__tag">Миндаль</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/encyclopedia/plant-milk.svg" alt="Иллюстрация к справке о миндальном напитке" loading="lazy" decoding="async"></figure>
+                    <h2>Миндальный напиток</h2>
+                    <p class="oil-card__lead">Ореховый аромат и лёгкая текстура зависят от доли миндаля, фильтрации и добавок.</p>
+                    <dl><div><dt>Основа</dt><dd>Миндаль и вода</dd></div><div><dt>Аллерген</dt><dd>Миндаль — древесный орех</dd></div></dl>
+                    <details><summary>Почему напитки не одинаковы по насыщенности?</summary><p>Доля миндаля и способ приготовления могут различаться, поэтому вкус и пищевая ценность не определяются одним названием. Проверяйте проценты сырья, подсластители, стабилизаторы и обогащение, если они для вас важны.</p></details>
+                    <a class="encyclopedia-product-link" href="catalog.html?type=milk">Искать растительные напитки <span aria-hidden="true">↗</span></a>
+                </article>
+
+                <article class="oil-card oil-card--product oil-card--milk" data-kind="milk" data-oil="соевый напиток соя соевое молоко бобовые">
+                    <div class="oil-card__top"><span class="oil-card__number">27</span><span class="oil-card__tag">Соя</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/encyclopedia/plant-milk.svg" alt="Иллюстрация к справке о соевом напитке" loading="lazy" decoding="async"></figure>
+                    <h2>Соевый напиток</h2>
+                    <p class="oil-card__lead">Бобовая основа с собственным вкусом; состав и содержание белка зависят от продукта и технологии.</p>
+                    <dl><div><dt>Основа</dt><dd>Соя и вода</dd></div><div><dt>Аллерген</dt><dd>Соя</dd></div></dl>
+                    <details><summary>Что сравнивать на упаковке?</summary><p>Смотрите на долю сои, количество белка, сахар, ароматизаторы и добавленное обогащение. Не считайте все растительные напитки равноценными по питательной ценности: сравнивайте маркировку конкретных вариантов.</p></details>
+                    <a class="encyclopedia-product-link" href="catalog.html?type=milk">Искать растительные напитки <span aria-hidden="true">↗</span></a>
+                </article>
+
+                <article class="oil-card oil-card--product oil-card--milk" data-kind="milk" data-oil="кунжутный напиток кунжут семена растительное молоко">
+                    <div class="oil-card__top"><span class="oil-card__number">28</span><span class="oil-card__tag">Кунжут</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/encyclopedia/plant-milk.svg" alt="Иллюстрация к справке о кунжутном напитке" loading="lazy" decoding="async"></figure>
+                    <h2>Кунжутный напиток</h2>
+                    <p class="oil-card__lead">Семена кунжута могут дать выразительный ореховый вкус; готовые напитки встречаются реже и отличаются рецептурой.</p>
+                    <dl><div><dt>Основа</dt><dd>Кунжут и вода</dd></div><div><dt>Аллерген</dt><dd>Кунжут</dd></div></dl>
+                    <details><summary>Почему вкус бывает интенсивным?</summary><p>На насыщенность влияют сорт, доля кунжута, степень измельчения и фильтрация. Некоторые рецепты содержат дополнительные подсластители или другие растительные основы. При аллергии учитывайте также предупреждения о следах кунжута.</p></details>
+                    <a class="encyclopedia-product-link" href="catalog.html?type=milk">Искать растительные напитки <span aria-hidden="true">↗</span></a>
+                </article>
+
+                <article class="oil-card oil-card--product oil-card--milk" data-kind="milk" data-oil="подсолнечный напиток подсолнечник семена растительное молоко">
+                    <div class="oil-card__top"><span class="oil-card__number">29</span><span class="oil-card__tag">Подсолнечник</span></div>
+                    <figure class="oil-card__image"><img src="assets/images/encyclopedia/plant-milk.svg" alt="Иллюстрация к справке о напитке из семян подсолнечника" loading="lazy" decoding="async"></figure>
+                    <h2>Напиток из семян подсолнечника</h2>
+                    <p class="oil-card__lead">Менее привычная основа для напитка: мягкость и послевкусие зависят от подготовки семян и их доли в рецепте.</p>
+                    <dl><div><dt>Основа</dt><dd>Семена подсолнечника и вода</dd></div><div><dt>Сверьте</dt><dd>Состав, соль, подсластители</dd></div></dl>
+                    <details><summary>Можно ли судить по названию?</summary><p>Нет: под одним названием могут скрываться разные пропорции и дополнительные ингредиенты. Проверяйте маркировку и условия хранения. Эта карточка описывает возможный тип растительного напитка, а не подтверждает, что он сейчас выпускается брендом или продаётся.</p></details>
+                    <a class="encyclopedia-product-link" href="catalog.html?type=milk">Искать растительные напитки <span aria-hidden="true">↗</span></a>
                 </article>
             </div>
         </section>
@@ -201,14 +379,15 @@
                     <img src="assets/images/logo_full.png" alt="Dr. DarSun">
                     <span class="footer__brand-text">Dr. DarSun</span>
                 </div>
-                <p class="footer__desc">Премиальные растительные масла. Сделано с душой.</p>
+                <p class="footer__desc">Растительные масла и продукты из семян. Сделано с душой.</p>
             </div>
             <div class="footer__col">
                 <h4>Покупателям</h4>
                 <a href="catalog.html">Каталог</a>
-                <a href="oil-catalog.html">Справочник масел</a>
+                <a href="oil-catalog.html">Энциклопедия продуктов</a>
                 <a href="delivery.html">Доставка</a>
                 <a href="about.html">О нас</a>
+                <a href="courier-login.html">Курьер</a>
             </div>
             <div class="footer__col">
                 <h4>Контакты</h4>
@@ -216,9 +395,9 @@
                 <div class="socials">
                     <a href="https://vk.ru/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="ВКонтакте"><img class="theme-asset-light" src="assets/images/vk.png" alt="ВКонтакте"><img class="theme-asset-dark" src="assets/images/vk_dark.png" alt=""></a>
                     <a href="https://t.me/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="Telegram"><img class="theme-asset-light" src="assets/images/telegram.png" alt="Telegram"><img class="theme-asset-dark" src="assets/images/telegram_dark.png" alt=""></a>
-                    <a href="https://www.instagram.com/drdarsun/" target="_blank" rel="noopener noreferrer" class="social-link">Instagram*</a>
+                    <span class="social-link">Instagram*</span>
                 </div>
-                <p class="social-disclaimer">* Instagram — продукт Meta, организации, деятельность которой запрещена на территории РФ. Аккаунт ведётся с соблюдением требований законодательства РФ.</p>
+                <p class="social-disclaimer">* Instagram — сервис Meta Platforms Inc., признанной экстремистской организацией; её деятельность запрещена на территории РФ.</p>
             </div>
         </div>
         <div class="footer__bottom">
@@ -228,8 +407,9 @@
 
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/oil-catalog.js"></script>
-    <script src="js/burger.js"></script>
-    <script type="module" src="js/auth-header.js"></script>
-    <script src="js/site-status.js"></script>
+    <script src="js/burger.js?v=production-nav-2"></script>
+    <script type="module" src="js/auth-header.js?v=site-toast-singleton-1"></script>
+    <script src="js/site-status.js?v=service-timeouts-2"></script>
+    <script type="module" src="js/temporary-payment-notice.js?v=service-timeouts-2"></script>
 </body>
 </html>

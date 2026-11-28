@@ -1,8 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">
+  <style>
+    .plant-sway { transform-box: fill-box; transform-origin: 50% 100%; animation: plant-sway 4.8s ease-in-out infinite; }
+    .fruit-drift { transform-box: fill-box; transform-origin: 50% 70%; animation: fruit-drift 3.6s ease-in-out infinite; }
+    @keyframes plant-sway { 0%,100% { transform: rotate(-1.6deg); } 50% { transform: rotate(1.8deg); } }
+    @keyframes fruit-drift { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+    @media (prefers-reduced-motion: reduce) { .plant-sway,.fruit-drift { animation: none; } }
+  </style>
   <rect width="640" height="360" rx="28" fill="#e3eee8"/><circle cx="500" cy="84" r="120" fill="#f6f7e9"/>
   <path d="M117 322c80-97 169-174 302-239M205 315c90-64 176-101 274-121" fill="none" stroke="#657c52" stroke-width="8" stroke-linecap="round"/>
-  <g fill="#879967"><ellipse cx="173" cy="249" rx="60" ry="18" transform="rotate(-42 173 249)"/><ellipse cx="243" cy="178" rx="58" ry="18" transform="rotate(-36 243 178)"/><ellipse cx="323" cy="121" rx="58" ry="18" transform="rotate(-28 323 121)"/></g>
-  <circle cx="473" cy="227" r="68" fill="#8d6948"/><path d="M423 218c17-44 75-62 111-28 33 31 23 84-17 103-45 22-103-17-94-75Z" fill="#f7f0dc"/><path d="M431 221c17-35 60-45 90-22" fill="none" stroke="#fff9e8" stroke-width="8"/>
-  <g fill="#8d6948"><circle cx="454" cy="212" r="5"/><circle cx="484" cy="205" r="5"/><circle cx="469" cy="242" r="5"/></g>
+  <g class="plant-sway" fill="#879967"><ellipse cx="173" cy="249" rx="60" ry="18" transform="rotate(-42 173 249)"/><ellipse cx="243" cy="178" rx="58" ry="18" transform="rotate(-36 243 178)"/><ellipse cx="323" cy="121" rx="58" ry="18" transform="rotate(-28 323 121)"/></g>
+  <circle class="fruit-drift" cx="473" cy="227" r="68" fill="#8d6948"/><path class="fruit-drift" d="M423 218c17-44 75-62 111-28 33 31 23 84-17 103-45 22-103-17-94-75Z" fill="#f7f0dc"/><path class="fruit-drift" d="M431 221c17-35 60-45 90-22" fill="none" stroke="#fff9e8" stroke-width="8"/>
+  <g class="fruit-drift" fill="#8d6948"><circle cx="454" cy="212" r="5"/><circle cx="484" cy="205" r="5"/><circle cx="469" cy="242" r="5"/></g>
   <path d="M459 278c-17 13-27 30-29 48M478 282c0 20 7 36 21 48M495 274c16 9 28 22 34 39" fill="none" stroke="#748855" stroke-width="6" stroke-linecap="round"/>
 </svg>

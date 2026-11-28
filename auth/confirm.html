@@ -4,34 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="referrer" content="no-referrer">
-    <title>Вход...</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js"></script>
+    <title>Подтверждение · Dr. DarSun</title>
+    <link rel="stylesheet" href="../css/base.css?v=chat-ui-fix-1">
+    <link rel="stylesheet" href="../css/auth.css">
+    <link rel="stylesheet" href="../css/auth-mobile.css">
 </head>
-<body style="background: #0A0A0A; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
-    <div style="width: min(100% - 32px, 480px); text-align: center;">
+<body class="auth-page standalone-auth-page">
+    <main class="standalone-auth-card standalone-confirm-card">
         <h2 id="title">Проверяем токен...</h2>
         <p id="status">Пожалуйста, подождите.</p>
-        <a href="https://drdarsun.ru/login.html" style="color: #e0bd72;">Вернуться ко входу</a>
-    </div>
+        <a href="../login.html" style="color: #e0bd72;">Вернуться ко входу</a>
+        <p id="resend-signup-link" hidden><a href="../register.html?resend=1" style="color: #e0bd72;">Запросить новое письмо подтверждения</a></p>
+    </main>
 
-    <script>
-        const SUPABASE_URL = 'https://drdarsun-site-main.layero.app';
-        const SUPABASE_ANON_KEY = 'sb_publishable_1Fh3LgYtH3wEkQjvBfiZsA_WZZsfsLF'; // Вставь свой ключ!
+    <script type="module">
+        import { supabase } from '../js/supabase-client.js';
 
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-            auth: {
-                persistSession: true,
-                autoRefreshToken: true,
-                detectSessionInUrl: true
-            }
-        });
+        function showSignupResendLink() {
+            document.getElementById('resend-signup-link').hidden = false;
+        }
 
         async function confirm() {
             const params = new URLSearchParams(window.location.search);
-            const token_hash = params.get('token_hash');
+            const tokenHash = params.get('token_hash');
+            const code = params.get('code');
             const type = params.get('type');
             const provider = params.get('provider');
             const state = params.get('state');
+            const fragment = new URLSearchParams(window.location.hash.slice(1));
+            const accessToken = fragment.get('access_token');
+            const refreshToken = fragment.get('refresh_token');
+            const fragmentType = fragment.get('type');
             window.history.replaceState({}, document.title, window.location.pathname);
 
             let storedState;
@@ -55,22 +58,72 @@
                 return;
             }
 
-            if (!token_hash || !['magiclink', 'email_change'].includes(type)) {
-                document.getElementById('status').textContent = 'Ссылка подтверждения неполная или истекла. Запросите новое письмо.';
+            let data;
+            let error;
+            try {
+                if (code) {
+                    ({ data, error } = await supabase.auth.exchangeCodeForSession(code));
+                } else if (
+                    accessToken &&
+                    refreshToken &&
+                    ['signup', 'invite', 'magiclink', 'email_change'].includes(fragmentType)
+                ) {
+                    ({ data, error } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken
+                    }));
+                } else if (
+                    tokenHash &&
+                    ['signup', 'invite', 'magiclink', 'email_change'].includes(type)
+                ) {
+                    ({ data, error } = await supabase.auth.verifyOtp({
+                        token_hash: tokenHash,
+                        type
+                    }));
+                } else {
+                    document.getElementById('status').textContent =
+                        'Ссылка подтверждения неполная или истекла. Запросите новое письмо.';
+                    if (type !== 'email_change') showSignupResendLink();
+                    return;
+                }
+            } catch (requestError) {
+                console.error('Auth confirmation request failed:', requestError?.name || 'UnknownError');
+                document.getElementById('status').textContent = 'Не удалось связаться с сервисом входа. Начните вход заново.';
                 return;
             }
 
-            const { data, error } = await supabaseClient.auth.verifyOtp({
-                token_hash: token_hash,
-                type
-            });
-
-            if (error || (!data?.session && type !== 'email_change')) {
-                document.getElementById('status').textContent = error?.message || 'Не удалось подтвердить ссылку. Запросите новую.';
+            const confirmationType = fragmentType || type;
+            if (error || (!data?.session && confirmationType !== 'email_change')) {
+                console.warn('Auth confirmation was rejected:', error?.code || error?.status || 'Session was not created.');
+                document.getElementById('status').textContent = confirmationType === 'email_change'
+                    ? 'Ссылка недействительна, уже использована или истекла. Запросите новое письмо из настроек профиля.'
+                    : 'Ссылка недействительна, уже использована или истекла. Запросите новое письмо подтверждения.';
+                if (confirmationType !== 'email_change') showSignupResendLink();
                 return;
             }
 
             if (data?.session?.user?.id) {
+                let assurance;
+                let assuranceError;
+                try {
+                    ({ data: assurance, error: assuranceError } =
+                        await supabase.auth.mfa.getAuthenticatorAssuranceLevel());
+                } catch (mfaRequestError) {
+                    console.error('Auth confirmation MFA check failed:', mfaRequestError?.name || 'UnknownError');
+                    document.getElementById('status').textContent =
+                        'Не удалось проверить дополнительную защиту аккаунта. Вернитесь ко входу и попробуйте снова.';
+                    return;
+                }
+                if (assuranceError || !assurance?.nextLevel) {
+                    console.error('Auth confirmation MFA check failed:', assuranceError?.code || assuranceError?.status || 'UnknownError');
+                    document.getElementById('status').textContent =
+                        'Не удалось проверить дополнительную защиту аккаунта. Вернитесь ко входу и попробуйте снова.';
+                    return;
+                }
+                if (assurance.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2') {
+                    window.location.href = '../login.html?mfa=required';
+                    return;
+                }
                 try {
                     localStorage.setItem('pending_device_registration', data.session.user.id);
                 } catch (storageError) {
@@ -80,7 +133,7 @@
 
             const title = document.getElementById('title');
             const status = document.getElementById('status');
-            if (type === 'email_change') {
+            if (confirmationType === 'email_change') {
                 title.textContent = 'Почта подтверждена';
                 if (!data?.session) {
                     status.textContent = 'Изменение почты подтверждено. Войдите в аккаунт с новым адресом.';
@@ -90,11 +143,12 @@
             } else {
                 status.textContent = 'Успех! Перенаправление...';
             }
-            window.location.href = 'https://drdarsun.ru/profile.html';
+            window.location.href = '../profile.html';
         }
 
         confirm();
     </script>
-    <script src="../js/site-status.js"></script>
+    <script src="../js/site-status.js?v=service-timeouts-2"></script>
+    <script type="module" src="../js/temporary-payment-notice.js?v=service-timeouts-2"></script>
 </body>
 </html>

@@ -99,7 +99,10 @@ function showProductNotFound() {
 
 async function renderProduct(product, isDemo = false) {
     document.getElementById('product-name').textContent = product.name;
-    document.getElementById('product-price').textContent = `${new Intl.NumberFormat('ru-RU').format(Number(product.price) || 0)} ₽`;
+    const productPrice = product.price == null || product.price === '' ? Number.NaN : Number(product.price);
+    document.getElementById('product-price').textContent = Number.isFinite(productPrice)
+        ? `${new Intl.NumberFormat('ru-RU').format(productPrice)} ₽`
+        : 'Цена уточняется';
     document.getElementById('product-desc').textContent = product.description || '';
     document.getElementById('spec-volume').textContent = product.volume || 'Не указан';
     document.getElementById('spec-pressing').textContent = product.pressing_type || 'Не указан';
@@ -193,10 +196,12 @@ async function renderProduct(product, isDemo = false) {
 async function loadReviews(productId) {
     const container = document.getElementById('reviews-list');
     if (!container) return;
+    await initializeProductReviewForm(productId);
 
-    const { data: reviews, error } = await supabase.from('reviews')
-        .select('user_name,rating,text,created_at')
+    const { data: reviews, error } = await supabase.from('brand_reviews')
+        .select('user_name,rating,created_at')
         .eq('product_id', productId)
+        .eq('status', 'approved')
         .order('created_at', { ascending: false })
         .limit(30);
     container.replaceChildren();
@@ -232,11 +237,71 @@ async function loadReviews(productId) {
             ? `${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}`
             : '';
         top.append(name, stars);
-        const text = document.createElement('p');
-        text.textContent = review.text || '';
-        card.append(top, text);
+        card.append(top);
         container.appendChild(card);
     });
+}
+
+async function initializeProductReviewForm(productId) {
+    const form = document.getElementById('product-review-form');
+    const loginLink = document.getElementById('product-review-login-link');
+    const nameInput = document.getElementById('product-review-user-name');
+    const status = document.getElementById('product-review-status');
+    const submitButton = document.getElementById('product-review-submit');
+    if (!form || !loginLink || !nameInput || !status || !submitButton) return;
+
+    const { data, error } = await supabase.auth.getSession();
+    if (error) {
+        console.error('Product review session lookup failed:', error);
+        status.textContent = 'Не удалось проверить вход. Обновите страницу и попробуйте снова.';
+        return;
+    }
+    const session = data.session;
+    if (!session) {
+        loginLink.hidden = false;
+        loginLink.href = `login.html?redirect=${encodeURIComponent(window.location.pathname + window.location.search + '#product-reviews')}`;
+        return;
+    }
+
+    const metadata = session.user?.user_metadata || {};
+    nameInput.value = metadata.full_name || metadata.name || session.user?.email?.split('@')[0] || '';
+    form.hidden = false;
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (!form.reportValidity()) return;
+        submitButton.disabled = true;
+        status.textContent = '';
+        try {
+            const { data: currentData, error: currentSessionError } = await supabase.auth.getSession();
+            if (currentSessionError) throw currentSessionError;
+            if (!currentData.session) throw new Error('Войдите в аккаунт, чтобы оставить отзыв.');
+            const formData = new FormData(form);
+            const response = await fetch('https://drdarsun-site-main.layero.app/api/reviews/submit', {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${currentData.session.access_token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    product_id: productId,
+                    user_name: nameInput.value,
+                    rating: Number(formData.get('rating'))
+                })
+            });
+            const result = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(result?.error || 'Не удалось отправить отзыв.');
+            const submittedName = nameInput.value;
+            form.reset();
+            nameInput.value = submittedName;
+            status.textContent = 'Спасибо! Отзыв отправлен на проверку и появится после публикации.';
+            window.showToast?.('Отзыв отправлен на проверку.', 'success');
+        } catch (submitError) {
+            status.textContent = submitError.message || 'Не удалось отправить отзыв. Попробуйте позже.';
+            window.showToast?.(status.textContent, 'error');
+        } finally {
+            submitButton.disabled = false;
+        }
+    }, { once: true });
 }
 
 loadProduct();

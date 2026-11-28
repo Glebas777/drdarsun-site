@@ -3,8 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Каталог Dr. DarSun: натуральные растительные масла и продукты собственного производства.">
+    <meta property="og:title" content="Каталог продуктов | Dr. DarSun">
+    <meta property="og:description" content="Выберите масла, урбеч, хумус и растительные напитки Dr. DarSun.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://drdarsun.ru/catalog.html">
+    <meta property="og:image" content="https://drdarsun.ru/assets/images/banner.png">
     <title>Dr. DarSun | Каталог</title>
-    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/base.css?v=chat-ui-fix-1">
+    <link rel="stylesheet" href="css/catalog-premium.css?v=catalog-redesign-3">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
@@ -21,13 +28,13 @@
                 <a href="index.html">Главная</a>
                 <a href="catalog.html" class="active">Каталог</a>
                 <a href="about.html">О нас</a>
+                <a href="production.html">Производство</a>
                 <a href="delivery.html">Доставка</a>
-                <a href="oil-catalog.html">Масла</a>
-                <a href="index.html#news">Новости</a>
+                <a href="oil-catalog.html">Энциклопедия</a>
             </nav>
 <div class="header__actions">
     <button class="theme-toggle" id="theme-toggle"></button>
-    <a href="cart.html" class="icon-btn" aria-label="Корзина"><span aria-hidden="true">🛒</span><span class="cart-count" data-cart-count hidden></span></a>
+    <a href="cart.html" class="icon-btn" aria-label="Корзина"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h8.5a2 2 0 0 0 1.9-1.5L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg><span class="cart-count" data-cart-count hidden></span></a>
     <div id="auth-buttons"></div>
     <button class="burger" id="burger-btn"><span></span><span></span><span></span></button>
 </div>
@@ -37,21 +44,32 @@
             <a href="index.html">Главная</a>
             <a href="catalog.html">Каталог</a>
             <a href="about.html">О нас</a>
+            <a href="production.html">Производство</a>
             <a href="scientists-about-oils.html">Учёные о маслах</a>
-            <a href="oil-catalog.html">Справочник масел</a>
+            <a href="oil-catalog.html">Энциклопедия продуктов</a>
             <a href="delivery.html">Доставка</a>
-            <a href="index.html#news">Новости</a>
         </div>
     </header>
 
     <main class="container catalog-main">
-        <canvas class="catalog-seed-rain" id="catalog-seed-rain" aria-hidden="true"></canvas>
         <section class="catalog-intro">
             <p class="eyebrow">МАГАЗИН DR. DARSUN</p>
             <h1>Каталог</h1>
-            <p>Натуральные масла и продукты собственного производства.</p>
-            <a class="catalog-intro__guide" href="oil-catalog.html">Изучить масла в справочнике <span aria-hidden="true">↗</span></a>
+            <p>Масла, урбеч, хумус и растительное молоко — выбирайте раздел и знакомьтесь с ассортиментом.</p>
+            <a class="catalog-intro__guide" href="oil-catalog.html">Энциклопедия продуктов <span aria-hidden="true">↗</span></a>
         </section>
+
+        <aside class="catalog-mascot-tip" aria-labelledby="catalog-mascot-title">
+            <img src="assets/images/walnut2.png" alt="" loading="lazy">
+            <div>
+                <p class="eyebrow">СОВЕТ ОТ ДОКТОРА</p>
+                <h2 id="catalog-mascot-title">Ищете что-то конкретное?</h2>
+                <p id="catalog-mascot-message" aria-live="polite">Начните с поиска по названию или выберите категорию — так найти нужное проще.</p>
+            </div>
+            <button class="catalog-mascot-tip__next" id="catalog-mascot-next" type="button" aria-label="Следующий совет">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+            </button>
+        </aside>
 
         <p class="catalog-demo-notice" id="catalog-demo-notice" role="status" hidden></p>
 
@@ -69,6 +87,14 @@
                 </button>
             </div>
         </section>
+        <nav class="catalog-type-tabs" aria-label="Разделы каталога">
+            <button type="button" data-product-type="all" aria-pressed="true">Всё</button>
+            <button type="button" data-product-type="oil" aria-pressed="false">Масла</button>
+            <button type="button" data-product-type="urbech" aria-pressed="false">Урбеч</button>
+            <button type="button" data-product-type="hummus" aria-pressed="false">Хумус</button>
+            <button type="button" data-product-type="milk" aria-pressed="false">Растительное молоко</button>
+            <button type="button" data-product-type="other" aria-pressed="false">Другое</button>
+        </nav>
 
         <div class="catalog-layout">
             <aside class="filters-sidebar" id="filters-sidebar" aria-label="Фильтры каталога">
@@ -94,6 +120,7 @@
                         <option value="default">По умолчанию</option>
                         <option value="price-asc">Сначала дешевле</option>
                         <option value="price-desc">Сначала дороже</option>
+                        <option value="name-asc">По названию</option>
                     </select>
                 </div>
 
@@ -116,14 +143,15 @@
                     <img src="assets/images/logo_full.png" alt="Dr. DarSun">
                     <span class="footer__brand-text">Dr. DarSun</span>
                 </div>
-                <p class="footer__desc">Премиальные растительные масла. Сделано с душой.</p>
+                <p class="footer__desc">Растительные масла и продукты из семян. Сделано с душой.</p>
             </div>
             <div class="footer__col">
                 <h4>Покупателям</h4>
                 <a href="catalog.html">Каталог</a>
-                <a href="oil-catalog.html">Справочник масел</a>
+                <a href="oil-catalog.html">Энциклопедия продуктов</a>
                 <a href="delivery.html">Доставка</a>
                 <a href="about.html">О нас</a>
+                <a href="courier-login.html">Курьер</a>
             </div>
             <div class="footer__col">
                 <h4>Контакты</h4>
@@ -131,9 +159,9 @@
                 <div class="socials">
                     <a href="https://vk.ru/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="ВКонтакте"><img class="theme-asset-light" src="assets/images/vk.png" alt="ВКонтакте"><img class="theme-asset-dark" src="assets/images/vk_dark.png" alt=""></a>
                     <a href="https://t.me/drdarsun" target="_blank" rel="noopener noreferrer" class="social-link social-icon" aria-label="Telegram"><img class="theme-asset-light" src="assets/images/telegram.png" alt="Telegram"><img class="theme-asset-dark" src="assets/images/telegram_dark.png" alt=""></a>
-                    <a href="https://www.instagram.com/drdarsun/" target="_blank" rel="noopener noreferrer" class="social-link">Instagram*</a>
+                    <span class="social-link">Instagram*</span>
                 </div>
-                <p class="social-disclaimer">* Instagram — продукт Meta, организации, деятельность которой запрещена на территории РФ. Аккаунт ведётся с соблюдением требований законодательства РФ.</p>
+                <p class="social-disclaimer">* Instagram — сервис Meta Platforms Inc., признанной экстремистской организацией; её деятельность запрещена на территории РФ.</p>
             </div>
         </div>
         <div class="footer__bottom">
@@ -141,31 +169,33 @@
         </div>
     </footer>
 
-<!-- Кнопка вызова чата в каталоге -->
-<button id="catalog-bot-toggle" class="chat-launcher" type="button" aria-label="Открыть чат с Доктором ДарСан" aria-controls="catalog-bot-modal" aria-expanded="false">✳</button>
-
-<div class="bot-modal" id="catalog-bot-modal" role="dialog" aria-label="Чат с Доктором ДарСан" aria-modal="false">
-    <div class="bot-header">
-        <div><h4>Доктор ДарСан</h4><span>Помощник по каталогу</span></div>
-        <button id="catalog-bot-close" type="button" aria-label="Закрыть чат">×</button>
-    </div>
-    <div class="bot-messages" id="catalog-chat-messages" aria-live="polite" aria-relevant="additions">
-        <div class="msg-wrapper bot">
-            <div class="msg">Здравствуйте! Помочь с выбором?</div>
+    <button id="catalog-assistant-toggle" class="chat-launcher" type="button" aria-label="Открыть чат с Доктором ДарСан" aria-controls="catalog-assistant-modal" aria-expanded="false" data-assistant-toggle><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6a7.5 7.5 0 1 1 17-3.5Z"/><path d="M8 11h.01M12 11h.01M16 11h.01"/></svg></button>
+    <section class="bot-modal" id="catalog-assistant-modal" data-site-assistant data-context="catalog" role="dialog" aria-label="Помощник по каталогу" aria-hidden="true" inert>
+        <div class="bot-header">
+            <div><h4>Доктор ДарСан</h4><span>Помощник по каталогу</span></div>
+            <button type="button" aria-label="Закрыть чат" data-assistant-close>×</button>
         </div>
-    </div>
-    <div class="chat-composer">
-        <input type="text" id="catalog-chat-input" maxlength="1200" placeholder="Спросить о товарах…" aria-label="Сообщение для помощника">
-        <button id="catalog-chat-send" type="button" aria-label="Отправить сообщение">→</button>
-    </div>
-</div>
-
+        <div class="bot-messages" data-assistant-messages aria-live="polite" aria-relevant="additions">
+            <div class="msg-wrapper bot" data-sender="bot" data-text="Здравствуйте! Ищете масло, урбеч, хумус или растительное молоко?">
+                <div class="msg">Здравствуйте! Ищете масло, урбеч, хумус или растительное молоко?</div>
+            </div>
+        </div>
+        <form class="chat-composer" data-assistant-form>
+            <button class="chat-tool" type="button" aria-label="Открыть стикеры" aria-expanded="false" data-assistant-stickers>☺</button>
+            <input type="text" maxlength="1200" placeholder="Спросить о товарах…" aria-label="Сообщение для помощника" data-assistant-input required>
+            <button class="chat-tool" type="button" aria-label="Голосовой ввод" data-assistant-voice><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21m-4 0h8"/></svg></button>
+            <button type="submit" aria-label="Отправить сообщение" data-assistant-send>→</button>
+        </form>
+        <div class="stickers-panel" data-assistant-stickers-panel></div>
+    </section>
     <script type="module" src="js/main.js"></script>
-    <script type="module" src="js/catalog.js"></script>
-    <script type="module" src="js/catalog-seed-rain.js"></script>
-    <script src="js/burger.js"></script>
-    <script type="module" src="js/auth-header.js"></script>
+    <script type="module" src="js/site-assistant.js?v=chat-ui-fix-1"></script>
+    <script type="module" src="js/catalog.js?v=catalog-details-1"></script>
+    <script type="module" src="js/site-tips.js"></script>
+    <script src="js/burger.js?v=production-nav-2"></script>
+    <script type="module" src="js/auth-header.js?v=site-toast-singleton-1"></script>
     <script src="js/preloader.js"></script>
-    <script src="js/site-status.js"></script>
+    <script src="js/site-status.js?v=service-timeouts-2"></script>
+    <script type="module" src="js/temporary-payment-notice.js?v=service-timeouts-2"></script>
 </body>
 </html>

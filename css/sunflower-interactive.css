@@ -1,0 +1,115 @@
+.video-seed-stage {
+    position: absolute;
+    z-index: 0;
+    top: 0;
+    left: 50%;
+    width: min(220px, 38vw);
+    aspect-ratio: 218 / 238;
+    pointer-events: none;
+    transform: translateX(-50%);
+}
+
+.video-seed-stage__body,
+.video-seed-stage__arm,
+.video-seed-stage__eye {
+    position: absolute;
+    display: block;
+    max-width: none;
+    height: auto;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.video-seed-stage__body {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.video-seed-stage__arm {
+    z-index: 1;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform-origin: 18% 45%;
+    animation: sunflower-wave 2.4s ease-in-out infinite;
+}
+
+.video-seed-stage__eye {
+    z-index: 2;
+    transform-origin: 50% 50%;
+}
+
+.video-seed-stage__sclera,
+.video-seed-stage__pupil {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+}
+
+.video-seed-stage__pupil {
+    transform: translate3d(var(--pupil-x, 0px), var(--pupil-y, 0px), 0);
+    will-change: transform;
+}
+
+.video-seed-stage__eye--left {
+    top: 23.5294%;
+    left: 33.0275%;
+    width: 19.2661%;
+    aspect-ratio: 42 / 40;
+}
+
+.video-seed-stage__eye--right {
+    top: 28.5714%;
+    left: 55.9633%;
+    width: 15.5963%;
+    aspect-ratio: 34 / 38;
+}
+
+.video-seed-stage.is-blinking .video-seed-stage__eye {
+    animation: sunflower-eyes-blink 220ms ease-in-out;
+}
+
+.video-seed-stage.is-winking-left .video-seed-stage__eye--left,
+.video-seed-stage.is-winking-right .video-seed-stage__eye--right {
+    animation: sunflower-eye-wink 220ms ease-in-out;
+}
+
+@keyframes sunflower-eyes-blink {
+    0%, 28%, 72%, 100% { transform: scaleY(1); }
+    42%, 58% { transform: scaleY(.06); }
+}
+
+@keyframes sunflower-eye-wink {
+    0%, 28%, 72%, 100% { transform: scaleY(1); }
+    42%, 58% { transform: scaleY(.06); }
+}
+
+@keyframes sunflower-wave {
+    0%, 100% { transform: rotate(0deg); }
+    35% { transform: rotate(-5deg); }
+    70% { transform: rotate(4deg); }
+}
+
+@media (max-width: 768px) {
+    .video-seed-stage {
+        width: min(170px, 42vw);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .video-seed-stage.is-blinking .video-seed-stage__eye,
+    .video-seed-stage.is-winking-left .video-seed-stage__eye--left,
+    .video-seed-stage.is-winking-right .video-seed-stage__eye--right {
+        animation-duration: 220ms !important;
+    }
+
+    .video-seed-stage__arm {
+        animation-duration: 2.4s !important;
+        animation-iteration-count: infinite !important;
+    }
+}

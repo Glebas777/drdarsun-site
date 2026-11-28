@@ -1,4 +1,7 @@
 import { supabase } from './supabase-client.js';
+import { initializeTelegramBotLinks } from './telegram-bot-links.js';
+
+initializeTelegramBotLinks();
 
 const reviewBook = document.getElementById('review-book');
 const previousBookButton = document.getElementById('review-book-prev');
@@ -98,15 +101,30 @@ function createReviewCard(review, { moderation = false } = {}) {
     const name = document.createElement('strong');
     name.className = 'review-entry__name';
     name.textContent = review.user_name || 'Покупатель Dr. DarSun';
+    const numericRating = Number(review.rating);
     const rating = document.createElement('span');
     rating.className = 'review-entry__rating';
-    rating.setAttribute('aria-label', `Оценка: ${review.rating} из 5`);
-    rating.textContent = `${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}`;
+    rating.setAttribute('aria-label', `Оценка: ${numericRating} из 5`);
+    rating.textContent = Number.isInteger(numericRating) && numericRating >= 1 && numericRating <= 5
+        ? `${'★'.repeat(numericRating)}${'☆'.repeat(5 - numericRating)}`
+        : '';
     top.append(name, rating);
 
-    const text = document.createElement('p');
-    text.textContent = review.review_text;
-    card.append(top, text);
+    if (moderation && review.product_name) {
+        const product = document.createElement('p');
+        product.className = 'review-moderation-item__product';
+        product.textContent = `Товар: ${review.product_name}`;
+        card.appendChild(product);
+    }
+
+    card.append(top);
+
+    if (typeof review.review_text === 'string' && review.review_text.trim()) {
+        const reviewText = document.createElement('p');
+        reviewText.className = moderation ? 'review-moderation-item__text' : 'review-entry__text';
+        reviewText.textContent = review.review_text;
+        card.appendChild(reviewText);
+    }
 
     if (!moderation) {
         const date = document.createElement('time');
@@ -141,6 +159,7 @@ async function loadPublishedReviews() {
         .from('brand_reviews')
         .select('id,user_id,user_name,rating,review_text,created_at')
         .eq('status', 'approved')
+        .is('product_id', null)
         .order('created_at', { ascending: false })
         .limit(30);
     if (error) throw error;
@@ -242,11 +261,17 @@ async function submitReview(event) {
         const submittedName = reviewNameInput.value;
         reviewForm.reset();
         reviewNameInput.value = submittedName;
-        if (reviewFormStatus) reviewFormStatus.textContent = 'Спасибо! Отзыв отправлен на проверку и появится в книге после публикации.';
+        if (reviewFormStatus) reviewFormStatus.textContent = 'Спасибо! Отзыв отправлен на проверку и появится после публикации.';
         window.showToast?.('Отзыв отправлен на проверку.', 'success');
     } catch (error) {
-        if (reviewFormStatus) reviewFormStatus.textContent = error.message || 'Не удалось отправить отзыв. Попробуйте позже.';
-        window.showToast?.(error.message || 'Не удалось отправить отзыв.', 'error');
+        const isLocalPreview = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+        const message = error instanceof TypeError && isLocalPreview
+            ? 'Отправка из локального предпросмотра блокируется CORS. Откройте сайт на рабочем домене или добавьте этот адрес в CORS_ALLOWED_ORIGINS.'
+            : error instanceof TypeError
+                ? 'Не удалось связаться с сервером отзывов. Проверьте соединение и попробуйте снова.'
+                : error.message || 'Не удалось отправить отзыв. Попробуйте позже.';
+        if (reviewFormStatus) reviewFormStatus.textContent = message;
+        window.showToast?.(message, 'error');
     } finally {
         reviewSubmitButton.disabled = false;
     }

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#0A0F0A">
     <title>Технический перерыв · Dr. DarSun</title>
-    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/base.css?v=chat-ui-fix-1">
     <style>
         body { display: grid; min-height: 100vh; place-items: center; padding: 24px; background: linear-gradient(rgba(7, 17, 9, .78), rgba(7, 17, 9, .86)), url('assets/images/load_night.png') center / cover fixed; color: #FAF7E6; }
         main { width: min(100%, 620px); padding: clamp(28px, 7vw, 56px); border: 1px solid rgba(212, 175, 55, .4); border-radius: 28px; background: rgba(11, 42, 15, .84); text-align: center; box-shadow: 0 24px 80px rgba(0, 0, 0, .35); backdrop-filter: blur(12px); }
@@ -28,7 +28,7 @@
         <p>Пожалуйста, зайдите чуть позже.</p>
         <div class="maintenance-actions">
             <button type="button" id="maintenance-retry">Попробовать ещё раз</button>
-            <a href="https://t.me/darsunhelp" target="_blank" rel="noopener noreferrer">Связаться с поддержкой</a>
+            <a href="mailto:drdarsunhelper@gmail.com">Написать на почту</a>
         </div>
         <p id="maintenance-status" role="status" aria-live="polite"></p>
     </main>
@@ -54,14 +54,14 @@
         }
 
         async function checkSiteStatus() {
-            if (checkingStatus) return;
+            if (checkingStatus || document.hidden) return;
             checkingStatus = true;
             retryButton.disabled = true;
             retryButton.textContent = 'Проверяем…';
             try {
                 const response = await fetch('https://drdarsun-site-main.layero.app/api/site-status', {
                     cache: 'no-store',
-                    signal: AbortSignal.timeout(5000)
+                    signal: AbortSignal.timeout(10_000)
                 });
                 const result = await response.json().catch(() => null);
                 if (!response.ok) throw new Error('Сервис пока не отвечает. Попробуйте чуть позже.');
@@ -86,10 +86,14 @@
 
         retryButton.addEventListener('click', checkSiteStatus);
         checkSiteStatus();
-        window.setInterval(checkSiteStatus, 3000);
+        window.setInterval(checkSiteStatus, 5000);
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) checkSiteStatus();
+        });
     </script>
     <script src="js/music-player.js"></script>
     <script src="js/floating-controls.js"></script>
-    <script type="module" src="js/site-toasts.js"></script>
+    <script type="module" src="js/site-toasts.js?v=service-timeouts-2"></script>
+    <script type="module" src="js/temporary-payment-notice.js?v=service-timeouts-2"></script>
 </body>
 </html>

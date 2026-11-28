@@ -4,7 +4,8 @@ export async function getFavoriteIds(userId) {
     const { data, error } = await supabase
         .from('favorites')
         .select('product_id')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .abortSignal(AbortSignal.timeout(8000));
     if (error) throw error;
     return new Set((data || []).map(item => String(item.product_id)));
 }
@@ -44,7 +45,8 @@ export async function getFavoriteProducts(userId) {
     const { data, error } = await supabase
         .from('products')
         .select('id,name,price,description,image_url,category')
-        .in('id', [...ids]);
+        .in('id', [...ids])
+        .abortSignal(AbortSignal.timeout(8000));
     if (error) throw error;
     return data || [];
 }

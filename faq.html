@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вопросы и ответы | Dr. DarSun</title>
+    <link rel="stylesheet" href="css/base.css?v=chat-ui-fix-1">
+    <link rel="stylesheet" href="css/faq.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container header__inner">
+            <a href="index.html" class="logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
+            <nav class="nav" aria-label="Основная навигация">
+                <a href="index.html">Главная</a>
+                <a href="catalog.html">Каталог</a>
+                <a href="oil-catalog.html">Энциклопедия продуктов</a>
+                <a href="production.html">Производство</a>
+                <a href="scientists-about-oils.html">Учёные о маслах</a>
+                <a href="about.html">О нас</a>
+                <a href="delivery.html">Доставка</a>
+                <a href="faq.html" class="active" aria-current="page">Вопросы</a>
+            </nav>
+            <div class="header__actions">
+                <button class="theme-toggle" id="theme-toggle" aria-label="Переключить тему"></button>
+                <a href="cart.html" class="icon-btn" aria-label="Корзина">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h8.5a2 2 0 0 0 1.9-1.5L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg>
+                </a>
+                <div id="auth-buttons"></div>
+                <button class="burger" id="burger-btn" aria-label="Открыть меню"><span></span><span></span><span></span></button>
+            </div>
+        </div>
+        <div class="mobile-menu" id="mobile-menu">
+            <a href="index.html">Главная</a>
+            <a href="catalog.html">Каталог</a>
+            <a href="oil-catalog.html">Энциклопедия продуктов</a>
+            <a href="scientists-about-oils.html">Учёные о маслах</a>
+            <a href="about.html">О нас</a>
+            <a href="delivery.html">Доставка</a>
+            <a href="faq.html" aria-current="page">Вопросы</a>
+        </div>
+    </header>
+
+    <main>
+        <section class="faq-hero">
+            <div class="container faq-hero__inner">
+                <p class="eyebrow">ПОДДЕРЖКА И СПРАВКА</p>
+                <h1>Вопросы и ответы</h1>
+                <p>Быстрые ответы по заказам, доставке, оплате, продуктам и аккаунту.</p>
+                <label class="faq-search">
+                    <span class="sr-only">Поиск по вопросам</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+                    <input id="faq-search-input" type="search" placeholder="Что хотите узнать?" autocomplete="off">
+                </label>
+            </div>
+        </section>
+
+        <section class="container faq-layout">
+            <aside class="faq-categories" aria-label="Категории вопросов">
+                <button type="button" class="faq-category active" data-category="all">Все вопросы</button>
+                <button type="button" class="faq-category" data-category="orders">Заказы</button>
+                <button type="button" class="faq-category" data-category="delivery">Доставка</button>
+                <button type="button" class="faq-category" data-category="oils">Продукты</button>
+                <button type="button" class="faq-category" data-category="account">Аккаунт</button>
+            </aside>
+            <div class="faq-results">
+                <p class="faq-results__status" id="faq-results-status" aria-live="polite"></p>
+                <div id="faq-list"></div>
+                <div class="faq-contact">
+                    <p>Не нашли ответ?</p>
+                    <a class="btn btn--primary" href="mailto:drdarsunhelper@gmail.com">Написать на почту</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container footer__inner">
+            <div class="footer__logo-group">
+                <a href="index.html" class="footer__logo"><img src="assets/images/banner.png" alt="Dr. DarSun"></a>
+                <p class="footer__desc">Растительные масла и продукты из семян. Сделано с душой.</p>
+            </div>
+            <div class="footer__links">
+                <a href="about.html">О нас</a>
+                <a href="courier-login.html">Курьер</a>
+                <a href="delivery.html">Доставка</a>
+                <a href="faq.html">Вопросы и ответы</a>
+                <a href="mailto:drdarsunhelper@gmail.com">drdarsunhelper@gmail.com</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/burger.js?v=production-nav-2"></script>
+    <script src="js/main.js"></script>
+    <script type="module" src="js/auth-header.js?v=site-toast-singleton-1"></script>
+    <script src="js/faq.js"></script>
+    <script src="js/site-status.js?v=service-timeouts-2"></script>
+    <script type="module" src="js/temporary-payment-notice.js?v=service-timeouts-2"></script>
+</body>
+</html>

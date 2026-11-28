@@ -1,157 +1,155 @@
-# Telegram webhook Worker
+# Telegram webhook Workers
 
-The Worker accepts Telegram webhooks and puts updates into Cloudflare Queues before
-returning `200` to Telegram. Admin updates use a dedicated queue, so customer and
-support traffic cannot hold up the admin bot. Each consumer is limited to one
-in-flight batch to keep Layer0 load predictable. Temporary Layer0 failures are
-retried with backoff; repeated failures go to a role-specific dead-letter queue.
+The website and Telegram bot logic run on **Layero**. This Cloudflare Worker
+only validates Telegram webhook requests and forwards them to Layero. Admin
+order/product panel commands run through the admin bot; the public support bot
+remains separate. A client bot can be enabled on this same webhook Worker:
 
-## Provision queues
-
-Run these once from this directory, using the Cloudflare account that owns the Worker:
-
-```sh
-npx wrangler queues create drdarsun-telegram-admin
-npx wrangler queues create drdarsun-telegram-bots
-npx wrangler queues create drdarsun-telegram-admin-dlq
-npx wrangler queues create drdarsun-telegram-bots-dlq
-```
-
-On a Cloudflare plan that supports extended retention, optionally run:
-
-```sh
-npx wrangler queues update drdarsun-telegram-admin --message-retention-period-secs 1209600
-npx wrangler queues update drdarsun-telegram-bots --message-retention-period-secs 1209600
-npx wrangler queues update drdarsun-telegram-admin-dlq --message-retention-period-secs 1209600
-npx wrangler queues update drdarsun-telegram-bots-dlq --message-retention-period-secs 1209600
-```
-
-Queue retention can be limited to 24 hours on the Workers Free plan; longer
-retention requires a plan that supports the configured 14 days. Check Cloudflare's
-current pricing and limits before enabling Queues.
-
-## Legacy combined Worker setup
-
-Use this section only if you intentionally keep a single Worker for all bots.
-For the requested one-Worker-per-bot setup, skip to **Isolated Worker per bot**;
-do not deploy the combined config alongside the isolated Workers.
-
-1. In `wrangler.toml`, set `TELEGRAM_WORKER_PUBLIC_URL` under `[vars]` to this
-   Worker's real HTTPS origin (the same origin used by Telegram webhook URLs).
-2. Keep the existing Worker secrets configured: bot tokens, per-bot webhook
-   secrets, `TELEGRAM_WORKER_SHARED_SECRET`, and `WEBHOOK_ADMIN_SECRET`.
-3. Deploy with `npx wrangler deploy`.
-4. Register webhooks once with the existing authenticated
-   `POST /admin/register-webhooks` endpoint. Do not set `drop_pending_updates` to
-   `true`; registration keeps Telegram's pending updates.
-5. Check the Cloudflare Queue dashboard after a test `/start`: the admin message
-   should appear in `drdarsun-telegram-admin`, then be acknowledged by its
-   consumer. General bot messages use `drdarsun-telegram-bots`.
-6. To check deployment bindings and secret presence without exposing values, call
-   `GET /admin/health` with `Authorization: Bearer <WEBHOOK_ADMIN_SECRET>`.
-   It returns only booleans and bot role names; `200` means required Worker
-   configuration and queue bindings are present, while `503` identifies missing
-   pieces.
-
-The Layer0 server keeps long polling disabled unless `TELEGRAM_BOTS_ENABLED=true`
-is explicitly set. Leave it unset when using this webhook Worker; starting a
-polling process calls Telegram `deleteWebhook` and would take bots off the Worker.
-
-The scheduled Worker checks the admin webhook first, then checks every other
-configured bot webhook every five minutes. It restores missing or incorrect URLs
-without clearing pending updates.
-Cloudflare retries queued updates up to 100 times, then stores them in the
-role-specific dead-letter queue instead of discarding them. If a DLQ is
-non-empty, inspect the first failing Layer0/Worker log before replaying messages;
-replay only after the underlying error is fixed to avoid a retry loop.
-Retry delay grows exponentially from 5 seconds to a 300-second cap, unless the
-backend provides a valid `Retry-After` header.
-
-If queues are not provisioned/bound, the Worker falls back to forwarding updates
-synchronously to Layer0. This preserves the previous behavior but does not give
-the admin bot the isolated retry queue or backlog recovery.
-
-## Isolated Worker per bot
-
-Before deploying, run `database/telegram-webhook-state.sql` once in this
-project's Supabase SQL Editor. The webhook backend uses its tables and RPC
-functions to persist bot conversations and safely deduplicate Telegram retries.
-
-The Layer0 backend must also have `TELEGRAM_WORKER_SHARED_SECRET` set to the
-same random value entered for every Worker below, plus the bot tokens it uses
-for outgoing messages (`ADMIN_BOT_TOKEN`, `PANEL_BOT_TOKEN`,
-`CLIENT_BOT_TOKEN`, `CODE_BOT_TOKEN`, and `HELP_BOT_TOKEN`). Set `MY_CHAT_ID`
-to the admin owner's numeric Telegram chat ID and `PANEL_CHAT_ID` or `M_CHAT_ID`
-to the panel operator's numeric chat ID. Keep `TELEGRAM_BOTS_ENABLED` unset or
-set to anything other than `true`; enabling polling calls `deleteWebhook` and
-conflicts with these Workers.
-
-To separate every bot completely, create all role queues and deploy each config:
-
-```sh
-npx wrangler queues create drdarsun-telegram-panel
-npx wrangler queues create drdarsun-telegram-panel-dlq
-npx wrangler queues create drdarsun-telegram-client
-npx wrangler queues create drdarsun-telegram-client-dlq
-npx wrangler queues create drdarsun-telegram-auth
-npx wrangler queues create drdarsun-telegram-auth-dlq
-npx wrangler queues create drdarsun-telegram-support
-npx wrangler queues create drdarsun-telegram-support-dlq
-```
-
-Admin queue `drdarsun-telegram-admin` and its DLQ must already exist. Each isolated
-Worker has only its role queue and accepts only `/telegram/<its-role>`. Re-register
-webhooks through the isolated Admin Worker or call `/admin/register-webhooks` on
-each Worker; the endpoint intentionally manages only its own role.
-
-Before deploying, add secrets separately to **each** Worker configuration. The
-backend shared secret must match `TELEGRAM_WORKER_SHARED_SECRET` on Layer0; use a
-different random `WEBHOOK_ADMIN_SECRET` for each Worker. Add only the matching
-bot token and webhook secret:
-
-| Config | Bot token secret | Webhook secret |
+| Config | Worker | Roles |
 | --- | --- | --- |
-| `wrangler.admin.toml` | `ADMIN_BOT_TOKEN` | `ADMIN_WEBHOOK_SECRET` |
-| `wrangler.panel.toml` | `PANEL_BOT_TOKEN` | `PANEL_WEBHOOK_SECRET` |
-| `wrangler.client.toml` | `CLIENT_BOT_TOKEN` | `CLIENT_WEBHOOK_SECRET` |
-| `wrangler.auth.toml` | `CODE_BOT_TOKEN` | `AUTH_WEBHOOK_SECRET` |
-| `wrangler.support.toml` | `HELP_BOT_TOKEN` | `SUPPORT_WEBHOOK_SECRET` |
+| `wrangler.toml` | `drdarsun-tg-a` | `admin`, `support`, `client` |
 
-For each row, use the matching config and let Wrangler prompt for each value:
+There are no queue bindings or Cron Triggers in these configs. The webhook
+handler forwards each valid update to Layero before acknowledging it to
+Telegram. This intentionally does **not** use `ctx.waitUntil()`: acknowledging
+before Layero confirms delivery would lose updates when the background request
+fails. Network wait does not count toward Workers CPU time. The Worker has no
+polling loop, scheduled task, queue consumer, or Supabase connection. The
+Layero webhook handler performs idempotent update claims, and the database
+account-link/login procedures are safe to retry. The client bot only accesses
+the database for a link confirmation or an explicitly requested login code.
 
-```sh
-npx wrangler secret put TELEGRAM_WORKER_SHARED_SECRET --config wrangler.admin.toml
-npx wrangler secret put WEBHOOK_ADMIN_SECRET --config wrangler.admin.toml
-npx wrangler secret put ADMIN_BOT_TOKEN --config wrangler.admin.toml
-npx wrangler secret put ADMIN_WEBHOOK_SECRET --config wrangler.admin.toml
-npx wrangler deploy --config wrangler.admin.toml
-```
+## Secrets
 
-Repeat with each config and its two role-specific secret names from the table.
-Do not paste tokens or secrets into source files, command history, or chat. Every
-isolated Worker has four secrets: the shared backend secret, its admin secret,
-its bot token, and its webhook secret. The panel allowlist (`PANEL_CHAT_ID` or
-`M_CHAT_ID`) and admin owner (`MY_CHAT_ID`) belong in the Layer0 backend, not in
-Cloudflare Worker secrets.
-
-After all five deployments report success, register each webhook using the
-matching Worker's own `WEBHOOK_ADMIN_SECRET`:
+Add secrets through Wrangler's interactive prompt; do not write their values in
+this file, source control, or shell history. Keep the existing shared secret
+unchanged unless intentionally rotating it on both Cloudflare and Layero.
 
 ```sh
-curl -i -X POST https://drdarsun-telegram-admin.turgleb7.workers.dev/admin/register-webhooks \
-  -H 'Authorization: Bearer <admin worker secret>'
+# Worker A
+npx wrangler secret put TELEGRAM_WORKER_SHARED_SECRET --config workers/telegram-webhook/wrangler.toml
+npx wrangler secret put WEBHOOK_ADMIN_SECRET --config workers/telegram-webhook/wrangler.toml
+npx wrangler secret put ADMIN_BOT_TOKEN --config workers/telegram-webhook/wrangler.toml
+npx wrangler secret put ADMIN_WEBHOOK_SECRET --config workers/telegram-webhook/wrangler.toml
+npx wrangler secret put HELP_BOT_TOKEN --config workers/telegram-webhook/wrangler.toml
+npx wrangler secret put SUPPORT_WEBHOOK_SECRET --config workers/telegram-webhook/wrangler.toml
+npx wrangler secret put CLIENT_BOT_TOKEN --config workers/telegram-webhook/wrangler.toml
+npx wrangler secret put CLIENT_WEBHOOK_SECRET --config workers/telegram-webhook/wrangler.toml
 ```
 
-Repeat for `panel`, `client`, `auth`, and `support`, substituting each Worker URL
-and its own secret. Confirm each registration response has HTTP 200 and
-`"success":true` for that role. Then call `/admin/health` on each URL with the
-same Worker secret; HTTP 200 checks configuration only, not whether a bot has
-processed a real message. Send `/start`, then inspect that Worker’s Queue and
-consumer logs plus the Layer0 application logs.
+`TELEGRAM_WORKER_SHARED_SECRET` must match Layero's configured value.
+Each bot's `*_WEBHOOK_SECRET` must match the value Telegram sends in
+`X-Telegram-Bot-Api-Secret-Token`. Keep `TELEGRAM_BOTS_ENABLED` disabled on
+Layero; polling conflicts with webhook delivery. `HELP_BOT_TOKEN` must also be
+configured in Layero so the support bot can send replies and access its API.
+The support link points to the existing support account at `@darsunhelp` by
+default; no third bot or extra Layer0 variable is needed. Set
+`SUPPORT_BOT_USERNAME` as a regular Layer0 variable only if that username
+changes.
+The client bot token must also be added to Layero Secrets as `CLIENT_BOT_TOKEN`
+so Layero can reply to `/start` and other messages. The token in a local `.env`
+is not read by Wrangler during deploy; paste it only into Wrangler's hidden
+interactive prompt and Layero's secret manager. Never put it in `wrangler.toml`.
+Set `CLIENT_BOT_USERNAME` as a regular Layero variable without the leading
+`@`. The login, registration, and about pages use the public
+`/api/telegram/client/info` endpoint to reveal cached `t.me` links for the
+configured client and support bots; the tokens are never sent to the browser.
 
-The five isolated configs each run their own five-minute webhook watchdog. Once
-they are working, disable or delete the old combined `drdarsun-telegram-webhook`
-Worker (or at minimum remove its scheduled trigger and old bot secrets). Its
-watchdog can otherwise move the same Telegram webhooks back to the combined
-Worker. Do not deploy the combined `wrangler.toml` alongside these isolated
-Workers.
+## Deploy and register
+
+Deploy the only Worker after verifying the secret and the Layero URL:
+
+```sh
+npx wrangler deploy --config workers/telegram-webhook/wrangler.toml
+```
+
+After deploying, run `workers/telegram-webhook/register-webhook.sh` from an
+interactive terminal. It checks Worker health and registers all active bots,
+including the client bot. To retry one bot without touching the others, pass
+its role, for example `bash workers/telegram-webhook/register-webhook.sh client`.
+If Telegram returns HTTP 429, the response includes `retry_after`; wait at least
+that many seconds before retrying. The client bot supports account linking,
+requested one-time login codes, and opt-in personal Telegram notifications.
+
+Register all enabled bots together. The health endpoint checks that all roles
+in `WORKER_ROLES` have their secrets before registration. Use the actual admin
+secret in a local terminal and do not commit it:
+
+```sh
+curl -sS -X POST \
+  -H 'X-Admin-Secret: <WEBHOOK_ADMIN_SECRET>' \
+  https://drdarsun-tg-a.turgleb7.workers.dev/admin/register
+```
+
+Each successful response reports the registered roles. The helper script can
+also run the health check and registration:
+`workers/telegram-webhook/register-webhook.sh`.
+The webhook URLs are `/telegram/<role>`; allowed updates remain `message` and
+`callback_query`. Registration uses up to 10 connections per bot.
+
+## Retiring the account-code bot
+
+If the retired account-code bot still has a webhook, call Telegram's
+`deleteWebhook` with `drop_pending_updates=false` and verify Telegram confirms
+success. This prevents Telegram from retrying updates against the removed
+`/telegram/auth` route. Do not delete the bot itself or discard pending updates
+unless that is explicitly intended.
+
+After confirming the webhook is deleted, remove its obsolete secrets from the
+Worker:
+
+```sh
+npx wrangler secret delete CODE_BOT_TOKEN
+npx wrangler secret delete AUTH_WEBHOOK_SECRET
+```
+
+The website's normal email/password login and email password recovery remain
+available. Existing Telegram-link rows and database migrations are left intact;
+this code change does not modify production data.
+
+## Client account linking, login, and notifications
+
+Before deploying the Layero site/API change, apply
+[`database/telegram-account-auth.sql`](../../database/telegram-account-auth.sql)
+in the Supabase SQL Editor. It extends the existing Telegram tables and
+notification settings without removing linked accounts or existing settings.
+It preserves existing Telegram chat IDs while normalizing their columns to
+text, and stores only hashes of link/login challenges. The migration restricts
+the RPCs and private tables to `service_role` and expires old pending requests
+during new requests. Link confirmation also populates the legacy account
+`email` column from the authenticated linking request. If the migration was
+already applied, safely run the updated SQL file again to fix older schema
+columns and the link RPC.
+
+Set `CLIENT_BOT_USERNAME` in Layero to the existing client bot username without
+`@`. Layero also needs `CLIENT_BOT_TOKEN`, `TELEGRAM_WORKER_SHARED_SECRET`,
+`SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. The
+shared secret must match the existing Worker value. Do not copy secret values
+into this repository or redeploy/rotate Worker secrets for this site-only
+change.
+
+After applying the SQL, push and deploy the Layero application. If the client
+bot webhook is already registered and Worker health is green, no Worker
+redeploy or webhook re-registration is needed. The site exposes Telegram
+link/unlink controls in the profile, a separate opt-in notification toggle,
+and Telegram login on the sign-in page. Login codes are sent only after the
+client bot is opened from a fresh login request and only to the Telegram chat
+already linked to that account. The existing multi-factor authentication
+check still runs after the Telegram code succeeds.
+
+Telegram notifications cover personal site toasts, order creation, order
+status changes, and online-payment outcomes. Public all-visitor banners remain
+site banners; they are not sent as mass Telegram messages. Login codes are
+request-only and are not recurring notifications.
+
+## Migration and monitoring
+
+Do not delete the old Workers or queues until both new registrations succeed,
+updates reach Layero, and the old queue consumers have been detached. Review
+queued messages before deleting queues. Never remove consumers or queues just
+to make a deployment succeed.
+
+Cloudflare's CPU metric excludes time waiting on `fetch()`. Check invocation
+logs for forwarding status/errors and inspect CPU metrics before optimizing
+JavaScript. There should be no idle invocations without webhook traffic or a
+Cron Trigger. Queue retry reads no longer apply to this queue-free config.

@@ -5,6 +5,87 @@ const cartItems = document.getElementById('cart-items');
 const checkoutButton = document.getElementById('checkout-btn');
 const checkoutForm = document.getElementById('checkout-form');
 const currency = new Intl.NumberFormat('ru-RU');
+const paymentHelp = document.getElementById('checkout-payment-help');
+const paymentChoices = [...document.querySelectorAll('input[name="payment_method"]')];
+let availablePaymentMethods = new Set();
+let activeRequestId = null;
+const checkoutRequestStorageKey = 'darsun_pending_checkout_request';
+if (checkoutButton) checkoutButton.disabled = true;
+
+function getCheckoutRequestId() {
+    if (activeRequestId) return activeRequestId;
+    try {
+        const storedId = sessionStorage.getItem(checkoutRequestStorageKey);
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(storedId || '')) {
+            activeRequestId = storedId;
+            return activeRequestId;
+        }
+    } catch (error) {
+        console.warn('Checkout idempotency key could not be loaded:', error);
+    }
+    activeRequestId = crypto.randomUUID();
+    try {
+        sessionStorage.setItem(checkoutRequestStorageKey, activeRequestId);
+    } catch (error) {
+        console.warn('Checkout idempotency key could not be saved:', error);
+    }
+    return activeRequestId;
+}
+
+function clearCheckoutRequestId() {
+    activeRequestId = null;
+    try {
+        sessionStorage.removeItem(checkoutRequestStorageKey);
+    } catch (error) {
+        console.warn('Checkout idempotency key could not be cleared:', error);
+    }
+}
+
+paymentChoices.forEach(choice => {
+    choice.addEventListener('change', clearCheckoutRequestId);
+});
+
+async function loadOrderOptions() {
+    try {
+        const response = await fetch('https://drdarsun-site-main.layero.app/api/order-options', {
+            cache: 'no-store',
+            signal: AbortSignal.timeout(10_000)
+        });
+        const options = await response.json().catch(() => null);
+        if (!response.ok || !options || typeof options !== 'object') {
+            throw new Error(options?.error || 'Не удалось проверить доступные способы заказа.');
+        }
+        availablePaymentMethods = new Set(
+            paymentChoices
+                .filter(choice => options[choice.value] === true)
+                .map(choice => choice.value)
+        );
+        paymentChoices.forEach(choice => { choice.disabled = !availablePaymentMethods.has(choice.value); });
+        checkoutButton.disabled = availablePaymentMethods.size === 0;
+        checkoutButton.textContent = availablePaymentMethods.size
+            ? 'Оформить заказ'
+            : 'Заказы временно недоступны';
+        document.documentElement.dataset.orderIntake = availablePaymentMethods.size ? 'active' : 'paused';
+        if (paymentHelp) {
+            paymentHelp.textContent = availablePaymentMethods.size
+                ? (availablePaymentMethods.has('cash')
+                    ? 'Заказ будет сохранён со статусом «ожидает подтверждения». Наличные оплачиваются курьеру при получении.'
+                    : 'Доступны онлайн-заявки. Платёжная система пока не подключена; заказ будет сохранён для подтверждения.')
+                : 'Сейчас оформление заказов отключено. Попробуйте позже или свяжитесь с поддержкой.';
+        }
+        const submitButton = checkoutForm?.querySelector('button[type="submit"]');
+        if (submitButton) {
+            submitButton.disabled = availablePaymentMethods.size === 0;
+            submitButton.textContent = availablePaymentMethods.size ? 'Отправить заказ' : 'Заказы временно недоступны';
+        }
+    } catch (error) {
+        console.error('Order availability check failed:', error);
+        availablePaymentMethods.clear();
+        checkoutButton.disabled = true;
+        checkoutButton.textContent = 'Заказы временно недоступны';
+        if (paymentHelp) paymentHelp.textContent = 'Не удалось проверить доступность заказов. Обновите страницу или попробуйте позже.';
+    }
+}
 
 function showToast(message, type = 'success') {
     let container = document.querySelector('.toast-container');
@@ -185,6 +266,7 @@ cartItems?.addEventListener('click', (event) => {
     try {
         writeCart(cart);
         renderCart();
+        loadOrderOptions();
     } catch (error) {
         console.error('Cart update failed:', error);
         showToast('Не удалось сохранить корзину.', 'error');
@@ -192,6 +274,7 @@ cartItems?.addEventListener('click', (event) => {
 });
 
 checkoutButton?.addEventListener('click', async () => {
+    if (!availablePaymentMethods.size) return showToast('Оформление заказов сейчас недоступно.', 'error');
     let cart;
     try {
         cart = readCart();
@@ -230,10 +313,15 @@ checkoutButton?.addEventListener('click', async () => {
 checkoutForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!checkoutForm.reportValidity()) return;
+    const paymentMethod = checkoutForm.querySelector('input[name="payment_method"]:checked')?.value;
+    if (!paymentMethod || !availablePaymentMethods.has(paymentMethod)) {
+        return showToast('Выберите один из доступных способов оплаты.', 'error');
+    }
 
     const submitButton = checkoutForm.querySelector('button[type="submit"]');
     submitButton.disabled = true;
     submitButton.textContent = 'Отправляем…';
+    paymentChoices.forEach(choice => { choice.disabled = true; });
     try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) throw new Error('Не удалось проверить вход. Обновите страницу и попробуйте снова.');
@@ -242,6 +330,7 @@ checkoutForm?.addEventListener('submit', async (event) => {
             return;
         }
 
+        const requestId = getCheckoutRequestId();
         const orderResponse = await fetch('https://drdarsun-site-main.layero.app/api/orders', {
             method: 'POST',
             headers: {
@@ -250,24 +339,48 @@ checkoutForm?.addEventListener('submit', async (event) => {
             },
             body: JSON.stringify({
                 customer_name: document.getElementById('order-name').value.trim(),
+                customer_phone: document.getElementById('order-phone').value.trim(),
                 delivery_address: document.getElementById('order-address').value.trim(),
+                payment_method: paymentMethod,
+                request_id: requestId,
                 items: readCart().map(item => ({ id: item.id, quantity: item.quantity }))
             })
         });
         const result = await orderResponse.json().catch(() => null);
-        if (!orderResponse.ok) throw new Error(result?.error || 'Не удалось отправить заказ. Попробуйте позже.');
+        if (!orderResponse.ok) {
+            const orderError = new Error(result?.error || 'Не удалось отправить заказ. Попробуйте позже.');
+            orderError.code = result?.code;
+            throw orderError;
+        }
         if (!result?.order?.id) throw new Error('Заказ не подтверждён сервером. Проверьте раздел заказов профиля.');
 
+        const orderPaymentMethod = result.order.payment_method || paymentMethod;
+        if (orderPaymentMethod !== 'cash') {
+            if (result.payment_status === 'succeeded') {
+                localStorage.removeItem('cart');
+                renderCart();
+                await updateCartCount();
+                clearCheckoutRequestId();
+                window.location.replace(`payment-success.html?order_id=${encodeURIComponent(result.order.id)}`);
+                return;
+            }
+            if (typeof result.confirmation_url === 'string' && result.confirmation_url.startsWith('https://')) {
+                window.location.assign(result.confirmation_url);
+                return;
+            }
+            throw new Error('Платёжная ссылка не получена. Заказ сохранён; проверьте его в профиле.');
+        }
         localStorage.removeItem('cart');
         renderCart();
         await updateCartCount();
+        clearCheckoutRequestId();
         const confirmation = document.createElement('section');
         confirmation.className = 'order-confirmation';
         confirmation.setAttribute('role', 'status');
         const title = document.createElement('h2');
-        title.textContent = 'Заявка на заказ отправлена';
+        title.textContent = 'Заказ оформлен';
         const message = document.createElement('p');
-        message.textContent = `Заказ №${result.order.id} сохранён в профиле. Наличие, доставку и способ оплаты можно уточнить через поддержку.`;
+        message.textContent = `Заказ №${result.order.id} сохранён. Оплатите курьеру при получении.`;
         const link = document.createElement('a');
         link.className = 'btn btn--primary';
         link.href = 'profile.html';
@@ -278,10 +391,16 @@ checkoutForm?.addEventListener('submit', async (event) => {
         checkoutForm.hidden = true;
     } catch (error) {
         console.error('Order submission failed:', error);
+        if (['PAYMENT_CREATION_FAILED', 'CHECKOUT_REQUEST_CONFLICT'].includes(error.code)) {
+            clearCheckoutRequestId();
+        }
         showToast(error.message || 'Не удалось отправить заказ. Попробуйте позже.', 'error');
     } finally {
         submitButton.disabled = false;
         submitButton.textContent = 'Отправить заказ';
+        paymentChoices.forEach(choice => {
+            choice.disabled = !availablePaymentMethods.has(choice.value);
+        });
     }
 });
 

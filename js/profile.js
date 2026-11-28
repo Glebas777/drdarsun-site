@@ -3,6 +3,7 @@ import { PASSWORD_MIN_LENGTH, getPasswordCriteria, checkPasswordBreach } from '.
 import { approveQrLogin, getQrLoginId, startQrScanner } from './qr-login.js';
 import { getFavoriteProducts, toggleFavorite } from './favorites.js';
 import { addToCart } from './cart.js';
+import { initializeTelegramProfile } from './telegram-profile.js?v=telegram-account-auth-1';
 
 let resolveProfileDeviceSetup;
 window.profileDeviceSetup = new Promise(resolve => {
@@ -62,7 +63,7 @@ async function ensureCurrentDevice(session) {
             device_key: deviceKey,
             device_name: navigator.userAgent,
             last_active: new Date().toISOString()
-        }, { onConflict: 'device_key' });
+        }, { onConflict: 'device_key' }).abortSignal(AbortSignal.timeout(8000));
         if (error) {
             localStorage.removeItem('device_key');
             localStorage.removeItem('device_user_id');
@@ -81,7 +82,8 @@ async function ensureCurrentDevice(session) {
         .select('device_key')
         .eq('user_id', session.user.id)
         .eq('device_key', deviceKey)
-        .maybeSingle();
+        .maybeSingle()
+        .abortSignal(AbortSignal.timeout(8000));
     if (error) throw error;
     if (!data) {
         if (pendingUserId === session.user.id) return registerDevice();
@@ -99,6 +101,12 @@ async function init() {
         resolveProfileDeviceSetup();
         return window.location.href = 'login.html';
     }
+
+    document.getElementById('user-name').textContent = session.user.user_metadata.full_name || 'Гость';
+    document.getElementById('user-email').textContent = session.user.email;
+    document.getElementById('settings-name').value = session.user.user_metadata.full_name || '';
+    document.getElementById('settings-email').value = session.user.email || '';
+
     try {
         const deviceKey = await ensureCurrentDevice(session);
         if (!deviceKey) {
@@ -110,251 +118,13 @@ async function init() {
         }
     } catch (error) {
         console.error('Device session registration failed:', error);
-        showToast('Не удалось проверить активную сессию. Обновите страницу.', 'error');
-        resolveProfileDeviceSetup();
-        return;
+        showToast('Не удалось проверить устройство. Профиль откроется, но управление сессиями может быть недоступно.', 'error');
     }
     resolveProfileDeviceSetup();
 
-    // 1. ДАННЫЕ
-    document.getElementById('user-name').textContent = session.user.user_metadata.full_name || 'Гость';
-    document.getElementById('user-email').textContent = session.user.email;
-    document.getElementById('settings-name').value = session.user.user_metadata.full_name || '';
-    document.getElementById('settings-email').value = session.user.email || '';
-
-    const telegramLinkStatus = document.getElementById('telegram-link-status');
-    const telegramLinkStart = document.getElementById('telegram-link-start');
-    const telegramLinkCheck = document.getElementById('telegram-link-check');
-    const telegramLinkRemove = document.getElementById('telegram-link-remove');
-    const telegramLinkCode = document.getElementById('telegram-link-code');
-    const telegramLinkCodeValue = document.getElementById('telegram-link-code-value');
-    const telegramLinkCopy = document.getElementById('telegram-link-copy');
-    const telegramLinkCodeActions = document.getElementById('telegram-link-code-actions');
-    const telegramPublicBots = document.getElementById('telegram-public-bots');
-    const telegramApiBase = 'https://drdarsun-site-main.layero.app/api/telegram';
-    const telegramApiUrl = `${telegramApiBase}/link`;
-    let publicTelegramBots = [];
-    let publicTelegramBotsLoaded = false;
-    let telegramRefreshInProgress = false;
-    const telegramBotPurposes = {
-        client: 'Каталог, поиск товаров, заказы и уведомления',
-        auth: 'Одноразовые коды для привязки и входа',
-        support: 'Ответы на вопросы и связь с поддержкой'
-    };
-
-    function renderTelegramBotLinks(code = '') {
-        if (telegramPublicBots) {
-            telegramPublicBots.replaceChildren();
-            for (const bot of publicTelegramBots) {
-                const link = document.createElement('a');
-                link.className = 'telegram-bot-link';
-                link.href = bot.url;
-                link.target = '_blank';
-                link.rel = 'noopener noreferrer';
-                const name = document.createElement('strong');
-                name.textContent = bot.label;
-                const purpose = document.createElement('span');
-                purpose.textContent = telegramBotPurposes[bot.role];
-                const username = document.createElement('small');
-                username.textContent = `@${bot.username}`;
-                link.append(name, purpose, username);
-                telegramPublicBots.appendChild(link);
-            }
-            if (!publicTelegramBots.length) {
-                const message = document.createElement('span');
-                message.className = 'security-help';
-                message.textContent = 'Ссылки на Telegram-ботов временно недоступны.';
-                telegramPublicBots.appendChild(message);
-            }
-        }
-
-        if (telegramLinkCodeActions) {
-            telegramLinkCodeActions.replaceChildren();
-            if (code) {
-                for (const linkBot of publicTelegramBots.filter(bot =>
-                    ['auth', 'client'].includes(bot.role)
-                )) {
-                    const link = document.createElement('a');
-                    link.className = 'btn btn--primary';
-                    link.href = `${linkBot.url}?start=${encodeURIComponent(code)}`;
-                    link.target = '_blank';
-                    link.rel = 'noopener noreferrer';
-                    link.textContent = `Привязать через ${linkBot.label}`;
-                    telegramLinkCodeActions.appendChild(link);
-                }
-            }
-        }
-    }
-
-    async function loadPublicTelegramBots() {
-        if (publicTelegramBotsLoaded) return;
-        const response = await fetch(`${telegramApiBase}/public-bots`, { cache: 'no-store' });
-        const result = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(result?.error || 'Не удалось получить ссылки на Telegram-ботов.');
-        publicTelegramBots = Array.isArray(result?.bots)
-            ? result.bots.filter(bot =>
-                bot &&
-                ['client', 'support', 'auth'].includes(bot.role) &&
-                typeof bot.username === 'string' &&
-                /^https:\/\/t\.me\/[A-Za-z0-9_]+$/.test(bot.url)
-            )
-            : [];
-        publicTelegramBotsLoaded = true;
-        renderTelegramBotLinks(telegramLinkCodeValue?.textContent || '');
-    }
-
-    async function refreshTelegramLink() {
-        await loadPublicTelegramBots().catch(error => {
-            console.warn('Telegram public bot links are not available:', error.message);
-        });
-        const response = await fetch(telegramApiUrl, {
-            headers: { Authorization: `Bearer ${session.access_token}` }
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Не удалось проверить подключение Telegram.');
-        const account = result.account;
-        const linked = Boolean(account);
-        telegramLinkStatus.textContent = account
-            ? `Telegram подключён${account.telegram_username ? `: @${account.telegram_username}` : ''}.`
-            : 'Telegram пока не подключён.';
-        telegramLinkStart.hidden = linked;
-        telegramLinkRemove.hidden = !linked;
-        if (linked) telegramLinkCode.hidden = true;
-        if (telegramNotificationsEnabled) {
-            telegramNotificationsEnabled.disabled = !linked;
-            if (telegramNotificationsEnabled.dataset.telegramLinked !== String(linked)) {
-                telegramNotificationsEnabled.dataset.telegramLinked = String(linked);
-                if (!linked) {
-                    telegramNotificationsEnabled.checked = false;
-                } else {
-                    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-                    if (sessionError) throw sessionError;
-                    if (!session) throw new Error('Войдите в аккаунт и попробуйте снова.');
-                    const { data, error } = await supabase
-                        .from('notification_settings')
-                        .select('telegram_enabled')
-                        .eq('user_id', session.user.id)
-                        .maybeSingle();
-                    if (error) throw error;
-                    telegramNotificationsEnabled.checked = data?.telegram_enabled === true;
-                }
-            }
-            if (telegramNotificationHelp) {
-                telegramNotificationHelp.textContent = linked
-                    ? 'Получайте в клиентском боте сообщения об изменении статуса заказа. Настройка действует только для привязанного Telegram.'
-                    : 'Сначала привяжите Telegram выше, чтобы управлять уведомлениями о заказах.';
-            }
-        }
-    }
-
-    telegramLinkStart?.addEventListener('click', async () => {
-        telegramLinkStart.disabled = true;
-        try {
-            const response = await fetch(`${telegramApiUrl}/start`, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${session.access_token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: '{}'
-            });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error || 'Не удалось создать код привязки.');
-            telegramLinkCodeValue.textContent = result.code;
-            telegramLinkCode.hidden = false;
-            await loadPublicTelegramBots();
-            renderTelegramBotLinks(result.code);
-        } catch (error) {
-            showToast(error.message || 'Не удалось создать код привязки.', 'error');
-        } finally {
-            telegramLinkStart.disabled = false;
-        }
+    initializeTelegramProfile(session).catch(error => {
+        console.error('Telegram profile initialization failed:', error);
     });
-
-    telegramLinkCopy?.addEventListener('click', async () => {
-        try {
-            await navigator.clipboard.writeText(telegramLinkCodeValue.textContent);
-            showToast('Код скопирован.');
-        } catch (error) {
-            console.error('Telegram link code copy failed:', error);
-            showToast('Не удалось скопировать код. Выделите его и скопируйте вручную.', 'error');
-        }
-    });
-
-    telegramLinkRemove?.addEventListener('click', async () => {
-        if (!confirm('Отключить Telegram от этого аккаунта?')) return;
-        telegramLinkRemove.disabled = true;
-        try {
-            const response = await fetch(telegramApiUrl, {
-                method: 'DELETE',
-                headers: { Authorization: `Bearer ${session.access_token}` }
-            });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error || 'Не удалось отключить Telegram.');
-            telegramLinkCode.hidden = true;
-            await refreshTelegramLink();
-            showToast('Telegram отключён.');
-        } catch (error) {
-            showToast(error.message || 'Не удалось отключить Telegram.', 'error');
-        } finally {
-            telegramLinkRemove.disabled = false;
-        }
-    });
-
-    if (telegramLinkStatus && telegramLinkStart && telegramLinkRemove) {
-        try {
-            await refreshTelegramLink();
-        } catch (error) {
-            telegramLinkStatus.textContent = 'Не удалось проверить подключение Telegram.';
-            console.error('Telegram link status check failed:', error);
-        }
-        let telegramStatusRefresh;
-        let telegramCheckCooldown;
-        let telegramCheckSeconds = 0;
-        telegramLinkCheck?.addEventListener('click', async () => {
-            if (telegramCheckSeconds > 0 || telegramRefreshInProgress) return;
-            telegramRefreshInProgress = true;
-            telegramLinkCheck.disabled = true;
-            telegramLinkCheck.textContent = 'Проверяем…';
-            try {
-                await refreshTelegramLink();
-            } catch (error) {
-                telegramLinkStatus.textContent = error.message || 'Не удалось проверить подключение Telegram.';
-                console.error('Telegram manual status check failed:', error);
-            } finally {
-                telegramRefreshInProgress = false;
-                telegramCheckSeconds = 5;
-                telegramLinkCheck.textContent = `Проверить снова через ${telegramCheckSeconds} с`;
-                telegramCheckCooldown = window.setInterval(() => {
-                    telegramCheckSeconds -= 1;
-                    if (telegramCheckSeconds <= 0) {
-                        window.clearInterval(telegramCheckCooldown);
-                        telegramLinkCheck.disabled = false;
-                        telegramLinkCheck.textContent = 'Проверить связь';
-                    } else {
-                        telegramLinkCheck.textContent = `Проверить снова через ${telegramCheckSeconds} с`;
-                    }
-                }, 1000);
-            }
-        });
-        const refreshVisibleTelegramStatus = () => {
-            if (document.visibilityState !== 'visible' || telegramRefreshInProgress) return;
-            telegramRefreshInProgress = true;
-            refreshTelegramLink().catch(error => {
-                telegramLinkStatus.textContent = 'Не удалось проверить подключение Telegram.';
-                console.error('Telegram link refresh failed:', error);
-            }).finally(() => {
-                telegramRefreshInProgress = false;
-            });
-        };
-        document.addEventListener('visibilitychange', refreshVisibleTelegramStatus);
-        window.addEventListener('focus', refreshVisibleTelegramStatus);
-        telegramStatusRefresh = window.setInterval(refreshVisibleTelegramStatus, 5000);
-        window.addEventListener('pagehide', () => {
-            window.clearInterval(telegramStatusRefresh);
-            window.clearInterval(telegramCheckCooldown);
-        }, { once: true });
-    }
 
     // 2. АВАТАРКА
     const avatarInput = document.getElementById('avatar-input');
@@ -368,8 +138,18 @@ async function init() {
     const avatarModal = document.getElementById('avatar-modal');
 
     if (currentAvatar) {
-        const { data: w } = await supabase.from('wallets').select('avatar_url').eq('user_id', session.user.id).maybeSingle();
-        if (w && w.avatar_url) currentAvatar.src = w.avatar_url;
+        try {
+            const { data: w, error } = await supabase
+                .from('wallets')
+                .select('avatar_url')
+                .eq('user_id', session.user.id)
+                .maybeSingle()
+                .abortSignal(AbortSignal.timeout(8000));
+            if (error) throw error;
+            if (w?.avatar_url) currentAvatar.src = w.avatar_url;
+        } catch (error) {
+            console.error('Profile avatar lookup failed:', error);
+        }
     }
 
     let isDragging = false;
@@ -461,46 +241,34 @@ async function init() {
         });
     }
 
-    // 3. КОШЕЛЕК
-    const walletEl = document.getElementById('wallet-balance');
-    if (walletEl) {
-        const { data: w } = await supabase.from('wallets').select('balance').eq('user_id', session.user.id).maybeSingle();
-        walletEl.textContent = w ? `${w.balance} ₽` : '0 ₽';
-    }
-
-    // 4. ИСТОРИЯ ОПЕРАЦИЙ
-    const transactionsList = document.getElementById('transactions-list');
-    if (transactionsList) {
-        const { data: tx } = await supabase.from('transactions').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
-        if (!tx || tx.length === 0) {
-            transactionsList.innerHTML = '<div class="empty-state">Пока нет операций.</div>';
-        } else {
-            transactionsList.innerHTML = tx.map(t => `
-                <div style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid var(--border);">
-                    <span>${t.type === 'deposit' ? 'Пополнение' : 'Списание'}</span>
-                    <span style="color: ${t.type === 'deposit' ? 'green' : 'red'};">${t.type === 'deposit' ? '+' : '-'}${t.amount} ₽</span>
-                </div>
-            `).join('');
-        }
-    }
-
     // 5. ЗАКАЗЫ
     const ordersList = document.getElementById('orders-list');
     if (ordersList) {
-        const { data: orders } = await supabase.from('orders').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
-        if (!orders || orders.length === 0) {
-            ordersList.innerHTML = '<div class="empty-state">У вас пока нет заказов.</div>';
-        } else {
-            ordersList.innerHTML = orders.map(o => `
-                <div class="order-card">
-                    <div class="order-header">
-                        <strong>Заказ #${o.id.split('-')[0]}</strong>
-                        <span class="order-status" style="background: rgba(212,175,55,0.2); color: #D4AF37; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">${o.status || 'В обработке'}</span>
-                </div>
-                    <div style="font-size: 14px; color: var(--text-muted);">Товары: ${Array.isArray(o.items) ? o.items.length : '0'} шт.</div>
-                    <div style="margin-top: 10px; font-weight: 600; color: var(--accent-green);">Итого: ${o.total} ₽</div>
-                </div>
-            `).join('');
+        try {
+            const { data: orders, error } = await supabase
+                .from('orders')
+                .select('*')
+                .eq('user_id', session.user.id)
+                .order('created_at', { ascending: false })
+                .abortSignal(AbortSignal.timeout(8000));
+            if (error) throw error;
+            if (!orders?.length) {
+                ordersList.innerHTML = '<div class="empty-state">У вас пока нет заказов.</div>';
+            } else {
+                ordersList.innerHTML = orders.map(o => `
+                    <div class="order-card">
+                        <div class="order-header">
+                            <strong>Заказ #${o.id.split('-')[0]}</strong>
+                            <span class="order-status" style="background: rgba(212,175,55,0.2); color: #D4AF37; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">${o.status || 'В обработке'}</span>
+                        </div>
+                        <div style="font-size: 14px; color: var(--text-muted);">Товары: ${Array.isArray(o.items) ? o.items.length : '0'} шт.</div>
+                        <div style="margin-top: 10px; font-weight: 600; color: var(--accent-green);">Итого: ${o.total} ₽</div>
+                    </div>
+                `).join('');
+            }
+        } catch (error) {
+            console.error('Orders load failed:', error);
+            ordersList.innerHTML = '<div class="empty-state">Не удалось загрузить заказы. Попробуйте обновить раздел позже.</div>';
         }
     }
 
@@ -611,19 +379,32 @@ async function init() {
     async function loadDevices() {
         if (!devicesList) return;
         let deviceKey = localStorage.getItem('device_key');
-        if (!deviceKey) return;
+        if (!deviceKey) {
+            devicesList.textContent = 'Не удалось определить текущее устройство.';
+            return;
+        }
 
-        const { data: devices, error } = await supabase
-            .from('devices')
-            .select('device_key,device_name,last_active')
-            .eq('user_id', session.user.id)
-            .order('last_active', { ascending: false });
+        let devices;
+        let error;
+        try {
+            ({ data: devices, error } = await supabase
+                .from('devices')
+                .select('device_key,device_name,last_active')
+                .eq('user_id', session.user.id)
+                .order('last_active', { ascending: false })
+                .abortSignal(AbortSignal.timeout(8000)));
+        } catch (requestError) {
+            console.error('Device list load failed:', requestError);
+            devicesList.textContent = 'Не удалось загрузить список устройств. Попробуйте позже.';
+            return;
+        }
 
         devicesList.replaceChildren();
         if (error || !devices || devices.length === 0) {
             const emptyState = document.createElement('p');
             emptyState.className = 'empty-state';
             emptyState.textContent = error ? 'Не удалось загрузить список устройств.' : 'Нет активных устройств.';
+            if (error) console.error('Device list load failed:', error);
             devicesList.appendChild(emptyState);
         } else {
             devices.forEach(device => {
@@ -1177,7 +958,15 @@ const passkeysStatus = document.getElementById('passkeys-status');
 
 async function loadPasskeys() {
     if (!passkeysList || !passkeysStatus) return;
-    const { data, error } = await supabase.auth.passkey.list();
+    let data;
+    let error;
+    try {
+        ({ data, error } = await supabase.auth.passkey.list());
+    } catch (error) {
+        passkeysStatus.textContent = 'Не удалось загрузить список Passkey.';
+        console.error('Passkey list failed:', error);
+        return;
+    }
     if (error) {
         passkeysStatus.textContent = 'Не удалось загрузить список Passkey.';
         console.error('Passkey list failed:', error);
@@ -1497,105 +1286,82 @@ scanQrBtn?.addEventListener('click', async () => {
 });
 
 // --- ПРОСТОЙ ВЫХОД (не завершение сессии, а выход) ---
-document.getElementById('logout-btn')?.addEventListener('click', async () => {
+const logoutButton = document.getElementById('logout-btn');
+logoutButton?.addEventListener('click', async () => {
     if (!confirm('Выйти из аккаунта?')) return;
 
-    // Удаляем текущее устройство из БД (чтобы не висело в списке)
-    const deviceKey = localStorage.getItem('device_key');
-    if (deviceKey) {
-        const { error } = await supabase
-            .from('devices')
-            .delete()
-            .eq('user_id', session.user.id)
-            .eq('device_key', deviceKey);
-        if (error) {
-            showToast('Не удалось завершить текущую сессию: ' + error.message, 'error');
-            return;
+    logoutButton.disabled = true;
+    logoutButton.textContent = 'Выходим…';
+    let deviceCleanupError;
+    try {
+        const deviceKey = localStorage.getItem('device_key');
+        if (deviceKey) {
+            const { error } = await supabase
+                .from('devices')
+                .delete()
+                .eq('user_id', session.user.id)
+                .eq('device_key', deviceKey)
+                .abortSignal(AbortSignal.timeout(2000));
+            if (error) deviceCleanupError = error;
         }
+    } catch (error) {
+        deviceCleanupError = error;
     }
 
-    // Выходим из Supabase
-    await supabase.auth.signOut({ scope: 'local' });
+    try {
+        const { error } = await supabase.auth.signOut({ scope: 'local' });
+        if (error) throw error;
+    } catch (error) {
+        console.error('Local sign out failed:', error);
+        logoutButton.disabled = false;
+        logoutButton.textContent = 'Выйти из аккаунта';
+        showToast('Не удалось завершить сеанс. Обновите страницу и попробуйте ещё раз.', 'error');
+        return;
+    }
 
-    // Перенаправляем на главную
-    window.location.href = 'index.html';
+    if (deviceCleanupError) {
+        console.warn('Current device record could not be removed during sign out:', deviceCleanupError);
+    }
+    try {
+        localStorage.removeItem('device_key');
+        localStorage.removeItem('device_user_id');
+        localStorage.removeItem('pending_device_registration');
+    } catch (error) {
+        console.warn('Local device data could not be cleared during sign out:', error);
+    }
+
+    window.location.replace('index.html');
 });
 
-// --- УВЕДОМЛЕНИЯ ---
 // --- УВЕДОМЛЕНИЯ ---
 const notifyEmail = document.getElementById('notify-email');
 const enableNotifyBtn = document.getElementById('enable-notify-btn');
 const disableNotifyBtn = document.getElementById('disable-notify');
-const telegramNotificationsEnabled = document.getElementById('telegram-notifications-enabled');
-const telegramNotificationHelp = document.getElementById('telegram-notification-help');
-let savedEmailNotificationsEnabled = false;
-
 if (notifyEmail) {
     supabase.auth.getSession().then(async ({ data: { session }, error }) => {
         if (error) throw error;
-        if (!session) return;
+    if (!session) {
+        notifyEmail.textContent = 'Не удалось определить email аккаунта.';
+        return;
+    }
         notifyEmail.textContent = session.user.email;
         const { data, error: settingsError } = await supabase
             .from('notification_settings')
-            .select('email_enabled,telegram_enabled')
+            .select('email_enabled')
             .eq('user_id', session.user.id)
-            .maybeSingle();
+        .maybeSingle()
+        .abortSignal(AbortSignal.timeout(8000));
         if (settingsError) throw settingsError;
-        savedEmailNotificationsEnabled = data?.email_enabled === true;
         if (data?.email_enabled) {
             enableNotifyBtn.textContent = 'Уведомления включены';
             disableNotifyBtn.disabled = false;
         }
-        if (telegramNotificationsEnabled) {
-            try {
-                const linkResponse = await fetch('https://drdarsun-site-main.layero.app/api/telegram/link', {
-                    headers: { Authorization: `Bearer ${session.access_token}` },
-                    cache: 'no-store'
-                });
-                const linkResult = await linkResponse.json().catch(() => null);
-                if (!linkResponse.ok) throw new Error(linkResult?.error || 'Не удалось проверить привязку Telegram.');
-                const linked = Boolean(linkResult?.account);
-                telegramNotificationsEnabled.checked = linked && data?.telegram_enabled === true;
-                telegramNotificationsEnabled.disabled = !linked;
-                if (telegramNotificationHelp && !linked) {
-                    telegramNotificationHelp.textContent = 'Сначала привяжите Telegram в разделе «Безопасность», чтобы получать уведомления.';
-                }
-            } catch (error) {
-                console.warn('Telegram notification link status failed:', error);
-                telegramNotificationsEnabled.disabled = true;
-                if (telegramNotificationHelp) telegramNotificationHelp.textContent = 'Не удалось проверить привязку Telegram. Обновите страницу.';
-            }
-        }
     }).catch(error => {
         console.error('Email notification preference lookup failed:', error);
+        notifyEmail.textContent = 'Не удалось загрузить настройку.';
         showToast('Не удалось загрузить настройку email-уведомлений.', 'error');
     });
 }
-
-telegramNotificationsEnabled?.addEventListener('change', async () => {
-    telegramNotificationsEnabled.disabled = true;
-    try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
-        if (!session) throw new Error('Войдите в аккаунт и попробуйте снова.');
-        const { error } = await supabase.from('notification_settings').upsert({
-            user_id: session.user.id,
-            email_enabled: savedEmailNotificationsEnabled,
-            telegram_enabled: telegramNotificationsEnabled.checked,
-            updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id' });
-        if (error) throw error;
-        showToast(telegramNotificationsEnabled.checked
-            ? 'Уведомления о заказах в Telegram включены.'
-            : 'Уведомления в Telegram отключены.');
-    } catch (error) {
-        console.error('Telegram notification preference could not be saved:', error);
-        telegramNotificationsEnabled.checked = !telegramNotificationsEnabled.checked;
-        showToast('Не удалось сохранить настройку Telegram: ' + error.message, 'error');
-    } finally {
-        telegramNotificationsEnabled.disabled = false;
-    }
-});
 
 enableNotifyBtn?.addEventListener('click', async () => {
     enableNotifyBtn.disabled = true;
@@ -1605,11 +1371,9 @@ enableNotifyBtn?.addEventListener('click', async () => {
         if (!session) throw new Error('Войдите в аккаунт и попробуйте снова.');
         const { error: saveError } = await supabase.from('notification_settings').upsert({
             user_id: session.user.id,
-            email_enabled: true,
-            telegram_enabled: telegramNotificationsEnabled?.checked === true
+            email_enabled: true
         }, { onConflict: 'user_id' });
         if (saveError) throw saveError;
-        savedEmailNotificationsEnabled = true;
 
         const { error: sendError } = await supabase.functions.invoke('send-notification', {
             body: {
@@ -1621,10 +1385,8 @@ enableNotifyBtn?.addEventListener('click', async () => {
         if (sendError) {
             await supabase.from('notification_settings').upsert({
                 user_id: session.user.id,
-                email_enabled: false,
-                telegram_enabled: telegramNotificationsEnabled?.checked === true
+                email_enabled: false
             }, { onConflict: 'user_id' });
-            savedEmailNotificationsEnabled = false;
             throw sendError;
         }
         enableNotifyBtn.textContent = 'Уведомления включены';
@@ -1645,11 +1407,9 @@ disableNotifyBtn?.addEventListener('click', async () => {
         if (!session) throw new Error('Войдите в аккаунт и попробуйте снова.');
         const { error } = await supabase.from('notification_settings').upsert({
             user_id: session.user.id,
-            email_enabled: false,
-            telegram_enabled: telegramNotificationsEnabled?.checked === true
+            email_enabled: false
         }, { onConflict: 'user_id' });
         if (error) throw error;
-        savedEmailNotificationsEnabled = false;
         enableNotifyBtn.textContent = 'Включить уведомления';
         showToast('Email-уведомления отключены.');
     } catch (error) {
@@ -1660,4 +1420,8 @@ disableNotifyBtn?.addEventListener('click', async () => {
     }
 });
 
-init();
+init().catch(error => {
+    console.error('Profile initialization failed:', error);
+    resolveProfileDeviceSetup();
+    showToast('Не удалось загрузить профиль. Обновите страницу или войдите заново.', 'error');
+});
